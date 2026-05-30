@@ -73,6 +73,8 @@
       <nav class="nav-tabs" aria-label="Primary navigation">
         <a href="#tasks">Tasks</a>
         <a href="#active">Current</a>
+        <a href="#insights">Insights</a>
+        <a href="#history">History</a>
         <a href="#settings">Settings</a>
       </nav>
     </header>
@@ -97,115 +99,60 @@
       }
 
       <section class="workspace">
-        <article id="active" class="panel sticky-panel" aria-labelledby="active-title">
-          <p class="eyebrow">Current task</p>
-          <h2 id="active-title">Focus desk</h2>
+        <section class="stack">
+          <article id="active" class="panel sticky-panel" aria-labelledby="active-title">
+            <p class="eyebrow">Current task</p>
+            <h2 id="active-title">Focus desk</h2>
 
-          @if (currentTask(); as task) {
-            <div class="active-note" [class.paused-note]="task.status === 'paused'">
-              <div>
-                <p class="task-label">
-                  {{ task.status === 'paused' ? 'Paused' : task.category || 'Unsorted' }}
-                </p>
-                <h3>{{ task.name }}</h3>
-                @if (task.note) {
-                  <p>{{ task.note }}</p>
-                }
-              </div>
-              <div class="timer-grid">
+            @if (currentTask(); as task) {
+              <div class="active-note" [class.paused-note]="task.status === 'paused'">
                 <div>
-                  <span>Elapsed</span>
-                  <strong>{{ elapsedFor(task) }}</strong>
+                  <p class="task-label">
+                    {{ task.status === 'paused' ? 'Paused' : task.category || 'Unsorted' }}
+                  </p>
+                  <h3>{{ task.name }}</h3>
+                  @if (task.note) {
+                    <p>{{ task.note }}</p>
+                  }
                 </div>
-                <div>
-                  <span>Reminder in</span>
-                  <strong>{{ remainingFor(task) }}</strong>
+                <div class="timer-grid">
+                  <div>
+                    <span>Elapsed</span>
+                    <strong>{{ elapsedFor(task) }}</strong>
+                  </div>
+                  <div>
+                    <span>Reminder in</span>
+                    <strong>{{ remainingFor(task) }}</strong>
+                  </div>
+                </div>
+                <div class="button-row">
+                  @if (task.status === 'paused') {
+                    <button type="button" class="primary-button" (click)="resumeTask()">
+                      Resume task
+                    </button>
+                  } @else {
+                    <button type="button" class="secondary-button" (click)="pauseTask()">
+                      Pause task
+                    </button>
+                  }
+                  <button type="button" class="primary-button" (click)="completeActiveTask()">
+                    Complete task
+                  </button>
                 </div>
               </div>
-              <div class="button-row">
-                @if (task.status === 'paused') {
-                  <button type="button" class="primary-button" (click)="resumeTask()">
-                    Resume task
-                  </button>
-                } @else {
-                  <button type="button" class="secondary-button" (click)="pauseTask()">
-                    Pause task
-                  </button>
-                }
-                <button type="button" class="primary-button" (click)="completeActiveTask()">
-                  Complete task
-                </button>
+            } @else {
+              <div class="empty-state">
+                <h3>No task is active</h3>
+                <p>Start a task from the queue when you are ready.</p>
               </div>
-            </div>
-          } @else {
-            <div class="empty-state">
-              <h3>No task is active</h3>
-              <p>Start a task from the queue when you are ready.</p>
-            </div>
-          }
+            }
 
-          @if (nextTaskCandidate(); as nextTask) {
-            <div class="next-task">
-              <span>Next up</span>
-              <strong>{{ nextTask.name }}</strong>
-            </div>
-          }
-        </article>
-
-        <section id="tasks" class="stack">
-          <article class="panel" aria-labelledby="form-title">
-            <p class="eyebrow">{{ editingTaskId() ? 'Edit task' : 'New task' }}</p>
-            <h2 id="form-title">
-              {{ editingTaskId() ? 'Adjust the reminder card' : 'Create a reminder card' }}
-            </h2>
-
-            <form [formGroup]="taskForm" (ngSubmit)="saveTask()" class="task-form">
-              <label>
-                <span>Task name</span>
-                <input type="text" formControlName="name" autocomplete="off" />
-              </label>
-
-              <div class="form-grid">
-                <label>
-                  <span>Reminder time</span>
-                  <input type="datetime-local" formControlName="reminderAt" />
-                </label>
-                <label>
-                  <span>Attempts</span>
-                  <input type="number" min="1" max="20" formControlName="reminderCount" />
-                </label>
-                <label>
-                  <span>Repeat minutes</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="240"
-                    formControlName="reminderIntervalMinutes"
-                  />
-                </label>
+            @if (nextTaskCandidate(); as nextTask) {
+              <div class="next-task">
+                <span>Next up</span>
+                <strong>{{ nextTask.name }}</strong>
               </div>
-
-              <label>
-                <span>Category</span>
-                <input type="text" formControlName="category" autocomplete="off" />
-              </label>
-
-              <label>
-                <span>Note</span>
-                <textarea rows="3" formControlName="note"></textarea>
-              </label>
-
-              <div class="button-row">
-                <button type="submit" class="primary-button">
-                  {{ editingTaskId() ? 'Save changes' : 'Create task' }}
-                </button>
-                @if (editingTaskId()) {
-                  <button type="button" class="secondary-button" (click)="resetForm()">
-                    Cancel
-                  </button>
-                }
-              </div>
-            </form>
+            }
           </article>
 
           <article class="panel" aria-labelledby="queue-title">
@@ -273,6 +220,112 @@
           </article>
         </section>
 
+        <section id="tasks" class="stack">
+          <article class="panel" aria-labelledby="form-title">
+            <p class="eyebrow">{{ editingTaskId() ? 'Edit task' : 'New task' }}</p>
+            <h2 id="form-title">
+              {{ editingTaskId() ? 'Adjust the reminder card' : 'Create a reminder card' }}
+            </h2>
+
+            <form [formGroup]="taskForm" (ngSubmit)="saveTask()" class="task-form">
+              <label>
+                <span>Task name</span>
+                <input type="text" formControlName="name" autocomplete="off" />
+              </label>
+
+              <div class="form-grid">
+                <label>
+                  <span>Reminder time</span>
+                  <input type="datetime-local" formControlName="reminderAt" />
+                </label>
+                <label>
+                  <span>Attempts</span>
+                  <input type="number" min="1" max="20" formControlName="reminderCount" />
+                </label>
+                <label>
+                  <span>Repeat minutes</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="240"
+                    formControlName="reminderIntervalMinutes"
+                  />
+                </label>
+              </div>
+
+              <label>
+                <span>Category</span>
+                <input type="text" formControlName="category" autocomplete="off" />
+              </label>
+
+              <label>
+                <span>Note</span>
+                <textarea rows="3" formControlName="note"></textarea>
+              </label>
+
+              <div class="button-row">
+                <button type="submit" class="primary-button">
+                  {{ editingTaskId() ? 'Save changes' : 'Create task' }}
+                </button>
+                @if (editingTaskId()) {
+                  <button type="button" class="secondary-button" (click)="resetForm()">
+                    Cancel
+                  </button>
+                }
+              </div>
+            </form>
+          </article>
+
+          <article id="insights" class="panel" aria-labelledby="insights-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Insights</p>
+                <h2 id="insights-title">Work ledger</h2>
+              </div>
+              <span class="count-pill">{{ historyService.events().length }} events</span>
+            </div>
+
+            <div class="chart-grid">
+              <section class="chart-box" aria-labelledby="completed-chart-title">
+                <h3 id="completed-chart-title">Completed per day</h3>
+                <canvas
+                  baseChart
+                  type="bar"
+                  [data]="completedTasksChart()"
+                  [options]="barChartOptions"
+                ></canvas>
+              </section>
+              <section class="chart-box" aria-labelledby="focus-chart-title">
+                <h3 id="focus-chart-title">Focus minutes per day</h3>
+                <canvas
+                  baseChart
+                  type="bar"
+                  [data]="focusMinutesChart()"
+                  [options]="barChartOptions"
+                ></canvas>
+              </section>
+              <section class="chart-box" aria-labelledby="category-chart-title">
+                <h3 id="category-chart-title">Time by category</h3>
+                <canvas
+                  baseChart
+                  type="bar"
+                  [data]="categoryMinutesChart()"
+                  [options]="barChartOptions"
+                ></canvas>
+              </section>
+              <section class="chart-box" aria-labelledby="reminder-chart-title">
+                <h3 id="reminder-chart-title">Reminders and extensions</h3>
+                <canvas
+                  baseChart
+                  type="bar"
+                  [data]="reminderSummaryChart()"
+                  [options]="barChartOptions"
+                ></canvas>
+              </section>
+            </div>
+          </article>
+        </section>
+
         <aside id="settings" class="panel side-panel" aria-labelledby="settings-title">
           <p class="eyebrow">Settings</p>
           <h2 id="settings-title">Daily comfort</h2>
@@ -323,6 +376,78 @@
               <strong>{{ historyService.events().length }}</strong>
             </div>
           </div>
+
+          <section class="tool-section" aria-labelledby="csv-title">
+            <p class="eyebrow">CSV</p>
+            <h2 id="csv-title">Import and export</h2>
+            <input
+              #taskCsvInput
+              type="file"
+              accept=".csv,text/csv"
+              class="visually-hidden"
+              (change)="importTasksCsvFromInput($event)"
+            />
+            <div class="button-row">
+              <button type="button" class="secondary-button" (click)="exportTasksCsv()">
+                Export tasks
+              </button>
+              <button type="button" class="secondary-button" (click)="exportHistoryCsv()">
+                Export history
+              </button>
+              <button type="button" class="primary-button" (click)="importTasksCsv(taskCsvInput)">
+                Import tasks
+              </button>
+            </div>
+            @if (exportStatus()) {
+              <p class="status-line">{{ exportStatus() }}</p>
+            }
+            @if (importStatus()) {
+              <p class="status-line">{{ importStatus() }}</p>
+            }
+            @if (importErrors().length > 0) {
+              <ul class="error-list" aria-label="CSV import errors">
+                @for (error of importErrors(); track error) {
+                  <li>{{ error }}</li>
+                }
+              </ul>
+            }
+          </section>
+
+          <section id="history" class="tool-section" aria-labelledby="history-title">
+            <p class="eyebrow">History</p>
+            <h2 id="history-title">Recent actions</h2>
+            @if (historyService.events().length === 0) {
+              <p class="status-line">No recorded actions yet.</p>
+            } @else {
+              <ol class="history-list">
+                @for (event of pagedHistory(); track event.id) {
+                  <li>
+                    <strong>{{ event.summary }}</strong>
+                    <span>{{ event.occurredAt | date: 'short' }}</span>
+                  </li>
+                }
+              </ol>
+              <div class="pager-row" aria-label="History pages">
+                <button
+                  type="button"
+                  class="secondary-button"
+                  [disabled]="historyPage() === 0"
+                  (click)="previousHistoryPage()"
+                >
+                  Previous
+                </button>
+                <span>Page {{ historyPage() + 1 }} of {{ historyPageCount() }}</span>
+                <button
+                  type="button"
+                  class="secondary-button"
+                  [disabled]="historyPage() + 1 >= historyPageCount()"
+                  (click)="nextHistoryPage()"
+                >
+                  Next
+                </button>
+              </div>
+            }
+          </section>
         </aside>
       </section>
     }

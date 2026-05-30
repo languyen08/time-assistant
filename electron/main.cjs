@@ -1,6 +1,7 @@
 const path = require('node:path');
 const os = require('node:os');
-const { app, BrowserWindow, Menu, Notification, ipcMain } = require('electron');
+const fs = require('node:fs/promises');
+const { app, BrowserWindow, Menu, Notification, dialog, ipcMain } = require('electron');
 
 const isSmokeTest = process.argv.includes('--smoke-test');
 if (isSmokeTest) {
@@ -34,6 +35,18 @@ function loadRenderer(windowInstance, windowMode) {
   }
 
   windowInstance.loadFile(entry.value, { query: entry.query });
+}
+
+function ownerWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow;
+  }
+
+  if (stickyWindow && !stickyWindow.isDestroyed()) {
+    return stickyWindow;
+  }
+
+  return undefined;
 }
 
 function createMainWindow() {
@@ -139,6 +152,54 @@ ipcMain.handle('assistant-time:notify', (_event, payload) => {
   }
 
   return true;
+});
+
+ipcMain.handle('assistant-time:save-text-file', async (_event, payload) => {
+  const content = typeof payload?.content === 'string' ? payload.content : '';
+  const defaultPath =
+    typeof payload?.defaultPath === 'string' ? payload.defaultPath : 'friendly-task-reminder.csv';
+  const result = await dialog.showSaveDialog(ownerWindow(), {
+    defaultPath,
+    filters: [{ name: 'CSV files', extensions: ['csv'] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { ok: false, canceled: true };
+  }
+
+  try {
+    await fs.writeFile(result.filePath, content, 'utf8');
+    return { ok: true, canceled: false, filePath: result.filePath };
+  } catch (error) {
+    return {
+      ok: false,
+      canceled: false,
+      error: error instanceof Error ? error.message : 'File could not be saved.',
+    };
+  }
+});
+
+ipcMain.handle('assistant-time:open-text-file', async () => {
+  const result = await dialog.showOpenDialog(ownerWindow(), {
+    properties: ['openFile'],
+    filters: [{ name: 'CSV files', extensions: ['csv'] }],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { ok: false, canceled: true };
+  }
+
+  try {
+    const filePath = result.filePaths[0];
+    const content = await fs.readFile(filePath, 'utf8');
+    return { ok: true, canceled: false, filePath, content };
+  } catch (error) {
+    return {
+      ok: false,
+      canceled: false,
+      error: error instanceof Error ? error.message : 'File could not be opened.',
+    };
+  }
 });
 
 app.whenReady().then(() => {

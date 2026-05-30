@@ -113,6 +113,21 @@ export class TaskService {
     await this.history.record('task_deleted', `Deleted "${task.name}".`, task.id);
   }
 
+  async importTasks(importedTasks: Task[]): Promise<void> {
+    if (importedTasks.length === 0) {
+      return;
+    }
+
+    await Promise.all(importedTasks.map((task) => this.repository.save(task)));
+    this.tasks.update((tasks) =>
+      [...tasks, ...importedTasks].sort((first, second) => first.order - second.order),
+    );
+    this.broadcastChange();
+    for (const task of importedTasks) {
+      await this.history.record('task_created', `Imported "${task.name}" from CSV.`, task.id);
+    }
+  }
+
   async move(taskId: string, direction: -1 | 1): Promise<void> {
     const tasks = [...this.tasks()];
     const index = tasks.findIndex((task) => task.id === taskId);
