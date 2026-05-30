@@ -1,228 +1,407 @@
-<main class="app-shell" [attr.data-theme]="theme()" aria-labelledby="app-title">
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">Local-first desktop MVP</p>
-      <h1 id="app-title">{{ title() }}</h1>
-    </div>
-
-    <nav class="nav-tabs" aria-label="Primary navigation">
-      <a href="#tasks">Tasks</a>
-      <a href="#active">Current</a>
-      <a href="#settings">Settings</a>
-    </nav>
-  </header>
-
-  @if (loading()) {
-    <section class="panel center-panel" aria-live="polite">Opening your local workspace...</section>
-  } @else {
-    @if (taskService.errorMessage()) {
-      <aside class="alert" role="alert">
-        <span>{{ taskService.errorMessage() }}</span>
+<main
+  class="app-shell"
+  [class.sticky-shell]="isStickyMode()"
+  [attr.data-theme]="theme()"
+  aria-labelledby="app-title"
+>
+  @if (isStickyMode()) {
+    <section class="sticky-window" aria-labelledby="sticky-title">
+      <header class="sticky-note-header">
+        <div>
+          <p class="eyebrow">Sticky note</p>
+          <h1 id="sticky-title">Current task</h1>
+        </div>
         <button
           type="button"
-          class="icon-button"
-          aria-label="Dismiss message"
-          (click)="taskService.clearError()"
+          class="icon-button sticky-close-button"
+          aria-label="Close sticky note"
+          title="Close sticky note"
+          (click)="closeStickyWindow()"
         >
           x
         </button>
-      </aside>
-    }
+      </header>
 
-    <section class="workspace">
-      <article id="active" class="panel sticky-panel" aria-labelledby="active-title">
-        <p class="eyebrow">Current task</p>
-        <h2 id="active-title">Focus desk</h2>
-
-        @if (activeTask(); as task) {
-          <div class="active-note">
+      @if (currentTask(); as task) {
+        <article class="active-note compact" [class.paused-note]="task.status === 'paused'">
+          <p class="task-label">
+            {{ task.status === 'paused' ? 'Paused' : task.category || 'In focus' }}
+          </p>
+          <h2>{{ task.name }}</h2>
+          <div class="timer-grid">
             <div>
-              <p class="task-label">{{ task.category || 'Unsorted' }}</p>
-              <h3>{{ task.name }}</h3>
-              @if (task.note) {
-                <p>{{ task.note }}</p>
-              }
+              <span>Elapsed</span>
+              <strong>{{ elapsedFor(task) }}</strong>
             </div>
-            <div class="timer-grid">
-              <div>
-                <span>Elapsed</span>
-                <strong>{{ elapsedFor(task) }}</strong>
-              </div>
-              <div>
-                <span>Reminder in</span>
-                <strong>{{ remainingFor(task) }}</strong>
-              </div>
+            <div>
+              <span>Reminder</span>
+              <strong>{{ remainingFor(task) }}</strong>
             </div>
+          </div>
+          <div class="button-row">
+            @if (task.status === 'paused') {
+              <button type="button" class="primary-button" (click)="resumeTask()">Resume</button>
+            } @else {
+              <button type="button" class="secondary-button" (click)="pauseTask()">Pause</button>
+            }
+            <button type="button" class="secondary-button" (click)="addReminderTime()">
+              +{{ extensionMinutes() }}m
+            </button>
             <button type="button" class="primary-button" (click)="completeActiveTask()">
-              Complete task
+              Done
             </button>
           </div>
-        } @else {
-          <div class="empty-state">
-            <h3>No task is active</h3>
-            <p>Start a task from the queue when you are ready.</p>
-          </div>
-        }
-
-        @if (nextTaskCandidate(); as nextTask) {
-          <div class="next-task">
-            <span>Next up</span>
-            <strong>{{ nextTask.name }}</strong>
-          </div>
-        }
-      </article>
-
-      <section id="tasks" class="stack">
-        <article class="panel" aria-labelledby="form-title">
-          <p class="eyebrow">{{ editingTaskId() ? 'Edit task' : 'New task' }}</p>
-          <h2 id="form-title">
-            {{ editingTaskId() ? 'Adjust the reminder card' : 'Create a reminder card' }}
-          </h2>
-
-          <form [formGroup]="taskForm" (ngSubmit)="saveTask()" class="task-form">
-            <label>
-              <span>Task name</span>
-              <input type="text" formControlName="name" autocomplete="off" />
-            </label>
-
-            <div class="form-grid">
-              <label>
-                <span>Reminder time</span>
-                <input type="datetime-local" formControlName="reminderAt" />
-              </label>
-              <label>
-                <span>Attempts</span>
-                <input type="number" min="1" max="20" formControlName="reminderCount" />
-              </label>
-              <label>
-                <span>Repeat minutes</span>
-                <input type="number" min="1" max="240" formControlName="reminderIntervalMinutes" />
-              </label>
-            </div>
-
-            <label>
-              <span>Category</span>
-              <input type="text" formControlName="category" autocomplete="off" />
-            </label>
-
-            <label>
-              <span>Note</span>
-              <textarea rows="3" formControlName="note"></textarea>
-            </label>
-
-            <div class="button-row">
-              <button type="submit" class="primary-button">
-                {{ editingTaskId() ? 'Save changes' : 'Create task' }}
-              </button>
-              @if (editingTaskId()) {
-                <button type="button" class="secondary-button" (click)="resetForm()">Cancel</button>
-              }
-            </div>
-          </form>
         </article>
+      } @else {
+        <div class="empty-state">
+          <h2>No active task</h2>
+          <p>Open the full app and start a task when ready.</p>
+        </div>
+      }
 
-        <article class="panel" aria-labelledby="queue-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Task queue</p>
-              <h2 id="queue-title">Planned reminders</h2>
-            </div>
-            <span class="count-pill">{{ pendingTasks().length }} pending</span>
-          </div>
+      <button type="button" class="secondary-button full-width" (click)="focusMainWindow()">
+        Open full app
+      </button>
+    </section>
+  } @else {
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Local-first desktop MVP</p>
+        <h1 id="app-title">{{ title() }}</h1>
+      </div>
 
-          @if (pendingTasks().length === 0) {
-            <div class="empty-state">
-              <h3>Your task tray is empty</h3>
-              <p>Create a task with a reminder time to begin.</p>
+      <nav class="nav-tabs" aria-label="Primary navigation">
+        <a href="#tasks">Tasks</a>
+        <a href="#active">Current</a>
+        <a href="#settings">Settings</a>
+      </nav>
+    </header>
+
+    @if (loading()) {
+      <section class="panel center-panel" aria-live="polite">
+        Opening your local workspace...
+      </section>
+    } @else {
+      @if (taskService.errorMessage()) {
+        <aside class="alert" role="alert">
+          <span>{{ taskService.errorMessage() }}</span>
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Dismiss message"
+            (click)="taskService.clearError()"
+          >
+            x
+          </button>
+        </aside>
+      }
+
+      <section class="workspace">
+        <article id="active" class="panel sticky-panel" aria-labelledby="active-title">
+          <p class="eyebrow">Current task</p>
+          <h2 id="active-title">Focus desk</h2>
+
+          @if (currentTask(); as task) {
+            <div class="active-note" [class.paused-note]="task.status === 'paused'">
+              <div>
+                <p class="task-label">
+                  {{ task.status === 'paused' ? 'Paused' : task.category || 'Unsorted' }}
+                </p>
+                <h3>{{ task.name }}</h3>
+                @if (task.note) {
+                  <p>{{ task.note }}</p>
+                }
+              </div>
+              <div class="timer-grid">
+                <div>
+                  <span>Elapsed</span>
+                  <strong>{{ elapsedFor(task) }}</strong>
+                </div>
+                <div>
+                  <span>Reminder in</span>
+                  <strong>{{ remainingFor(task) }}</strong>
+                </div>
+              </div>
+              <div class="button-row">
+                @if (task.status === 'paused') {
+                  <button type="button" class="primary-button" (click)="resumeTask()">
+                    Resume task
+                  </button>
+                } @else {
+                  <button type="button" class="secondary-button" (click)="pauseTask()">
+                    Pause task
+                  </button>
+                }
+                <button type="button" class="primary-button" (click)="completeActiveTask()">
+                  Complete task
+                </button>
+              </div>
             </div>
           } @else {
-            <ul class="task-list">
-              @for (task of pendingTasks(); track task.id; let first = $first; let last = $last) {
-                <li>
-                  <div>
-                    <strong>{{ task.name }}</strong>
-                    <span
-                      >{{ task.category || 'Unsorted' }} |
-                      {{ task.reminderAt | date: 'short' }}</span
-                    >
-                  </div>
-                  <div class="task-actions">
-                    <button type="button" class="secondary-button" (click)="startTask(task.id)">
-                      Start
-                    </button>
-                    <button type="button" class="secondary-button" (click)="editTask(task)">
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      class="icon-button"
-                      [disabled]="first"
-                      aria-label="Move task up"
-                      (click)="taskService.move(task.id, -1)"
-                    >
-                      ^
-                    </button>
-                    <button
-                      type="button"
-                      class="icon-button"
-                      [disabled]="last"
-                      aria-label="Move task down"
-                      (click)="taskService.move(task.id, 1)"
-                    >
-                      v
-                    </button>
-                    <button
-                      type="button"
-                      class="danger-button"
-                      (click)="taskService.delete(task.id)"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              }
-            </ul>
+            <div class="empty-state">
+              <h3>No task is active</h3>
+              <p>Start a task from the queue when you are ready.</p>
+            </div>
+          }
+
+          @if (nextTaskCandidate(); as nextTask) {
+            <div class="next-task">
+              <span>Next up</span>
+              <strong>{{ nextTask.name }}</strong>
+            </div>
+          }
+        </article>
+
+        <section id="tasks" class="stack">
+          <article class="panel" aria-labelledby="form-title">
+            <p class="eyebrow">{{ editingTaskId() ? 'Edit task' : 'New task' }}</p>
+            <h2 id="form-title">
+              {{ editingTaskId() ? 'Adjust the reminder card' : 'Create a reminder card' }}
+            </h2>
+
+            <form [formGroup]="taskForm" (ngSubmit)="saveTask()" class="task-form">
+              <label>
+                <span>Task name</span>
+                <input type="text" formControlName="name" autocomplete="off" />
+              </label>
+
+              <div class="form-grid">
+                <label>
+                  <span>Reminder time</span>
+                  <input type="datetime-local" formControlName="reminderAt" />
+                </label>
+                <label>
+                  <span>Attempts</span>
+                  <input type="number" min="1" max="20" formControlName="reminderCount" />
+                </label>
+                <label>
+                  <span>Repeat minutes</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="240"
+                    formControlName="reminderIntervalMinutes"
+                  />
+                </label>
+              </div>
+
+              <label>
+                <span>Category</span>
+                <input type="text" formControlName="category" autocomplete="off" />
+              </label>
+
+              <label>
+                <span>Note</span>
+                <textarea rows="3" formControlName="note"></textarea>
+              </label>
+
+              <div class="button-row">
+                <button type="submit" class="primary-button">
+                  {{ editingTaskId() ? 'Save changes' : 'Create task' }}
+                </button>
+                @if (editingTaskId()) {
+                  <button type="button" class="secondary-button" (click)="resetForm()">
+                    Cancel
+                  </button>
+                }
+              </div>
+            </form>
+          </article>
+
+          <article class="panel" aria-labelledby="queue-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Task queue</p>
+                <h2 id="queue-title">Planned reminders</h2>
+              </div>
+              <span class="count-pill">{{ pendingTasks().length }} pending</span>
+            </div>
+
+            @if (pendingTasks().length === 0) {
+              <div class="empty-state">
+                <h3>Your task tray is empty</h3>
+                <p>Create a task with a reminder time to begin.</p>
+              </div>
+            } @else {
+              <ul class="task-list">
+                @for (task of pendingTasks(); track task.id; let first = $first; let last = $last) {
+                  <li>
+                    <div>
+                      <strong>{{ task.name }}</strong>
+                      <span
+                        >{{ task.category || 'Unsorted' }} |
+                        {{ task.reminderAt | date: 'short' }}</span
+                      >
+                    </div>
+                    <div class="task-actions">
+                      <button type="button" class="secondary-button" (click)="startTask(task.id)">
+                        Start
+                      </button>
+                      <button type="button" class="secondary-button" (click)="editTask(task)">
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="icon-button"
+                        [disabled]="first"
+                        aria-label="Move task up"
+                        (click)="taskService.move(task.id, -1)"
+                      >
+                        ^
+                      </button>
+                      <button
+                        type="button"
+                        class="icon-button"
+                        [disabled]="last"
+                        aria-label="Move task down"
+                        (click)="taskService.move(task.id, 1)"
+                      >
+                        v
+                      </button>
+                      <button
+                        type="button"
+                        class="danger-button"
+                        (click)="taskService.delete(task.id)"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          </article>
+        </section>
+
+        <aside id="settings" class="panel side-panel" aria-labelledby="settings-title">
+          <p class="eyebrow">Settings</p>
+          <h2 id="settings-title">Daily comfort</h2>
+          <label>
+            <span>Theme</span>
+            <select [value]="theme()" (change)="setTheme($event)">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+
+          <label class="check-row">
+            <input
+              type="checkbox"
+              [checked]="settingsService.settings().notificationSoundEnabled"
+              (change)="setSoundEnabled($event)"
+            />
+            <span>Soft reminder sound</span>
+          </label>
+          <label class="check-row">
+            <input
+              type="checkbox"
+              [checked]="settingsService.settings().stickyNoteEnabled"
+              (change)="setStickyEnabled($event)"
+            />
+            <span>Sticky-note window</span>
+          </label>
+          <label class="check-row">
+            <input
+              type="checkbox"
+              [checked]="settingsService.settings().stickyNoteAlwaysOnTop"
+              (change)="setStickyAlwaysOnTop($event)"
+            />
+            <span>Keep sticky note on top</span>
+          </label>
+          <button type="button" class="secondary-button" (click)="openStickyWindow()">
+            Open sticky note
+          </button>
+
+          <div class="mini-stats">
+            <div>
+              <span>Completed</span>
+              <strong>{{ completedTasks().length }}</strong>
+            </div>
+            <div>
+              <span>History</span>
+              <strong>{{ historyService.events().length }}</strong>
+            </div>
+          </div>
+        </aside>
+      </section>
+    }
+
+    @if (breakService.state() === 'prompt') {
+      <section class="modal-backdrop" role="presentation">
+        <article
+          class="reminder-modal break-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="break-title"
+        >
+          <p class="eyebrow">Task complete</p>
+          <h2 id="break-title">Would a short break help?</h2>
+          <p>Step away for a moment, or keep moving if you are already warmed up.</p>
+          <label>
+            <span>Break minutes</span>
+            <input
+              type="number"
+              min="1"
+              max="120"
+              [value]="breakMinutes()"
+              (input)="setBreakMinutes($event)"
+            />
+          </label>
+          <div class="button-row">
+            <button type="button" class="primary-button" (click)="startBreak()">Start break</button>
+            <button type="button" class="secondary-button" (click)="skipBreak()">Skip break</button>
+          </div>
+        </article>
+      </section>
+    }
+
+    @if (breakService.state() === 'running') {
+      <section class="break-ribbon" aria-live="polite">
+        <span>Break time</span>
+        <strong>{{ formatDuration(breakService.session().remainingSeconds) }}</strong>
+      </section>
+    }
+
+    @if (breakService.state() === 'complete') {
+      <section class="modal-backdrop" role="presentation">
+        <article
+          class="reminder-modal break-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="break-complete-title"
+        >
+          <p class="eyebrow">Break complete</p>
+          <h2 id="break-complete-title">Ready for the next task?</h2>
+          @if (nextTaskCandidate(); as nextTask) {
+            <p>{{ nextTask.name }}</p>
+            <button type="button" class="primary-button" (click)="startNextTask()">
+              Start next task
+            </button>
+          } @else {
+            <p>No queued task is waiting right now.</p>
+            <button type="button" class="secondary-button" (click)="breakService.reset()">
+              Close
+            </button>
           }
         </article>
       </section>
-
-      <aside id="settings" class="panel side-panel" aria-labelledby="settings-title">
-        <p class="eyebrow">Settings</p>
-        <h2 id="settings-title">Theme shell</h2>
-        <label>
-          <span>Theme preview</span>
-          <select [value]="theme()" (change)="setTheme($event)">
-            <option value="system">System</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </label>
-
-        <div class="mini-stats">
-          <div>
-            <span>Completed</span>
-            <strong>{{ completedTasks().length }}</strong>
-          </div>
-          <div>
-            <span>History</span>
-            <strong>{{ historyService.events().length }}</strong>
-          </div>
-        </div>
-      </aside>
-    </section>
+    }
   }
 
   @if (reminderScheduler.activeReminder(); as reminder) {
-    <section class="modal-backdrop" role="presentation">
+    <section class="modal-backdrop friendly-backdrop" role="presentation">
       <article
-        class="reminder-modal"
+        class="reminder-modal friendly-reminder"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reminder-title"
       >
-        <p class="eyebrow">Reminder {{ reminder.attemptNumber }} of {{ reminder.maxAttempts }}</p>
+        <p class="eyebrow">
+          Gentle reminder {{ reminder.attemptNumber }} of {{ reminder.maxAttempts }}
+        </p>
         <h2 id="reminder-title">{{ reminder.taskName }}</h2>
-        <p>Time to check in with this task.</p>
+        <p>{{ notificationService.messageFor(reminder) }}</p>
 
         <label>
           <span>More minutes</span>
@@ -238,6 +417,7 @@
           <button type="button" class="primary-button" (click)="addReminderTime()">
             Give me more time
           </button>
+          <button type="button" class="secondary-button" (click)="pauseTask()">Pause task</button>
           <button type="button" class="secondary-button" (click)="completeActiveTask()">
             Task completed
           </button>

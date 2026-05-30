@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Task } from '../models/task';
+import { NotificationService } from './notification.service';
 import { ReminderSchedulerService } from './reminder-scheduler.service';
 import { TaskService } from './task.service';
 import { TimerService } from './timer.service';
@@ -19,6 +20,7 @@ function createActiveTask(overrides: Partial<Task> = {}): Task {
     createdAt: '2026-05-30T09:00:00.000Z',
     updatedAt: '2026-05-30T09:00:00.000Z',
     activeStartedAt: '2026-05-30T09:00:00.000Z',
+    totalPausedSeconds: 0,
     nextReminderAt: '2026-05-30T10:00:00.000Z',
     reminderAttemptsShown: 0,
     ...overrides,
@@ -39,6 +41,10 @@ describe('ReminderSchedulerService', () => {
         ReminderSchedulerService,
         { provide: TaskService, useValue: { activeTask, markReminderShown } },
         { provide: TimerService, useValue: { now: signal(new Date('2026-05-30T10:00:01.000Z')) } },
+        {
+          provide: NotificationService,
+          useValue: { randomFriendlyMessage: () => 'A friendly reminder.' },
+        },
       ],
     });
 
@@ -48,6 +54,7 @@ describe('ReminderSchedulerService', () => {
     expect(markReminderShown).toHaveBeenCalledWith(task);
     expect(service.activeReminder()?.taskName).toBe('Read chapter');
     expect(service.activeReminder()?.attemptNumber).toBe(1);
+    expect(service.activeReminder()?.message).toBe('A friendly reminder.');
   });
 
   it('does not open a reminder after the maximum attempt count', async () => {
@@ -63,6 +70,10 @@ describe('ReminderSchedulerService', () => {
         ReminderSchedulerService,
         { provide: TaskService, useValue: { activeTask, markReminderShown } },
         { provide: TimerService, useValue: { now: signal(new Date('2026-05-30T10:10:00.000Z')) } },
+        {
+          provide: NotificationService,
+          useValue: { randomFriendlyMessage: () => 'A friendly reminder.' },
+        },
       ],
     });
 

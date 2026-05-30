@@ -5,7 +5,12 @@ export type HistoryEventType =
   | 'task_started'
   | 'reminder_shown'
   | 'extra_time_added'
+  | 'task_paused'
+  | 'task_resumed'
   | 'task_completed'
+  | 'break_started'
+  | 'break_skipped'
+  | 'break_completed'
   | 'settings_changed';
 
 export interface HistoryEvent {

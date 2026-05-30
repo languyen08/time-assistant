@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActiveReminder } from '../models/reminder';
 import { isDue, nowIso } from '../utils/date-time.util';
+import { NotificationService } from './notification.service';
 import { TaskService } from './task.service';
 import { TimerService } from './timer.service';
 
@@ -8,6 +9,7 @@ import { TimerService } from './timer.service';
 export class ReminderSchedulerService {
   private readonly taskService = inject(TaskService);
   private readonly timer = inject(TimerService);
+  private readonly notifications = inject(NotificationService);
 
   readonly activeReminder = signal<ActiveReminder | undefined>(undefined);
   readonly hasReminder = computed(() => Boolean(this.activeReminder()));
@@ -41,6 +43,7 @@ export class ReminderSchedulerService {
       attemptNumber: updated.reminderAttemptsShown,
       maxAttempts: updated.reminderCount,
       shownAt: nowIso(),
+      message: this.notifications.randomFriendlyMessage(),
     });
   }
 

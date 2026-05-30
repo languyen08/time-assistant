@@ -16,4 +16,5 @@ export interface ActiveReminder {
   attemptNumber: number;
   maxAttempts: number;
   shownAt: string;
+  message: string;
 }

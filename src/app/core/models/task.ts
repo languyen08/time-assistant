@@ -1,4 +1,4 @@
-export type TaskStatus = 'pending' | 'active' | 'completed';
+export type TaskStatus = 'pending' | 'active' | 'paused' | 'completed';
 
 export interface Task {
   id: string;
@@ -13,6 +13,9 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   activeStartedAt?: string;
+  pausedAt?: string;
+  pausedRemainingSeconds?: number;
+  totalPausedSeconds: number;
   completedAt?: string;
   nextReminderAt?: string;
   reminderAttemptsShown: number;

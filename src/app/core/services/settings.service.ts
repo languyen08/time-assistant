@@ -10,4 +10,10 @@ export class SettingsService {
   async load(): Promise<void> {
     this.settings.set(await this.repository.get());
   }
+
+  async update(changes: Partial<AppSettings>): Promise<void> {
+    const nextSettings: AppSettings = { ...this.settings(), ...changes };
+    this.settings.set(nextSettings);
+    await this.repository.save(nextSettings);
+  }
 }

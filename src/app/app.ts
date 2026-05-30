@@ -1,10 +1,13 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
 import { AppTheme } from './core/models/app-settings';
 import { Task, TaskDraft } from './core/models/task';
 import { HistoryService } from './core/services/history.service';
+import { BreakService } from './core/services/break.service';
+import { ElectronBridgeService } from './core/services/electron-bridge.service';
+import { NotificationService } from './core/services/notification.service';
 import { ReminderSchedulerService } from './core/services/reminder-scheduler.service';
 import { SettingsService } from './core/services/settings.service';
 import { TaskService } from './core/services/task.service';
@@ -28,17 +31,25 @@ export class App implements OnInit, OnDestroy {
   readonly historyService = inject(HistoryService);
   readonly timerService = inject(TimerService);
   readonly reminderScheduler = inject(ReminderSchedulerService);
+  readonly breakService = inject(BreakService);
+  readonly notificationService = inject(NotificationService);
+  private readonly electron = inject(ElectronBridgeService);
 
   readonly title = signal('Friendly Task Reminder');
   readonly loading = signal(true);
   readonly editingTaskId = signal<string | undefined>(undefined);
   readonly extensionMinutes = signal(10);
-  readonly selectedTheme = signal<AppTheme>('system');
-  readonly theme = computed(() => this.selectedTheme());
+  readonly breakMinutes = signal(10);
+  readonly isStickyMode = signal(
+    new URLSearchParams(window.location.search).get('window') === 'sticky',
+  );
+  readonly theme = computed(() => this.settingsService.settings().theme);
   readonly activeTask = this.taskService.activeTask;
+  readonly currentTask = this.taskService.currentTask;
   readonly pendingTasks = this.taskService.pendingTasks;
   readonly completedTasks = this.taskService.completedTasks;
   readonly nextTaskCandidate = this.taskService.nextTaskCandidate;
+  private notifiedReminderKey = '';
 
   readonly taskForm = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
@@ -49,6 +60,24 @@ export class App implements OnInit, OnDestroy {
     note: ['', Validators.maxLength(400)],
   });
 
+  constructor() {
+    effect(() => {
+      const reminder = this.reminderScheduler.activeReminder();
+      const settings = this.settingsService.settings();
+      if (!reminder) {
+        return;
+      }
+
+      const key = `${reminder.taskId}:${reminder.attemptNumber}:${reminder.shownAt}`;
+      if (key === this.notifiedReminderKey) {
+        return;
+      }
+
+      this.notifiedReminderKey = key;
+      void this.notificationService.showReminder(reminder, settings);
+    });
+  }
+
   async ngOnInit(): Promise<void> {
     try {
       await Promise.all([
@@ -56,7 +85,13 @@ export class App implements OnInit, OnDestroy {
         this.historyService.load(),
         this.taskService.load(),
       ]);
-      this.selectedTheme.set(this.settingsService.settings().theme);
+      if (this.isStickyMode() && this.electron.isElectron) {
+        await this.settingsService.update({ stickyNoteEnabled: true });
+      }
+      this.breakMinutes.set(this.settingsService.settings().defaultBreakMinutes);
+      if (!this.isStickyMode()) {
+        await this.syncStickyWindow();
+      }
       this.resetForm();
       this.timerService.start();
       this.reminderScheduler.start();
@@ -122,8 +157,13 @@ export class App implements OnInit, OnDestroy {
   }
 
   async completeActiveTask(): Promise<void> {
+    const task = this.currentTask();
     await this.taskService.completeActive();
     this.reminderScheduler.dismiss();
+    if (task) {
+      this.breakService.prompt(this.settingsService.settings().defaultBreakMinutes);
+      this.breakMinutes.set(this.settingsService.settings().defaultBreakMinutes);
+    }
   }
 
   async addReminderTime(): Promise<void> {
@@ -136,8 +176,80 @@ export class App implements OnInit, OnDestroy {
     this.extensionMinutes.set(Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 10);
   }
 
-  setTheme(event: Event): void {
-    this.selectedTheme.set((event.target as HTMLSelectElement).value as AppTheme);
+  async pauseTask(): Promise<void> {
+    await this.taskService.pauseActive();
+    this.reminderScheduler.dismiss();
+  }
+
+  async resumeTask(): Promise<void> {
+    await this.taskService.resumeActive();
+  }
+
+  async setTheme(event: Event): Promise<void> {
+    await this.settingsService.update({
+      theme: (event.target as HTMLSelectElement).value as AppTheme,
+    });
+  }
+
+  async setSoundEnabled(event: Event): Promise<void> {
+    await this.settingsService.update({
+      notificationSoundEnabled: (event.target as HTMLInputElement).checked,
+    });
+  }
+
+  async setStickyEnabled(event: Event): Promise<void> {
+    await this.settingsService.update({
+      stickyNoteEnabled: (event.target as HTMLInputElement).checked,
+    });
+    await this.syncStickyWindow();
+  }
+
+  async setStickyAlwaysOnTop(event: Event): Promise<void> {
+    await this.settingsService.update({
+      stickyNoteAlwaysOnTop: (event.target as HTMLInputElement).checked,
+    });
+    await this.syncStickyWindow();
+  }
+
+  async startBreak(): Promise<void> {
+    await this.breakService.start(this.breakMinutes());
+  }
+
+  async skipBreak(): Promise<void> {
+    await this.breakService.skip();
+  }
+
+  setBreakMinutes(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.breakMinutes.set(Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 10);
+  }
+
+  async startNextTask(): Promise<void> {
+    const nextTask = this.nextTaskCandidate();
+    if (!nextTask) {
+      this.breakService.reset();
+      return;
+    }
+
+    this.breakService.reset();
+    await this.startTask(nextTask.id);
+  }
+
+  async focusMainWindow(): Promise<void> {
+    await this.electron.focusMainWindow();
+  }
+
+  async openStickyWindow(): Promise<void> {
+    await this.settingsService.update({ stickyNoteEnabled: true });
+    await this.syncStickyWindow();
+  }
+
+  async closeStickyWindow(): Promise<void> {
+    await this.settingsService.update({ stickyNoteEnabled: false });
+    await this.electron.setStickyWindow(
+      false,
+      this.settingsService.settings().stickyNoteAlwaysOnTop,
+    );
   }
 
   elapsedFor(task: Task | undefined): string {
@@ -148,6 +260,19 @@ export class App implements OnInit, OnDestroy {
   remainingFor(task: Task | undefined): string {
     this.timerService.nowTick();
     return this.timerService.format(this.timerService.remainingSeconds(task));
+  }
+
+  formatDuration(seconds: number): string {
+    this.timerService.nowTick();
+    return this.timerService.format(seconds);
+  }
+
+  private syncStickyWindow(): Promise<boolean> {
+    const settings = this.settingsService.settings();
+    return this.electron.setStickyWindow(
+      settings.stickyNoteEnabled,
+      settings.stickyNoteAlwaysOnTop,
+    );
   }
 
   private formToDraft(): TaskDraft {

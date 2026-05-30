@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Task, TaskDraft } from '../models/task';
 import { TaskRepository } from '../repositories/task.repository';
-import { createId, nowIso } from '../utils/date-time.util';
+import { createId, nowIso, secondsBetween, secondsUntil } from '../utils/date-time.util';
 import { HistoryService } from './history.service';
 import { TaskValidationService } from './task-validation.service';
 
@@ -14,14 +14,31 @@ export class TaskService {
   readonly tasks = signal<Task[]>([]);
   readonly errorMessage = signal('');
   readonly activeTask = computed(() => this.tasks().find((task) => task.status === 'active'));
+  readonly currentTask = computed(() =>
+    this.tasks().find((task) => task.status === 'active' || task.status === 'paused'),
+  );
   readonly pendingTasks = computed(() => this.tasks().filter((task) => task.status === 'pending'));
   readonly completedTasks = computed(() =>
     this.tasks().filter((task) => task.status === 'completed'),
   );
   readonly nextTaskCandidate = computed(() => this.pendingTasks()[0]);
 
+  private readonly channel =
+    typeof BroadcastChannel === 'undefined'
+      ? undefined
+      : new BroadcastChannel('friendly-task-reminder');
+
+  constructor() {
+    this.channel?.addEventListener('message', (event: MessageEvent<string>) => {
+      if (event.data === 'tasks-changed') {
+        void this.load();
+      }
+    });
+  }
+
   async load(): Promise<void> {
-    this.tasks.set(await this.repository.list());
+    const tasks = await this.repository.list();
+    this.tasks.set(tasks.map((task) => this.normalizeTask(task)));
   }
 
   async create(draft: TaskDraft): Promise<boolean> {
@@ -39,6 +56,7 @@ export class TaskService {
       status: 'pending',
       createdAt: timestamp,
       updatedAt: timestamp,
+      totalPausedSeconds: 0,
       reminderAttemptsShown: 0,
     };
 
@@ -46,6 +64,7 @@ export class TaskService {
     this.tasks.update((tasks) =>
       [...tasks, task].sort((first, second) => first.order - second.order),
     );
+    this.broadcastChange();
     await this.history.record('task_created', `Created "${task.name}".`, task.id);
     this.errorMessage.set('');
     return true;
@@ -83,13 +102,14 @@ export class TaskService {
       return;
     }
 
-    if (task.status === 'active') {
+    if (task.status === 'active' || task.status === 'paused') {
       this.errorMessage.set('Complete the active task before deleting it.');
       return;
     }
 
     await this.repository.delete(taskId);
     this.tasks.update((tasks) => tasks.filter((item) => item.id !== taskId));
+    this.broadcastChange();
     await this.history.record('task_deleted', `Deleted "${task.name}".`, task.id);
   }
 
@@ -105,10 +125,11 @@ export class TaskService {
     const reordered = tasks.map((task, order) => ({ ...task, order, updatedAt: nowIso() }));
     await Promise.all(reordered.map((task) => this.repository.save(task)));
     this.tasks.set(reordered);
+    this.broadcastChange();
   }
 
   async start(taskId: string): Promise<void> {
-    if (this.activeTask()) {
+    if (this.currentTask()) {
       this.errorMessage.set('Complete the active task before starting another.');
       return;
     }
@@ -124,6 +145,9 @@ export class TaskService {
       ...task,
       status: 'active',
       activeStartedAt: startedAt,
+      pausedAt: undefined,
+      pausedRemainingSeconds: undefined,
+      totalPausedSeconds: 0,
       nextReminderAt: task.reminderAt,
       reminderAttemptsShown: 0,
       updatedAt: startedAt,
@@ -135,7 +159,7 @@ export class TaskService {
   }
 
   async completeActive(): Promise<void> {
-    const task = this.activeTask();
+    const task = this.currentTask();
     if (!task) {
       return;
     }
@@ -145,6 +169,8 @@ export class TaskService {
       ...task,
       status: 'completed',
       completedAt,
+      pausedAt: undefined,
+      pausedRemainingSeconds: undefined,
       nextReminderAt: undefined,
       updatedAt: completedAt,
     };
@@ -154,17 +180,20 @@ export class TaskService {
   }
 
   async addTimeToActive(minutes: number): Promise<void> {
-    const task = this.activeTask();
+    const task = this.currentTask();
     if (!task || !Number.isInteger(minutes) || minutes < 1) {
       this.errorMessage.set('Extra time must be at least 1 minute.');
       return;
     }
 
-    const nextReminderAt = new Date(Date.now() + minutes * 60_000).toISOString();
+    const nextReminderAt =
+      task.status === 'paused' ? undefined : new Date(Date.now() + minutes * 60_000).toISOString();
     const updated: Task = {
       ...task,
-      reminderAt: nextReminderAt,
+      status: task.status,
+      reminderAt: nextReminderAt ?? task.reminderAt,
       nextReminderAt,
+      pausedRemainingSeconds: task.status === 'paused' ? minutes * 60 : undefined,
       updatedAt: nowIso(),
     };
 
@@ -181,6 +210,10 @@ export class TaskService {
   }
 
   async markReminderShown(task: Task): Promise<Task> {
+    if (task.status !== 'active') {
+      return task;
+    }
+
     const attemptsShown = task.reminderAttemptsShown + 1;
     const nextReminderAt =
       attemptsShown < task.reminderCount
@@ -206,6 +239,50 @@ export class TaskService {
     return updated;
   }
 
+  async pauseActive(now = new Date()): Promise<void> {
+    const task = this.activeTask();
+    if (!task) {
+      return;
+    }
+
+    const pausedAt = now.toISOString();
+    const updated: Task = {
+      ...task,
+      status: 'paused',
+      pausedAt,
+      pausedRemainingSeconds: secondsUntil(task.nextReminderAt, now),
+      updatedAt: pausedAt,
+    };
+
+    await this.saveAndReplace(updated);
+    await this.history.record('task_paused', `Paused "${updated.name}".`, updated.id);
+    this.errorMessage.set('');
+  }
+
+  async resumeActive(now = new Date()): Promise<void> {
+    const task = this.currentTask();
+    if (!task || task.status !== 'paused') {
+      return;
+    }
+
+    const resumedAt = now.toISOString();
+    const pausedSeconds = task.pausedAt ? secondsBetween(task.pausedAt, now) : 0;
+    const remainingSeconds = Math.max(1, task.pausedRemainingSeconds ?? 1);
+    const updated: Task = {
+      ...task,
+      status: 'active',
+      pausedAt: undefined,
+      pausedRemainingSeconds: undefined,
+      totalPausedSeconds: task.totalPausedSeconds + pausedSeconds,
+      nextReminderAt: new Date(now.getTime() + remainingSeconds * 1000).toISOString(),
+      updatedAt: resumedAt,
+    };
+
+    await this.saveAndReplace(updated);
+    await this.history.record('task_resumed', `Resumed "${updated.name}".`, updated.id);
+    this.errorMessage.set('');
+  }
+
   clearError(): void {
     this.errorMessage.set('');
   }
@@ -217,6 +294,7 @@ export class TaskService {
         .map((item) => (item.id === task.id ? task : item))
         .sort((first, second) => first.order - second.order),
     );
+    this.broadcastChange();
   }
 
   private findTask(taskId: string): Task | undefined {
@@ -236,5 +314,17 @@ export class TaskService {
       reminderCount: draft.reminderCount,
       reminderIntervalMinutes: draft.reminderIntervalMinutes,
     };
+  }
+
+  private normalizeTask(task: Task): Task {
+    return {
+      ...task,
+      totalPausedSeconds: task.totalPausedSeconds ?? 0,
+      reminderAttemptsShown: task.reminderAttemptsShown ?? 0,
+    };
+  }
+
+  private broadcastChange(): void {
+    this.channel?.postMessage('tasks-changed');
   }
 }
