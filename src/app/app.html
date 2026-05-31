@@ -140,49 +140,231 @@
 
       <section class="workspace">
         <section class="stack">
-          <article id="active" class="panel sticky-panel" aria-labelledby="active-title">
-            <p class="eyebrow">Current task</p>
-            <h2 id="active-title">Focus desk</h2>
+          <article
+            id="active"
+            class="panel sticky-panel"
+            aria-label="Current task"
+            style="
+              border-color: rgba(216, 190, 104, 0.28);
+              border-radius: 24px;
+              background: #fff0ad;
+              box-shadow:
+                0 16px 30px rgba(182, 152, 63, 0.14),
+                inset 0 1px 0 rgba(255, 255, 255, 0.82),
+                inset 0 -10px 24px rgba(240, 208, 112, 0.12);
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: start;
+                justify-content: space-between;
+                gap: 16px;
+              "
+            >
+              <p
+                class="eyebrow"
+                style="
+                  margin: 0;
+                  color: #9c7831;
+                  font-size: 0.92rem;
+                  font-weight: 700;
+                  line-height: 1;
+                  letter-spacing: 0.06em;
+                "
+              >
+                In focus
+              </p>
+              <span
+                aria-hidden="true"
+                style="
+                  flex: 0 0 auto;
+                  color: #d4a82f;
+                  filter: drop-shadow(0 2px 2px rgba(168, 130, 29, 0.18));
+                "
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                  <path
+                    d="M8 4.5c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5 0 .4-.2.8-.5 1.1l-1.1 1.1v3.5l1.3 1.3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-2.1l-1 7.2c0 .4-.4.6-.7.6s-.7-.2-.7-.6l-1-7.2H7c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l1.3-1.3V6.7L8.5 5.6c-.3-.3-.5-.7-.5-1.1Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </span>
+            </div>
 
             @if (currentTask(); as task) {
-              <div class="active-note" [class.paused-note]="task.status === 'paused'">
+              <div
+                class="active-note"
+                [class.paused-note]="task.status === 'paused'"
+                style="
+                  margin-top: 16px;
+                  gap: 18px;
+                  padding: 8px 4px 4px;
+                  border: none;
+                  background: transparent;
+                  box-shadow: none;
+                  color: #3b3421;
+                "
+              >
                 <div>
-                  <p class="task-label">
+                  <p
+                    class="task-label"
+                    style="
+                      display: inline-flex;
+                      margin: 0 0 10px;
+                      padding: 6px 10px;
+                      border-radius: 999px;
+                      background: rgba(255, 255, 255, 0.58);
+                      color: #8d7332;
+                      font-size: 0.8rem;
+                      font-weight: 700;
+                    "
+                  >
                     {{ task.status === 'paused' ? 'Paused' : task.category || 'Unsorted' }}
                   </p>
-                  <h3>{{ task.name }}</h3>
+                  <h2
+                    style="
+                      margin: 0;
+                      color: #332c1e;
+                      font-size: 2rem;
+                      line-height: 1.08;
+                    "
+                  >
+                    {{ task.name }}
+                  </h2>
                   @if (task.note) {
-                    <p>{{ task.note }}</p>
+                    <p
+                      style="
+                        margin-top: 12px;
+                        color: #62563a;
+                        line-height: 1.55;
+                      "
+                    >
+                      {{ task.note }}
+                    </p>
                   }
                 </div>
-                <div class="timer-grid">
-                  <div>
-                    <span>Elapsed</span>
-                    <strong>{{ elapsedFor(task) }}</strong>
+                <div class="timer-grid" style="gap: 12px">
+                  <div
+                    style="
+                      padding: 14px 16px;
+                      border: 1px solid rgba(216, 190, 104, 0.24);
+                      border-radius: 14px;
+                      background: rgba(255, 255, 255, 0.58);
+                      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+                    "
+                  >
+                    <span
+                      style="
+                        color: #7b6a42;
+                        font-size: 0.8rem;
+                        font-weight: 700;
+                      "
+                      >Elapsed</span
+                    >
+                    <strong
+                      style="
+                        margin-top: 6px;
+                        color: #332c1e;
+                        font-size: 1.35rem;
+                      "
+                      >{{ elapsedFor(task) }}</strong
+                    >
                   </div>
-                  <div>
-                    <span>Reminder in</span>
-                    <strong>{{ remainingFor(task) }}</strong>
+                  <div
+                    style="
+                      padding: 14px 16px;
+                      border: 1px solid rgba(216, 190, 104, 0.24);
+                      border-radius: 14px;
+                      background: rgba(255, 255, 255, 0.58);
+                      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+                    "
+                  >
+                    <span
+                      style="
+                        color: #7b6a42;
+                        font-size: 0.8rem;
+                        font-weight: 700;
+                      "
+                      >Reminder in</span
+                    >
+                    <strong
+                      style="
+                        margin-top: 6px;
+                        color: #332c1e;
+                        font-size: 1.35rem;
+                      "
+                      >{{ remainingFor(task) }}</strong
+                    >
                   </div>
                 </div>
                 <app-task-action-buttons
                   [paused]="task.status === 'paused'"
+                  style="
+                    --primary: #a88c32;
+                    --surface-raised: rgba(255, 255, 255, 0.9);
+                    --surface-muted: rgba(248, 231, 170, 0.76);
+                    --text: #3b3421;
+                  "
                   (pause)="pauseTask()"
                   (resume)="resumeTask()"
                   (complete)="completeActiveTask()"
                 />
               </div>
             } @else {
-              <div class="empty-state">
-                <h3>No task is active</h3>
-                <p>Start a task from the queue when you are ready.</p>
+              <div
+                class="empty-state"
+                style="
+                  margin-top: 0;
+                  padding: 8px 4px 6px;
+                  gap: 16px;
+                  border: none;
+                  background: transparent;
+                  color: #4a4028;
+                "
+              >
+                <h2
+                  style="
+                    margin: 0;
+                    color: #312917;
+                    font-size: 1.1rem;
+                    line-height: 1.3;
+                  "
+                >
+                  No active task
+                </h2>
+                <p
+                  style="
+                    color: #65573a;
+                    font-size: 1rem;
+                    line-height: 1.55;
+                  "
+                >
+                  Open the full app and start a task when ready.
+                </p>
               </div>
             }
 
             @if (nextTaskCandidate(); as nextTask) {
-              <div class="next-task">
-                <span>Next up</span>
-                <strong>{{ nextTask.name }}</strong>
+              <div
+                class="next-task"
+                style="
+                  margin-top: 16px;
+                  padding: 12px 14px;
+                  border: 1px solid rgba(216, 190, 104, 0.24);
+                  border-radius: 14px;
+                  background: rgba(255, 255, 255, 0.54);
+                "
+              >
+                <span
+                  style="
+                    color: #7b6a42;
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                  "
+                  >Next up</span
+                >
+                <strong style="color: #332c1e">{{ nextTask.name }}</strong>
               </div>
             }
           </article>
@@ -280,9 +462,7 @@
             style="
               border-color: rgba(164, 185, 128, 0.34);
               border-radius: 24px;
-              background:
-                radial-gradient(circle at top, rgba(255, 255, 255, 0.94), transparent 44%),
-                linear-gradient(180deg, #f7f9eb 0%, #eef3db 100%);
+              background: #eef3db;
               box-shadow:
                 0 16px 32px rgba(137, 152, 99, 0.14),
                 inset 0 1px 0 rgba(255, 255, 255, 0.86),
@@ -312,6 +492,8 @@
                     margin: 0;
                     color: #7d9451;
                     font-size: 0.92rem;
+                    font-weight: 700;
+                    line-height: 1;
                     letter-spacing: 0.06em;
                   "
                 >
@@ -605,9 +787,7 @@
             style="
               border-color: rgba(126, 156, 199, 0.34);
               border-radius: 24px;
-              background:
-                radial-gradient(circle at top, rgba(255, 255, 255, 0.96), transparent 46%),
-                linear-gradient(180deg, #f7fbff 0%, #eef5ff 100%);
+              background: #eef5ff;
               box-shadow:
                 0 14px 30px rgba(115, 140, 171, 0.14),
                 inset 0 1px 0 rgba(255, 255, 255, 0.88),
@@ -616,7 +796,7 @@
           >
             <header
               class="history-header"
-              style="padding: 28px 34px 22px"
+              style="padding: 12px 34px 22px"
               [style.borderBottom]="historyOpen() ? '1px solid rgba(114, 145, 188, 0.18)' : 'none'"
             >
               <div class="history-header-copy">
@@ -626,7 +806,8 @@
                     margin: 0;
                     color: #6f95d0;
                     font-size: 0.92rem;
-                    font-weight: 800;
+                    font-weight: 700;
+                    line-height: 1;
                     letter-spacing: 0.06em;
                   "
                   >History</span
