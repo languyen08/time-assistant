@@ -274,19 +274,105 @@
         </section>
 
         <section id="tasks" class="stack">
-          <article class="panel" aria-labelledby="form-title">
-            <p class="eyebrow">{{ editingTaskId() ? 'Edit task' : 'New task' }}</p>
-            <h2 id="form-title">
-              {{ editingTaskId() ? 'Adjust the reminder card' : 'Create a reminder card' }}
-            </h2>
+          <article
+            class="panel new-task-panel"
+            aria-labelledby="form-title"
+            style="
+              border-color: rgba(164, 185, 128, 0.34);
+              border-radius: 24px;
+              background:
+                radial-gradient(circle at top, rgba(255, 255, 255, 0.94), transparent 44%),
+                linear-gradient(180deg, #f7f9eb 0%, #eef3db 100%);
+              box-shadow:
+                0 16px 32px rgba(137, 152, 99, 0.14),
+                inset 0 1px 0 rgba(255, 255, 255, 0.86),
+                inset 0 -10px 24px rgba(195, 209, 154, 0.12);
+            "
+          >
+            <div
+              class="new-task-header"
+              style="
+                display: flex;
+                align-items: start;
+                justify-content: space-between;
+                gap: 20px;
+                margin-bottom: 18px;
+              "
+            >
+              <div
+                class="new-task-header-copy"
+                style="
+                  display: grid;
+                  gap: 12px;
+                "
+              >
+                <p
+                  class="eyebrow"
+                  style="
+                    margin: 0;
+                    color: #7d9451;
+                    font-size: 0.92rem;
+                    letter-spacing: 0.06em;
+                  "
+                >
+                  {{ editingTaskId() ? 'Edit task' : 'New task' }}
+                </p>
+                <h2 id="form-title" style="font-size: 1.1rem; line-height: 1.3; color: #394429">
+                  {{ editingTaskId() ? 'Adjust the reminder card' : 'Create a reminder card' }}
+                </h2>
+              </div>
+              <span
+                class="new-task-pin"
+                aria-hidden="true"
+                style="
+                  flex: 0 0 auto;
+                  color: #91a667;
+                  filter: drop-shadow(0 2px 2px rgba(122, 140, 78, 0.18));
+                "
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                  <path
+                    d="M8 4.5c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5 0 .4-.2.8-.5 1.1l-1.1 1.1v3.5l1.3 1.3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-2.1l-1 7.2c0 .4-.4.6-.7.6s-.7-.2-.7-.6l-1-7.2H7c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l1.3-1.3V6.7L8.5 5.6c-.3-.3-.5-.7-.5-1.1Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </span>
+            </div>
 
-            <form [formGroup]="taskForm" (ngSubmit)="saveTask()" class="task-form">
-              <label [class.field-invalid]="controlInvalid('name')">
+            <form
+              [formGroup]="taskForm"
+              (ngSubmit)="saveTask()"
+              class="task-form new-task-form"
+              style="
+                display: grid;
+                gap: 16px;
+              "
+            >
+              <label
+                [class.field-invalid]="controlInvalid('name')"
+                style="
+                  gap: 8px;
+                  color: #556243;
+                  font-size: 0.9rem;
+                "
+              >
                 <span>Task name</span>
                 <input
                   type="text"
                   formControlName="name"
                   autocomplete="off"
+                  placeholder="What are you going to focus on?"
+                  style="
+                    min-height: 50px;
+                    padding: 13px 14px;
+                    border-color: rgba(164, 185, 128, 0.32);
+                    border-radius: 14px;
+                    background: rgba(255, 255, 255, 0.72);
+                    color: #2d3524;
+                    box-shadow:
+                      inset 0 1px 0 rgba(255, 255, 255, 0.86),
+                      inset 0 -2px 6px rgba(163, 178, 122, 0.08);
+                  "
                   [attr.aria-invalid]="controlInvalid('name')"
                   [attr.aria-describedby]="controlInvalid('name') ? 'task-name-error' : null"
                 />
@@ -295,30 +381,74 @@
                 }
               </label>
 
-              <div class="form-grid">
-                <label [class.field-invalid]="controlInvalid('reminderAt')">
-                  <span>Reminder time</span>
-                  <input
-                    type="datetime-local"
-                    formControlName="reminderAt"
-                    [attr.aria-invalid]="controlInvalid('reminderAt')"
-                    [attr.aria-describedby]="
-                      controlInvalid('reminderAt') ? 'reminder-time-error' : null
-                    "
-                  />
-                  @if (controlError('reminderAt', 'required')) {
-                    <small id="reminder-time-error" class="field-error">
-                      Reminder time is required.
-                    </small>
-                  }
-                </label>
-                <label [class.field-invalid]="controlInvalid('reminderCount')">
+              <label
+                [class.field-invalid]="controlInvalid('reminderAt')"
+                style="
+                  gap: 8px;
+                  color: #556243;
+                  font-size: 0.9rem;
+                "
+              >
+                <span>Reminder time</span>
+                <input
+                  type="datetime-local"
+                  formControlName="reminderAt"
+                  style="
+                    min-height: 50px;
+                    padding: 13px 14px;
+                    border-color: rgba(164, 185, 128, 0.32);
+                    border-radius: 14px;
+                    background: rgba(255, 255, 255, 0.72);
+                    color: #2d3524;
+                    box-shadow:
+                      inset 0 1px 0 rgba(255, 255, 255, 0.86),
+                      inset 0 -2px 6px rgba(163, 178, 122, 0.08);
+                  "
+                  [attr.aria-invalid]="controlInvalid('reminderAt')"
+                  [attr.aria-describedby]="
+                    controlInvalid('reminderAt') ? 'reminder-time-error' : null
+                  "
+                />
+                @if (controlError('reminderAt', 'required')) {
+                  <small id="reminder-time-error" class="field-error">
+                    Reminder time is required.
+                  </small>
+                }
+              </label>
+
+              <div
+                class="new-task-inline-grid"
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                  gap: 14px;
+                "
+              >
+                <label
+                  [class.field-invalid]="controlInvalid('reminderCount')"
+                  style="
+                    gap: 8px;
+                    color: #556243;
+                    font-size: 0.9rem;
+                  "
+                >
                   <span>Attempts</span>
                   <input
                     type="number"
                     min="1"
                     max="20"
                     formControlName="reminderCount"
+                    style="
+                      min-height: 50px;
+                      padding: 13px 14px;
+                      border-color: rgba(164, 185, 128, 0.32);
+                      border-radius: 14px;
+                      background: rgba(255, 255, 255, 0.72);
+                      color: #2d3524;
+                      box-shadow:
+                        inset 0 1px 0 rgba(255, 255, 255, 0.86),
+                        inset 0 -2px 6px rgba(163, 178, 122, 0.08);
+                    "
                     [attr.aria-invalid]="controlInvalid('reminderCount')"
                     [attr.aria-describedby]="
                       controlInvalid('reminderCount') ? 'attempts-error' : null
@@ -336,13 +466,31 @@
                     </small>
                   }
                 </label>
-                <label [class.field-invalid]="controlInvalid('reminderIntervalMinutes')">
+                <label
+                  [class.field-invalid]="controlInvalid('reminderIntervalMinutes')"
+                  style="
+                    gap: 8px;
+                    color: #556243;
+                    font-size: 0.9rem;
+                  "
+                >
                   <span>Repeat minutes</span>
                   <input
                     type="number"
                     min="1"
                     max="240"
                     formControlName="reminderIntervalMinutes"
+                    style="
+                      min-height: 50px;
+                      padding: 13px 14px;
+                      border-color: rgba(164, 185, 128, 0.32);
+                      border-radius: 14px;
+                      background: rgba(255, 255, 255, 0.72);
+                      color: #2d3524;
+                      box-shadow:
+                        inset 0 1px 0 rgba(255, 255, 255, 0.86),
+                        inset 0 -2px 6px rgba(163, 178, 122, 0.08);
+                    "
                     [attr.aria-invalid]="controlInvalid('reminderIntervalMinutes')"
                     [attr.aria-describedby]="
                       controlInvalid('reminderIntervalMinutes') ? 'repeat-minutes-error' : null
@@ -364,18 +512,75 @@
                 </label>
               </div>
 
-              <label>
+              <label
+                style="
+                  gap: 8px;
+                  color: #556243;
+                  font-size: 0.9rem;
+                "
+              >
                 <span>Category</span>
-                <input type="text" formControlName="category" autocomplete="off" />
+                <input
+                  type="text"
+                  formControlName="category"
+                  autocomplete="off"
+                  placeholder="Optional category"
+                  style="
+                    min-height: 50px;
+                    padding: 13px 14px;
+                    border-color: rgba(164, 185, 128, 0.32);
+                    border-radius: 14px;
+                    background: rgba(255, 255, 255, 0.72);
+                    color: #2d3524;
+                    box-shadow:
+                      inset 0 1px 0 rgba(255, 255, 255, 0.86),
+                      inset 0 -2px 6px rgba(163, 178, 122, 0.08);
+                  "
+                />
               </label>
 
-              <label>
+              <label
+                style="
+                  gap: 8px;
+                  color: #556243;
+                  font-size: 0.9rem;
+                "
+              >
                 <span>Note</span>
-                <textarea rows="3" formControlName="note"></textarea>
+                <textarea
+                  rows="3"
+                  formControlName="note"
+                  placeholder="Add any notes..."
+                  style="
+                    min-height: 84px;
+                    padding: 13px 14px;
+                    border-color: rgba(164, 185, 128, 0.32);
+                    border-radius: 14px;
+                    background: rgba(255, 255, 255, 0.72);
+                    color: #2d3524;
+                    box-shadow:
+                      inset 0 1px 0 rgba(255, 255, 255, 0.86),
+                      inset 0 -2px 6px rgba(163, 178, 122, 0.08);
+                  "
+                ></textarea>
               </label>
 
               <div class="button-row">
-                <button type="submit" class="primary-button">
+                <button
+                  type="submit"
+                  class="primary-button"
+                  style="
+                    min-height: 44px;
+                    padding-inline: 18px;
+                    border-color: #7f9950;
+                    border-radius: 14px;
+                    background: linear-gradient(180deg, #a8c268 0%, #8ea954 100%);
+                    color: #fffdf7;
+                    box-shadow:
+                      0 8px 18px rgba(115, 137, 69, 0.2),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.34);
+                  "
+                >
                   {{ editingTaskId() ? 'Save changes' : 'Create task' }}
                 </button>
                 @if (editingTaskId()) {

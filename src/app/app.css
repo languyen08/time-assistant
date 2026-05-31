@@ -1085,6 +1085,11 @@ button:disabled {
   justify-content: flex-start;
 }
 
+.new-task-panel input::placeholder,
+.new-task-panel textarea::placeholder {
+  color: #a6ad97;
+}
+
 .history-toggle {
   width: 40px;
   min-width: 40px;
