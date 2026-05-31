@@ -1,7 +1,7 @@
 module.exports = {
   packagerConfig: {
-    name: 'Friendly Task Reminder',
-    executableName: 'friendly-task-reminder',
+    name: 'Time Assistant',
+    executableName: 'time-assistant',
     asar: true,
   },
   rebuildConfig: {},

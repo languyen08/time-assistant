@@ -1,7 +1,14 @@
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs/promises');
+const fsSync = require('node:fs');
 const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, screen } = require('electron');
+
+const APP_NAME = 'Time Assistant';
+const APP_ID = 'local.assistant-time.time-assistant';
+
+app.setName(APP_NAME);
+app.setAppUserModelId(APP_ID);
 
 const isSmokeTest = process.argv.includes('--smoke-test');
 if (isSmokeTest) {
@@ -33,6 +40,51 @@ const STICKY_RESIZE_REASONS = new Set([
 let mainWindow;
 let stickyWindow;
 let stickyAlwaysOnTopPreference = true;
+
+function resolveAppIconPath() {
+  const candidates =
+    process.platform === 'win32'
+      ? [
+          path.join(__dirname, '..', 'build-resources', 'app-icon.ico'),
+          path.join(process.resourcesPath, 'build-resources', 'app-icon.ico'),
+          path.join(__dirname, '..', 'src', 'assets', 'icons', 'app-icon.png'),
+          path.join(process.resourcesPath, 'src', 'assets', 'icons', 'app-icon.png'),
+        ]
+      : [
+          path.join(__dirname, '..', 'src', 'assets', 'icons', 'app-icon.png'),
+          path.join(process.resourcesPath, 'src', 'assets', 'icons', 'app-icon.png'),
+        ];
+
+  return candidates.find((candidate) => {
+    try {
+      fsSync.accessSync(candidate);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+const appIconPath = resolveAppIconPath();
+
+function resolveNotificationIconPath() {
+  const candidates = [
+    path.join(__dirname, '..', 'src', 'assets', 'icons', 'app-icon-notification.png'),
+    path.join(process.resourcesPath, 'src', 'assets', 'icons', 'app-icon-notification.png'),
+    appIconPath,
+  ].filter(Boolean);
+
+  return candidates.find((candidate) => {
+    try {
+      fsSync.accessSync(candidate);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+const notificationIconPath = resolveNotificationIconPath();
 
 function rendererEntry(windowMode) {
   const devServerUrl = process.env.ELECTRON_RENDERER_URL;
@@ -78,9 +130,10 @@ function createMainWindow() {
     height: 760,
     minWidth: 800,
     minHeight: 560,
-    title: 'Friendly Task Reminder',
+    title: APP_NAME,
     backgroundColor: '#f7efe0',
     autoHideMenuBar: true,
+    ...(appIconPath ? { icon: appIconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -90,6 +143,9 @@ function createMainWindow() {
   });
 
   loadRenderer(mainWindow, 'main');
+  if (appIconPath) {
+    mainWindow.setIcon(appIconPath);
+  }
 
   if (isSmokeTest) {
     mainWindow.webContents.once('did-finish-load', () => {
@@ -146,6 +202,7 @@ function createStickyWindow(alwaysOnTop, color) {
     frame: false,
     resizable: false,
     maximizable: false,
+    ...(appIconPath ? { icon: appIconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -158,6 +215,9 @@ function createStickyWindow(alwaysOnTop, color) {
     stickyWindow = undefined;
   });
   loadRenderer(stickyWindow, 'sticky');
+  if (appIconPath) {
+    stickyWindow.setIcon(appIconPath);
+  }
 
   if (isSmokeTest) {
     stickyWindow.webContents.once('did-finish-load', () => {
@@ -273,11 +333,15 @@ ipcMain.handle('assistant-time:notify', (_event, payload) => {
   }
 
   const title =
-    typeof payload.title === 'string' ? payload.title.slice(0, 120) : 'Friendly Task Reminder';
+    typeof payload.title === 'string' ? payload.title.slice(0, 120) : APP_NAME;
   const body = typeof payload.body === 'string' ? payload.body.slice(0, 240) : '';
 
   if (Notification.isSupported()) {
-    new Notification({ title, body }).show();
+    new Notification({
+      title,
+      body,
+      ...(notificationIconPath ? { icon: notificationIconPath } : {}),
+    }).show();
   }
 
   return true;

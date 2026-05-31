@@ -55,11 +55,14 @@
     "tmp": "0.2.7"
   },
   "build": {
-    "appId": "local.assistant-time.friendly-task-reminder",
-    "productName": "Friendly Task Reminder",
+    "appId": "local.assistant-time.time-assistant",
+    "productName": "Time Assistant",
     "files": [
       "dist/friendly-task-reminder/browser/**/*",
       "electron/**/*",
+      "build-resources/app-icon.ico",
+      "src/assets/icons/app-icon.png",
+      "src/assets/icons/app-icon-notification.png",
       "package.json"
     ],
     "directories": {
@@ -67,6 +70,7 @@
       "output": "release"
     },
     "win": {
+      "icon": "src/assets/icons/app-icon.png",
       "target": "nsis"
     }
   }
