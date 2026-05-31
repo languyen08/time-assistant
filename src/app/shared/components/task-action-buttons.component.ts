@@ -3,6 +3,21 @@ import { Component, input, output } from '@angular/core';
 @Component({
   selector: 'app-task-action-buttons',
   standalone: true,
+  host: {
+    class: 'task-action-buttons-host',
+  },
+  styles: `
+    :host {
+      display: block;
+      width: 100%;
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+    }
+
+    :host * {
+      -webkit-app-region: no-drag;
+    }
+  `,
   template: `
     <div class="button-row" [class.sticky-action-row]="sticky()">
       @if (paused()) {

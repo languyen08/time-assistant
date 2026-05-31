@@ -170,9 +170,10 @@ export class App implements OnInit, OnDestroy {
     effect(() => {
       const reminder = this.reminderScheduler.activeReminder();
       const settings = this.settingsService.settings();
-      if (this.electron.isElectron && !this.isStickyMode()) {
+      if (this.electron.isElectron) {
+        const stickyMode = this.isStickyMode();
         void this.electron.setReminderOverlayState(
-          Boolean(reminder),
+          stickyMode ? false : Boolean(reminder),
           settings.stickyNoteAlwaysOnTop,
         );
       }

@@ -340,15 +340,17 @@ select {
   -webkit-app-region: no-drag;
 }
 
-body.sticky-mode .friendly-backdrop,
-body.sticky-mode .friendly-backdrop *,
-body.sticky-mode .friendly-reminder,
-body.sticky-mode .friendly-reminder * {
+.modal-backdrop,
+.modal-backdrop *,
+.reminder-modal,
+.reminder-modal * {
   -webkit-app-region: no-drag;
 }
 
-body.sticky-mode .friendly-reminder,
-body.sticky-mode .friendly-reminder * {
+.modal-backdrop,
+.modal-backdrop *,
+.reminder-modal,
+.reminder-modal * {
   pointer-events: auto;
 }
 
@@ -1124,6 +1126,7 @@ button:disabled {
   width: min(100%, 480px);
   position: relative;
   z-index: 41;
+  isolation: isolate;
   display: grid;
   gap: 14px;
   padding: 24px;

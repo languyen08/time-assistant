@@ -246,6 +246,41 @@ describe('App', () => {
     });
   });
 
+  it('should keep sticky window interactive while reminder is active in sticky mode', async () => {
+    const setReminderOverlayState = vi.fn().mockResolvedValue(true);
+    window.assistantTime = {
+      platform: 'win32',
+      closeApp: vi.fn().mockResolvedValue(true),
+      focusMainWindow: vi.fn().mockResolvedValue(true),
+      minimizeStickyWindow: vi.fn().mockResolvedValue(true),
+      notify: vi.fn().mockResolvedValue(true),
+      openTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
+      setReminderOverlayState,
+      saveTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
+      resizeStickyWindow: vi.fn().mockResolvedValue(true),
+      setStickyWindow: vi.fn().mockResolvedValue(true),
+    };
+
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.isStickyMode.set(true);
+
+    app.reminderScheduler.activeReminder.set({
+      taskId: 'task-1',
+      taskName: 'Focus block',
+      attemptNumber: 1,
+      maxAttempts: 3,
+      shownAt: new Date().toISOString(),
+      message: 'A friendly reminder.',
+    });
+    await fixture.whenStable();
+
+    expect(setReminderOverlayState).toHaveBeenLastCalledWith({
+      active: false,
+      stickyAlwaysOnTop: app.settingsService.settings().stickyNoteAlwaysOnTop,
+    });
+  });
+
   it('should wire sticky reminder input and action buttons', async () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
