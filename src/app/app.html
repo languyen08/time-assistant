@@ -77,23 +77,15 @@
                   <strong>{{ remainingFor(task) }}</strong>
                 </div>
               </div>
-              <div class="button-row sticky-action-row">
-                @if (task.status === 'paused') {
-                  <button type="button" class="primary-button" (click)="resumeTask()">
-                    Resume
-                  </button>
-                } @else {
-                  <button type="button" class="secondary-button" (click)="pauseTask()">
-                    Pause
-                  </button>
-                }
-                <button type="button" class="secondary-button" (click)="addReminderTime()">
-                  +{{ extensionMinutes() }}m
-                </button>
-                <button type="button" class="primary-button" (click)="completeActiveTask()">
-                  Done
-                </button>
-              </div>
+              <app-task-action-buttons
+                [paused]="task.status === 'paused'"
+                [sticky]="true"
+                [extensionMinutes]="extensionMinutes()"
+                (pause)="pauseTask()"
+                (resume)="resumeTask()"
+                (addTime)="addReminderTime()"
+                (complete)="completeActiveTask()"
+              />
             </article>
           } @else {
             <article class="sticky-task-card sticky-focus-card empty">
@@ -132,14 +124,14 @@
         Opening your local workspace...
       </section>
     } @else {
-      @if (taskService.errorMessage()) {
+      @if (globalErrorMessage()) {
         <aside class="alert" role="alert">
-          <span>{{ taskService.errorMessage() }}</span>
+          <span>{{ globalErrorMessage() }}</span>
           <button
             type="button"
             class="icon-button"
             aria-label="Dismiss message"
-            (click)="taskService.clearError()"
+            (click)="clearGlobalError()"
           >
             x
           </button>
@@ -173,20 +165,12 @@
                     <strong>{{ remainingFor(task) }}</strong>
                   </div>
                 </div>
-                <div class="button-row">
-                  @if (task.status === 'paused') {
-                    <button type="button" class="primary-button" (click)="resumeTask()">
-                      Resume task
-                    </button>
-                  } @else {
-                    <button type="button" class="secondary-button" (click)="pauseTask()">
-                      Pause task
-                    </button>
-                  }
-                  <button type="button" class="primary-button" (click)="completeActiveTask()">
-                    Complete task
-                  </button>
-                </div>
+                <app-task-action-buttons
+                  [paused]="task.status === 'paused'"
+                  (pause)="pauseTask()"
+                  (resume)="resumeTask()"
+                  (complete)="completeActiveTask()"
+                />
               </div>
             } @else {
               <div class="empty-state">

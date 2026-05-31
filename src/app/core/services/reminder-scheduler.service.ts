@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActiveReminder } from '../models/reminder';
+import { toFriendlyErrorMessage } from '../utils/error-message.util';
 import { isDue, nowIso } from '../utils/date-time.util';
 import { NotificationService } from './notification.service';
 import { TaskService } from './task.service';
@@ -13,6 +14,7 @@ export class ReminderSchedulerService {
 
   readonly activeReminder = signal<ActiveReminder | undefined>(undefined);
   readonly hasReminder = computed(() => Boolean(this.activeReminder()));
+  readonly errorMessage = signal('');
   private intervalId: number | undefined;
 
   start(): void {
@@ -27,24 +29,29 @@ export class ReminderSchedulerService {
   }
 
   async check(now = this.timer.now()): Promise<void> {
-    const task = this.taskService.activeTask();
-    if (!task || this.activeReminder()) {
-      return;
-    }
+    try {
+      const task = this.taskService.activeTask();
+      if (!task || this.activeReminder()) {
+        return;
+      }
 
-    if (task.reminderAttemptsShown >= task.reminderCount || !isDue(task.nextReminderAt, now)) {
-      return;
-    }
+      if (task.reminderAttemptsShown >= task.reminderCount || !isDue(task.nextReminderAt, now)) {
+        return;
+      }
 
-    const updated = await this.taskService.markReminderShown(task);
-    this.activeReminder.set({
-      taskId: updated.id,
-      taskName: updated.name,
-      attemptNumber: updated.reminderAttemptsShown,
-      maxAttempts: updated.reminderCount,
-      shownAt: nowIso(),
-      message: this.notifications.randomFriendlyMessage(),
-    });
+      const updated = await this.taskService.markReminderShown(task);
+      this.activeReminder.set({
+        taskId: updated.id,
+        taskName: updated.name,
+        attemptNumber: updated.reminderAttemptsShown,
+        maxAttempts: updated.reminderCount,
+        shownAt: nowIso(),
+        message: this.notifications.randomFriendlyMessage(),
+      });
+      this.errorMessage.set('');
+    } catch (error) {
+      this.errorMessage.set(toFriendlyErrorMessage(error, 'Reminder check failed.'));
+    }
   }
 
   dismiss(): void {

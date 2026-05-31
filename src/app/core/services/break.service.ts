@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { toFriendlyErrorMessage } from '../utils/error-message.util';
 import { createId, nowIso } from '../utils/date-time.util';
 import { HistoryService } from './history.service';
 import { NotificationService } from './notification.service';
@@ -26,6 +27,7 @@ export class BreakService {
     state: 'idle',
   });
   readonly state = computed(() => this.session().state);
+  readonly errorMessage = signal('');
   private intervalId: number | undefined;
 
   prompt(defaultMinutes: number): void {
@@ -48,28 +50,43 @@ export class BreakService {
       remainingSeconds: safeMinutes * 60,
       state: 'running',
     });
-    await this.history.record(
-      'break_started',
-      `Started a ${safeMinutes} minute break.`,
-      undefined,
-      {
-        minutes: safeMinutes,
-      },
-    );
-    this.intervalId = window.setInterval(() => this.tick(), 1000);
+    try {
+      await this.history.record(
+        'break_started',
+        `Started a ${safeMinutes} minute break.`,
+        undefined,
+        {
+          minutes: safeMinutes,
+        },
+      );
+      this.intervalId = window.setInterval(() => this.tick(), 1000);
+      this.errorMessage.set('');
+    } catch (error) {
+      this.errorMessage.set(toFriendlyErrorMessage(error, 'Break could not be started.'));
+    }
   }
 
   async skip(): Promise<void> {
     this.stopTimer();
     this.session.update((session) => ({ ...session, state: 'idle', remainingSeconds: 0 }));
-    await this.history.record('break_skipped', 'Skipped the break.');
+    try {
+      await this.history.record('break_skipped', 'Skipped the break.');
+      this.errorMessage.set('');
+    } catch (error) {
+      this.errorMessage.set(toFriendlyErrorMessage(error, 'Break skip could not be saved.'));
+    }
   }
 
   async complete(): Promise<void> {
     this.stopTimer();
     this.session.update((session) => ({ ...session, state: 'complete', remainingSeconds: 0 }));
-    await this.history.record('break_completed', 'Completed the break.');
-    await this.notifications.showBreakComplete(this.settings.settings());
+    try {
+      await this.history.record('break_completed', 'Completed the break.');
+      await this.notifications.showBreakComplete(this.settings.settings());
+      this.errorMessage.set('');
+    } catch (error) {
+      this.errorMessage.set(toFriendlyErrorMessage(error, 'Break completion could not be saved.'));
+    }
   }
 
   reset(): void {

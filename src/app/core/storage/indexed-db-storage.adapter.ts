@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { StorageAdapter } from './storage-adapter';
 
 const DATABASE_NAME = 'friendly-task-reminder';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const STORE_NAMES = ['tasks', 'settings', 'history'] as const;
 
 @Injectable({ providedIn: 'root' })
@@ -52,13 +52,10 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     this.databasePromise ??= new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
 
-      request.onupgradeneeded = () => {
+      request.onupgradeneeded = (event) => {
         const database = request.result;
-        for (const storeName of STORE_NAMES) {
-          if (!database.objectStoreNames.contains(storeName)) {
-            database.createObjectStore(storeName, { keyPath: 'id' });
-          }
-        }
+        const oldVersion = event.oldVersion ?? 0;
+        this.runMigrations(database, request.transaction, oldVersion);
       };
 
       request.onsuccess = () => resolve(request.result);
@@ -83,5 +80,65 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
       transaction.onabort = () =>
         reject(transaction.error ?? new Error('IndexedDB transaction aborted.'));
     });
+  }
+
+  private runMigrations(
+    database: IDBDatabase,
+    transaction: IDBTransaction | null,
+    oldVersion: number,
+  ): void {
+    if (oldVersion < 1) {
+      this.migrateToV1(database);
+    }
+
+    if (oldVersion < 2) {
+      this.migrateToV2(database, transaction);
+    }
+  }
+
+  private migrateToV1(database: IDBDatabase): void {
+    for (const storeName of STORE_NAMES) {
+      if (!database.objectStoreNames.contains(storeName)) {
+        database.createObjectStore(storeName, { keyPath: 'id' });
+      }
+    }
+  }
+
+  private migrateToV2(database: IDBDatabase, transaction: IDBTransaction | null): void {
+    if (!transaction) {
+      return;
+    }
+
+    const taskStore = this.getStoreForMigration(database, transaction, 'tasks');
+    const historyStore = this.getStoreForMigration(database, transaction, 'history');
+
+    if (taskStore) {
+      this.ensureIndex(taskStore, 'tasks_by_order', 'order');
+      this.ensureIndex(taskStore, 'tasks_by_status', 'status');
+      this.ensureIndex(taskStore, 'tasks_by_next_reminder_at', 'nextReminderAt');
+    }
+
+    if (historyStore) {
+      this.ensureIndex(historyStore, 'history_by_occurred_at', 'occurredAt');
+      this.ensureIndex(historyStore, 'history_by_type', 'type');
+    }
+  }
+
+  private getStoreForMigration(
+    database: IDBDatabase,
+    transaction: IDBTransaction,
+    storeName: (typeof STORE_NAMES)[number],
+  ): IDBObjectStore | undefined {
+    if (!database.objectStoreNames.contains(storeName)) {
+      database.createObjectStore(storeName, { keyPath: 'id' });
+    }
+
+    return transaction.objectStore(storeName);
+  }
+
+  private ensureIndex(store: IDBObjectStore, indexName: string, keyPath: string): void {
+    if (!store.indexNames.contains(indexName)) {
+      store.createIndex(indexName, keyPath);
+    }
   }
 }

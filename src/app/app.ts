@@ -21,10 +21,17 @@ import {
   fromDatetimeLocalValue,
   toDatetimeLocalValue,
 } from './core/utils/date-time.util';
+import { TaskActionButtonsComponent } from './shared/components/task-action-buttons.component';
 
 @Component({
   selector: 'app-root',
-  imports: [BaseChartDirective, DatePipe, ReactiveFormsModule, RouterOutlet],
+  imports: [
+    BaseChartDirective,
+    DatePipe,
+    ReactiveFormsModule,
+    RouterOutlet,
+    TaskActionButtonsComponent,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
@@ -80,6 +87,14 @@ export class App implements OnInit, OnDestroy {
   readonly pendingTasks = this.taskService.pendingTasks;
   readonly completedTasks = this.taskService.completedTasks;
   readonly nextTaskCandidate = this.taskService.nextTaskCandidate;
+  readonly globalErrorMessage = computed(
+    () =>
+      this.taskService.errorMessage() ||
+      this.settingsService.errorMessage() ||
+      this.historyService.errorMessage() ||
+      this.breakService.errorMessage() ||
+      this.reminderScheduler.errorMessage(),
+  );
   readonly currentHistoryPage = computed(() =>
     Math.min(this.historyPage(), this.historyPageCount() - 1),
   );
@@ -333,6 +348,14 @@ export class App implements OnInit, OnDestroy {
 
   async resumeTask(): Promise<void> {
     await this.taskService.resumeActive();
+  }
+
+  clearGlobalError(): void {
+    this.taskService.clearError();
+    this.settingsService.errorMessage.set('');
+    this.historyService.errorMessage.set('');
+    this.breakService.errorMessage.set('');
+    this.reminderScheduler.errorMessage.set('');
   }
 
   async setTheme(event: Event): Promise<void> {

@@ -64,3 +64,11 @@ CSV export includes stable headers for tasks and history. The CSV date/time form
 ## Scope
 
 Current MVP scope is local-first desktop use with manual CSV export. Calendar integration, general cloud sync, required accounts, background sync, and mobile push are outside the MVP.
+
+## Known Limitations and Deferred Features
+
+- Data is local to each runtime profile. Electron and browser preview do not share IndexedDB automatically.
+- CSV import/export is the only sync path in MVP. No real-time or automatic cloud sync.
+- Calendar integration is deferred. Google Calendar and `.ics` workflows are not active in current MVP.
+- Voice input is deferred. Task entry is manual text input.
+- E2E workflow coverage is still pending for create/start/complete, add-time, pause/resume, break flow, and theme switching.

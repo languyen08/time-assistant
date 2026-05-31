@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Task, TaskDraft } from '../models/task';
 import { TaskRepository } from '../repositories/task.repository';
+import { toFriendlyErrorMessage } from '../utils/error-message.util';
 import { createId, nowIso, secondsBetween, secondsUntil } from '../utils/date-time.util';
 import { HistoryService } from './history.service';
 import { TaskValidationService } from './task-validation.service';
@@ -37,8 +38,12 @@ export class TaskService {
   }
 
   async load(): Promise<void> {
-    const tasks = await this.repository.list();
-    this.tasks.set(tasks.map((task) => this.normalizeTask(task)));
+    try {
+      const tasks = await this.repository.list();
+      this.tasks.set(tasks.map((task) => this.normalizeTask(task)));
+    } catch (error) {
+      this.captureError(error, 'Tasks could not be loaded from local storage.');
+    }
   }
 
   async create(draft: TaskDraft): Promise<boolean> {
@@ -60,14 +65,19 @@ export class TaskService {
       reminderAttemptsShown: 0,
     };
 
-    await this.repository.save(task);
-    this.tasks.update((tasks) =>
-      [...tasks, task].sort((first, second) => first.order - second.order),
-    );
-    this.broadcastChange();
-    await this.history.record('task_created', `Created "${task.name}".`, task.id);
-    this.errorMessage.set('');
-    return true;
+    try {
+      await this.repository.save(task);
+      this.tasks.update((tasks) =>
+        [...tasks, task].sort((first, second) => first.order - second.order),
+      );
+      this.broadcastChange();
+      await this.history.record('task_created', `Created "${task.name}".`, task.id);
+      this.errorMessage.set('');
+      return true;
+    } catch (error) {
+      this.captureError(error, 'Task could not be created.');
+      return false;
+    }
   }
 
   async update(taskId: string, draft: TaskDraft): Promise<boolean> {
@@ -90,10 +100,15 @@ export class TaskService {
       nextReminderAt: current.status === 'active' ? draft.reminderAt : current.nextReminderAt,
     };
 
-    await this.saveAndReplace(updated);
-    await this.history.record('task_edited', `Updated "${updated.name}".`, updated.id);
-    this.errorMessage.set('');
-    return true;
+    try {
+      await this.saveAndReplace(updated);
+      await this.history.record('task_edited', `Updated "${updated.name}".`, updated.id);
+      this.errorMessage.set('');
+      return true;
+    } catch (error) {
+      this.captureError(error, 'Task changes could not be saved.');
+      return false;
+    }
   }
 
   async delete(taskId: string): Promise<void> {
@@ -107,10 +122,14 @@ export class TaskService {
       return;
     }
 
-    await this.repository.delete(taskId);
-    this.tasks.update((tasks) => tasks.filter((item) => item.id !== taskId));
-    this.broadcastChange();
-    await this.history.record('task_deleted', `Deleted "${task.name}".`, task.id);
+    try {
+      await this.repository.delete(taskId);
+      this.tasks.update((tasks) => tasks.filter((item) => item.id !== taskId));
+      this.broadcastChange();
+      await this.history.record('task_deleted', `Deleted "${task.name}".`, task.id);
+    } catch (error) {
+      this.captureError(error, 'Task could not be deleted.');
+    }
   }
 
   async importTasks(importedTasks: Task[]): Promise<void> {
@@ -118,13 +137,17 @@ export class TaskService {
       return;
     }
 
-    await Promise.all(importedTasks.map((task) => this.repository.save(task)));
-    this.tasks.update((tasks) =>
-      [...tasks, ...importedTasks].sort((first, second) => first.order - second.order),
-    );
-    this.broadcastChange();
-    for (const task of importedTasks) {
-      await this.history.record('task_created', `Imported "${task.name}" from CSV.`, task.id);
+    try {
+      await Promise.all(importedTasks.map((task) => this.repository.save(task)));
+      this.tasks.update((tasks) =>
+        [...tasks, ...importedTasks].sort((first, second) => first.order - second.order),
+      );
+      this.broadcastChange();
+      for (const task of importedTasks) {
+        await this.history.record('task_created', `Imported "${task.name}" from CSV.`, task.id);
+      }
+    } catch (error) {
+      this.captureError(error, 'Imported tasks could not be saved.');
     }
   }
 
@@ -138,9 +161,13 @@ export class TaskService {
 
     [tasks[index], tasks[targetIndex]] = [tasks[targetIndex], tasks[index]];
     const reordered = tasks.map((task, order) => ({ ...task, order, updatedAt: nowIso() }));
-    await Promise.all(reordered.map((task) => this.repository.save(task)));
-    this.tasks.set(reordered);
-    this.broadcastChange();
+    try {
+      await Promise.all(reordered.map((task) => this.repository.save(task)));
+      this.tasks.set(reordered);
+      this.broadcastChange();
+    } catch (error) {
+      this.captureError(error, 'Task order could not be updated.');
+    }
   }
 
   async start(taskId: string): Promise<void> {
@@ -168,9 +195,13 @@ export class TaskService {
       updatedAt: startedAt,
     };
 
-    await this.saveAndReplace(updated);
-    await this.history.record('task_started', `Started "${updated.name}".`, updated.id);
-    this.errorMessage.set('');
+    try {
+      await this.saveAndReplace(updated);
+      await this.history.record('task_started', `Started "${updated.name}".`, updated.id);
+      this.errorMessage.set('');
+    } catch (error) {
+      this.captureError(error, 'Task could not be started.');
+    }
   }
 
   async completeActive(): Promise<void> {
@@ -190,8 +221,12 @@ export class TaskService {
       updatedAt: completedAt,
     };
 
-    await this.saveAndReplace(completed);
-    await this.history.record('task_completed', `Completed "${completed.name}".`, completed.id);
+    try {
+      await this.saveAndReplace(completed);
+      await this.history.record('task_completed', `Completed "${completed.name}".`, completed.id);
+    } catch (error) {
+      this.captureError(error, 'Task could not be completed.');
+    }
   }
 
   async addTimeToActive(minutes: number): Promise<void> {
@@ -212,16 +247,20 @@ export class TaskService {
       updatedAt: nowIso(),
     };
 
-    await this.saveAndReplace(updated);
-    await this.history.record(
-      'extra_time_added',
-      `Added ${minutes} minutes to "${updated.name}".`,
-      updated.id,
-      {
-        minutes,
-      },
-    );
-    this.errorMessage.set('');
+    try {
+      await this.saveAndReplace(updated);
+      await this.history.record(
+        'extra_time_added',
+        `Added ${minutes} minutes to "${updated.name}".`,
+        updated.id,
+        {
+          minutes,
+        },
+      );
+      this.errorMessage.set('');
+    } catch (error) {
+      this.captureError(error, 'Extra time could not be applied.');
+    }
   }
 
   async markReminderShown(task: Task): Promise<Task> {
@@ -241,17 +280,22 @@ export class TaskService {
       updatedAt: nowIso(),
     };
 
-    await this.saveAndReplace(updated);
-    await this.history.record(
-      'reminder_shown',
-      `Reminder ${attemptsShown} shown for "${updated.name}".`,
-      updated.id,
-      {
-        attempt: attemptsShown,
-        maxAttempts: updated.reminderCount,
-      },
-    );
-    return updated;
+    try {
+      await this.saveAndReplace(updated);
+      await this.history.record(
+        'reminder_shown',
+        `Reminder ${attemptsShown} shown for "${updated.name}".`,
+        updated.id,
+        {
+          attempt: attemptsShown,
+          maxAttempts: updated.reminderCount,
+        },
+      );
+      return updated;
+    } catch (error) {
+      this.captureError(error, 'Reminder state could not be updated.');
+      return task;
+    }
   }
 
   async pauseActive(now = new Date()): Promise<void> {
@@ -269,9 +313,13 @@ export class TaskService {
       updatedAt: pausedAt,
     };
 
-    await this.saveAndReplace(updated);
-    await this.history.record('task_paused', `Paused "${updated.name}".`, updated.id);
-    this.errorMessage.set('');
+    try {
+      await this.saveAndReplace(updated);
+      await this.history.record('task_paused', `Paused "${updated.name}".`, updated.id);
+      this.errorMessage.set('');
+    } catch (error) {
+      this.captureError(error, 'Task could not be paused.');
+    }
   }
 
   async resumeActive(now = new Date()): Promise<void> {
@@ -293,9 +341,13 @@ export class TaskService {
       updatedAt: resumedAt,
     };
 
-    await this.saveAndReplace(updated);
-    await this.history.record('task_resumed', `Resumed "${updated.name}".`, updated.id);
-    this.errorMessage.set('');
+    try {
+      await this.saveAndReplace(updated);
+      await this.history.record('task_resumed', `Resumed "${updated.name}".`, updated.id);
+      this.errorMessage.set('');
+    } catch (error) {
+      this.captureError(error, 'Task could not be resumed.');
+    }
   }
 
   clearError(): void {
@@ -341,5 +393,9 @@ export class TaskService {
 
   private broadcastChange(): void {
     this.channel?.postMessage('tasks-changed');
+  }
+
+  private captureError(error: unknown, fallback: string): void {
+    this.errorMessage.set(toFriendlyErrorMessage(error, fallback));
   }
 }

@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { App } from './app';
+import { HistoryEvent } from './core/models/history-event';
+import { Task } from './core/models/task';
 
 describe('App', () => {
   const originalAssistantTime = window.assistantTime;
@@ -373,5 +375,50 @@ describe('App', () => {
       height: 320,
       reason: 'reminder-closed',
     });
+  });
+
+  it('should keep pending task rendering bounded for large lists', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const tasks: Task[] = Array.from({ length: 4000 }, (_, index) => ({
+      id: `task_${index}`,
+      name: `Task ${index}`,
+      note: '',
+      category: '',
+      reminderAt: '2026-05-30T10:30:00.000Z',
+      reminderCount: 3,
+      reminderIntervalMinutes: 5,
+      order: index,
+      status: 'pending',
+      createdAt: '2026-05-30T10:00:00.000Z',
+      updatedAt: '2026-05-30T10:00:00.000Z',
+      totalPausedSeconds: 0,
+      reminderAttemptsShown: 0,
+    }));
+
+    app.taskService.tasks.set(tasks);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(app.pendingPageCount()).toBe(1000);
+    expect(app.pagedPendingTasks()).toHaveLength(4);
+  });
+
+  it('should keep history rendering bounded for large event lists', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const events: HistoryEvent[] = Array.from({ length: 5000 }, (_, index) => ({
+      id: `event_${index}`,
+      type: 'task_created',
+      occurredAt: `2026-05-30T10:${String(index % 60).padStart(2, '0')}:00.000Z`,
+      summary: `Event ${index}`,
+    }));
+
+    app.historyService.events.set(events);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(app.historyPageCount()).toBe(1000);
+    expect(app.pagedHistory()).toHaveLength(5);
   });
 });

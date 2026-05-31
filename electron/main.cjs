@@ -18,6 +18,17 @@ const STICKY_NOTE_COLORS = {
   gray: '#e1e1e1',
 };
 const STICKY_NOTE_WIDTH = 460;
+const STICKY_RESIZE_REASONS = new Set([
+  'content-change',
+  'task-count-change',
+  'active-task-change',
+  'settings-note-count-change',
+  'initial-open',
+  'task-content-change',
+  'reminder-opened',
+  'reminder-closed',
+  'color-change',
+]);
 
 let mainWindow;
 let stickyWindow;
@@ -94,6 +105,10 @@ function stickyColorValue(color) {
   return STICKY_NOTE_COLORS[color] ?? STICKY_NOTE_COLORS.yellow;
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function stickyHeightBounds() {
   const minHeight = 240;
   const fallbackMax = 720;
@@ -155,9 +170,13 @@ function createStickyWindow(alwaysOnTop, color) {
 }
 
 ipcMain.handle('assistant-time:set-sticky-window', (_event, options) => {
-  const enabled = Boolean(options?.enabled);
-  const alwaysOnTop = Boolean(options?.alwaysOnTop);
-  const color = typeof options?.color === 'string' ? options.color : 'yellow';
+  if (!isRecord(options)) {
+    return false;
+  }
+
+  const enabled = options.enabled === true;
+  const alwaysOnTop = options.alwaysOnTop === true;
+  const color = typeof options.color === 'string' ? options.color : 'yellow';
 
   if (!enabled) {
     stickyWindow?.close();
@@ -169,11 +188,15 @@ ipcMain.handle('assistant-time:set-sticky-window', (_event, options) => {
 });
 
 ipcMain.handle('assistant-time:set-reminder-overlay-state', (_event, payload) => {
-  const active = Boolean(payload?.active);
+  if (!isRecord(payload)) {
+    return false;
+  }
+
+  const active = payload.active === true;
   const stickyAlwaysOnTop =
-    payload?.stickyAlwaysOnTop === undefined
+    payload.stickyAlwaysOnTop === undefined
       ? stickyAlwaysOnTopPreference
-      : Boolean(payload.stickyAlwaysOnTop);
+      : payload.stickyAlwaysOnTop === true;
   stickyAlwaysOnTopPreference = stickyAlwaysOnTop;
 
   if (!stickyWindow || stickyWindow.isDestroyed()) {
@@ -196,17 +219,21 @@ ipcMain.handle('assistant-time:set-reminder-overlay-state', (_event, payload) =>
 });
 
 ipcMain.handle('assistant-time:resize-sticky-window', (_event, payload) => {
+  if (!isRecord(payload)) {
+    return false;
+  }
+
   if (!stickyWindow || stickyWindow.isDestroyed()) {
     return false;
   }
 
-  const nextHeight = Number(payload?.height);
-  const reason = typeof payload?.reason === 'string' ? payload.reason : 'content-change';
+  const nextHeight = Number(payload.height);
+  const reason = typeof payload.reason === 'string' ? payload.reason : 'content-change';
   if (!Number.isFinite(nextHeight)) {
     return false;
   }
 
-  if (reason === 'color-change') {
+  if (!STICKY_RESIZE_REASONS.has(reason) || reason === 'color-change') {
     return false;
   }
 
@@ -241,9 +268,13 @@ ipcMain.handle('assistant-time:focus-main-window', () => {
 });
 
 ipcMain.handle('assistant-time:notify', (_event, payload) => {
+  if (!isRecord(payload)) {
+    return false;
+  }
+
   const title =
-    typeof payload?.title === 'string' ? payload.title.slice(0, 120) : 'Friendly Task Reminder';
-  const body = typeof payload?.body === 'string' ? payload.body.slice(0, 240) : '';
+    typeof payload.title === 'string' ? payload.title.slice(0, 120) : 'Friendly Task Reminder';
+  const body = typeof payload.body === 'string' ? payload.body.slice(0, 240) : '';
 
   if (Notification.isSupported()) {
     new Notification({ title, body }).show();
@@ -253,10 +284,14 @@ ipcMain.handle('assistant-time:notify', (_event, payload) => {
 });
 
 ipcMain.handle('assistant-time:save-text-file', async (_event, payload) => {
-  const content = typeof payload?.content === 'string' ? payload.content : '';
+  if (!isRecord(payload)) {
+    return { ok: false, canceled: false, error: 'Invalid file payload.' };
+  }
+
+  const content = typeof payload.content === 'string' ? payload.content : '';
   const defaultPath =
-    typeof payload?.defaultPath === 'string' ? payload.defaultPath : 'friendly-task-reminder.csv';
-  const filters = Array.isArray(payload?.filters)
+    typeof payload.defaultPath === 'string' ? payload.defaultPath : 'friendly-task-reminder.csv';
+  const filters = Array.isArray(payload.filters)
     ? payload.filters
         .filter(
           (filter) =>
