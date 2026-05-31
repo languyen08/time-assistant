@@ -28,6 +28,13 @@ describe('CsvService', () => {
     expect(csv).toContain('Study Angular');
   });
 
+  it('exports spreadsheet-friendly local date/time when configured', () => {
+    const csv = service.exportTasks([task], 'yyyy-MM-dd HH:mm');
+
+    expect(csv).not.toContain('2026-05-30T10:00:00.000Z');
+    expect(csv).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
+  });
+
   it('imports valid tasks and avoids duplicate ids', () => {
     const csv = service.exportTasks([task]);
     const result = service.importTasks(csv, [task]);

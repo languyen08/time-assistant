@@ -1,4 +1,5 @@
 export type AppTheme = 'light' | 'dark' | 'system';
+export type StickyNoteColor = 'yellow' | 'green' | 'pink' | 'purple' | 'blue' | 'gray';
 
 export interface AppSettings {
   id: 'app';
@@ -10,7 +11,8 @@ export interface AppSettings {
   notificationSoundId: string;
   stickyNoteEnabled: boolean;
   stickyNoteAlwaysOnTop: boolean;
-  calendarIntegrationEnabled: boolean;
+  stickyNoteColor: StickyNoteColor;
+  stickyVisibleNotes: number;
   csvDateTimeFormat: string;
 }
 
@@ -24,6 +26,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   notificationSoundId: 'soft-chime',
   stickyNoteEnabled: false,
   stickyNoteAlwaysOnTop: true,
-  calendarIntegrationEnabled: false,
+  stickyNoteColor: 'yellow',
+  stickyVisibleNotes: 2,
   csvDateTimeFormat: "yyyy-MM-dd'T'HH:mm:ssxxx",
 };

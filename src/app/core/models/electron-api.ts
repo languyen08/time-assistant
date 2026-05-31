@@ -1,11 +1,44 @@
+import { StickyNoteColor } from './app-settings';
+
 export interface AssistantTimeApi {
   platform: string;
+  closeApp: () => Promise<boolean>;
   focusMainWindow: () => Promise<boolean>;
+  minimizeStickyWindow: () => Promise<boolean>;
   notify: (payload: { title: string; body: string }) => Promise<boolean>;
   openTextFile: () => Promise<FileOpenResult>;
-  saveTextFile: (payload: { defaultPath: string; content: string }) => Promise<FileSaveResult>;
-  setStickyWindow: (options: { enabled: boolean; alwaysOnTop: boolean }) => Promise<boolean>;
+  setReminderOverlayState: (payload: {
+    active: boolean;
+    stickyAlwaysOnTop: boolean;
+  }) => Promise<boolean>;
+  saveTextFile: (payload: {
+    defaultPath: string;
+    content: string;
+    filters?: FileDialogFilter[];
+  }) => Promise<FileSaveResult>;
+  resizeStickyWindow: (payload: { height: number; reason: StickyResizeReason }) => Promise<boolean>;
+  setStickyWindow: (options: {
+    enabled: boolean;
+    alwaysOnTop: boolean;
+    color: StickyNoteColor;
+  }) => Promise<boolean>;
 }
+
+export interface FileDialogFilter {
+  name: string;
+  extensions: string[];
+}
+
+export type StickyResizeReason =
+  | 'content-change'
+  | 'task-count-change'
+  | 'active-task-change'
+  | 'settings-note-count-change'
+  | 'initial-open'
+  | 'task-content-change'
+  | 'reminder-opened'
+  | 'reminder-closed'
+  | 'color-change';
 
 export interface FileOpenResult {
   ok: boolean;

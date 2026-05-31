@@ -11,3 +11,17 @@ body {
 body {
   overflow: auto;
 }
+
+body.sticky-mode {
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  background: transparent;
+}
+
+html.sticky-mode {
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  background: transparent;
+}

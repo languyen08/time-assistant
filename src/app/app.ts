@@ -1,9 +1,10 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
-import { AppTheme } from './core/models/app-settings';
+import { AppTheme, StickyNoteColor } from './core/models/app-settings';
+import { StickyResizeReason } from './core/models/electron-api';
 import { Task, TaskDraft } from './core/models/task';
 import { BreakService } from './core/services/break.service';
 import { ChartSummaryService } from './core/services/chart-summary.service';
@@ -28,7 +29,18 @@ import {
   styleUrl: './app.css',
 })
 export class App implements OnInit, OnDestroy {
+  private readonly stickyQueueNoteEstimatedHeight = 94;
+  private readonly stickyWindowVerticalPadding = 16;
+  private readonly stickyResizeThresholdPx = 2;
+  private readonly stickyColorResizeSuppressMs = 250;
   private readonly historyPageSize = 5;
+  private readonly pendingPageSize = 4;
+  private stickyResizeFrameOne: number | undefined;
+  private stickyResizeFrameTwo: number | undefined;
+  private stickyResizeObserver: ResizeObserver | undefined;
+  private lastStickyMeasuredHeight = 0;
+  private suppressStickyResizeUntil = 0;
+  private lastStickyReminderVisible = false;
   private readonly formBuilder = inject(FormBuilder);
   readonly taskService = inject(TaskService);
   readonly settingsService = inject(SettingsService);
@@ -39,33 +51,56 @@ export class App implements OnInit, OnDestroy {
   readonly notificationService = inject(NotificationService);
   private readonly chartSummary = inject(ChartSummaryService);
   private readonly csv = inject(CsvService);
-  private readonly electron = inject(ElectronBridgeService);
+  readonly electron = inject(ElectronBridgeService);
 
-  readonly title = signal('Friendly Task Reminder');
   readonly loading = signal(true);
   readonly editingTaskId = signal<string | undefined>(undefined);
   readonly exportStatus = signal('');
   readonly importStatus = signal('');
   readonly importErrors = signal<string[]>([]);
+  readonly settingsStatus = signal('');
+  readonly settingsOpen = signal(false);
+  readonly csvOpen = signal(false);
+  readonly historyOpen = signal(true);
   readonly historyPage = signal(0);
+  readonly pendingPage = signal(0);
+  readonly stickyQueueTrim = signal(0);
   readonly extensionMinutes = signal(10);
   readonly breakMinutes = signal(10);
   readonly isStickyMode = signal(
     new URLSearchParams(window.location.search).get('window') === 'sticky',
   );
   readonly theme = computed(() => this.settingsService.settings().theme);
+  readonly stickyNoteColor = computed(() => this.settingsService.settings().stickyNoteColor);
+  readonly stickyVisibleNotes = computed(() =>
+    Math.min(5, Math.max(1, this.settingsService.settings().stickyVisibleNotes)),
+  );
   readonly activeTask = this.taskService.activeTask;
   readonly currentTask = this.taskService.currentTask;
   readonly pendingTasks = this.taskService.pendingTasks;
   readonly completedTasks = this.taskService.completedTasks;
   readonly nextTaskCandidate = this.taskService.nextTaskCandidate;
+  readonly currentHistoryPage = computed(() =>
+    Math.min(this.historyPage(), this.historyPageCount() - 1),
+  );
+  readonly pendingPageCount = computed(() =>
+    Math.max(1, Math.ceil(this.pendingTasks().length / this.pendingPageSize)),
+  );
+  readonly currentPendingPage = computed(() =>
+    Math.min(this.pendingPage(), this.pendingPageCount() - 1),
+  );
   readonly historyPageCount = computed(() =>
     Math.max(1, Math.ceil(this.historyService.events().length / this.historyPageSize)),
   );
   readonly pagedHistory = computed(() => {
-    const page = Math.min(this.historyPage(), this.historyPageCount() - 1);
+    const page = this.currentHistoryPage();
     const start = page * this.historyPageSize;
     return this.historyService.events().slice(start, start + this.historyPageSize);
+  });
+  readonly pagedPendingTasks = computed(() => {
+    const page = this.currentPendingPage();
+    const start = page * this.pendingPageSize;
+    return this.pendingTasks().slice(start, start + this.pendingPageSize);
   });
   readonly completedTasksChart = computed(() =>
     this.chartSummary.completedTasksPerDay(this.taskService.tasks()),
@@ -80,6 +115,20 @@ export class App implements OnInit, OnDestroy {
     this.chartSummary.reminderSummary(this.historyService.events()),
   );
   readonly barChartOptions = this.chartSummary.chartOptions;
+  readonly stickyNoteColors: readonly StickyNoteColor[] = [
+    'yellow',
+    'green',
+    'pink',
+    'purple',
+    'blue',
+    'gray',
+  ];
+  readonly stickyVisibleQueueTasks = computed(() =>
+    this.pendingTasks().slice(
+      0,
+      Math.max(0, this.stickyVisibleNotes() - 1 - this.stickyQueueTrim()),
+    ),
+  );
   private notifiedReminderKey = '';
 
   readonly taskForm = this.formBuilder.nonNullable.group({
@@ -93,8 +142,26 @@ export class App implements OnInit, OnDestroy {
 
   constructor() {
     effect(() => {
+      const stickyMode = this.isStickyMode();
+      document.body.classList.toggle('sticky-mode', stickyMode);
+      document.documentElement.classList.toggle('sticky-mode', stickyMode);
+      if (stickyMode) {
+        this.setupStickyResizeObserver();
+      } else {
+        this.teardownStickyResizeObserver();
+      }
+    });
+
+    effect(() => {
       const reminder = this.reminderScheduler.activeReminder();
       const settings = this.settingsService.settings();
+      if (this.electron.isElectron && !this.isStickyMode()) {
+        void this.electron.setReminderOverlayState(
+          Boolean(reminder),
+          settings.stickyNoteAlwaysOnTop,
+        );
+      }
+
       if (!reminder) {
         return;
       }
@@ -106,6 +173,55 @@ export class App implements OnInit, OnDestroy {
 
       this.notifiedReminderKey = key;
       void this.notificationService.showReminder(reminder, settings);
+    });
+
+    effect(() => {
+      if (!this.isStickyMode()) {
+        return;
+      }
+
+      const activeTask = this.currentTask();
+      activeTask?.id;
+      activeTask?.status;
+      activeTask?.name;
+      activeTask?.category;
+      activeTask?.note;
+      this.nextTaskCandidate()?.id;
+      this.scheduleStickyResize('active-task-change');
+    });
+
+    effect(() => {
+      if (!this.isStickyMode()) {
+        return;
+      }
+
+      this.pendingTasks().length;
+      this.scheduleStickyResize('task-count-change');
+    });
+
+    effect(() => {
+      if (!this.isStickyMode()) {
+        this.lastStickyReminderVisible = false;
+        return;
+      }
+
+      this.settingsService.settings().stickyVisibleNotes;
+      this.stickyQueueTrim();
+      this.scheduleStickyResize('settings-note-count-change');
+    });
+
+    effect(() => {
+      const stickyMode = this.isStickyMode();
+      const reminderVisible = Boolean(this.reminderScheduler.activeReminder());
+      if (!stickyMode) {
+        this.lastStickyReminderVisible = false;
+        return;
+      }
+
+      if (reminderVisible !== this.lastStickyReminderVisible) {
+        this.lastStickyReminderVisible = reminderVisible;
+        this.scheduleStickyResize(reminderVisible ? 'reminder-opened' : 'reminder-closed');
+      }
     });
   }
 
@@ -120,12 +236,11 @@ export class App implements OnInit, OnDestroy {
         await this.settingsService.update({ stickyNoteEnabled: true });
       }
       this.breakMinutes.set(this.settingsService.settings().defaultBreakMinutes);
-      if (!this.isStickyMode()) {
-        await this.syncStickyWindow();
-      }
+      await this.syncStickyWindow();
       this.resetForm();
       this.timerService.start();
       this.reminderScheduler.start();
+      this.scheduleStickyResize('initial-open');
     } catch (error) {
       this.taskService.errorMessage.set(
         error instanceof Error ? error.message : 'The app could not load local data.',
@@ -136,8 +251,12 @@ export class App implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    document.documentElement.classList.remove('sticky-mode');
+    document.body.classList.remove('sticky-mode');
+    this.teardownStickyResizeObserver();
     this.timerService.stop();
     this.reminderScheduler.stop();
+    this.cancelStickyResizeFrames();
   }
 
   async saveTask(): Promise<void> {
@@ -228,6 +347,64 @@ export class App implements OnInit, OnDestroy {
     });
   }
 
+  async setNotificationSound(event: Event): Promise<void> {
+    await this.settingsService.update({
+      notificationSoundId: (event.target as HTMLSelectElement).value,
+    });
+    this.settingsStatus.set('Notification sound updated.');
+  }
+
+  async setDefaultBreakMinutes(event: Event): Promise<void> {
+    await this.settingsService.update({
+      defaultBreakMinutes: this.safeInteger(event, 1, 120, 10),
+    });
+    this.breakMinutes.set(this.settingsService.settings().defaultBreakMinutes);
+    this.settingsStatus.set('Default break duration updated.');
+  }
+
+  async setDefaultReminderRepeat(event: Event): Promise<void> {
+    await this.settingsService.update({
+      defaultReminderRepeatMinutes: this.safeInteger(event, 1, 240, 5),
+    });
+    this.resetForm();
+    this.settingsStatus.set('Default reminder repeat updated.');
+  }
+
+  async setDefaultReminderCount(event: Event): Promise<void> {
+    await this.settingsService.update({
+      defaultReminderCount: this.safeInteger(event, 1, 20, 3),
+    });
+    this.resetForm();
+    this.settingsStatus.set('Default reminder attempts updated.');
+  }
+
+  async setCsvDateTimeFormat(event: Event): Promise<void> {
+    await this.settingsService.update({
+      csvDateTimeFormat: (event.target as HTMLSelectElement).value,
+    });
+    this.settingsStatus.set('CSV date/time format updated.');
+  }
+
+  openSettings(): void {
+    this.settingsOpen.set(true);
+  }
+
+  closeSettings(): void {
+    this.settingsOpen.set(false);
+  }
+
+  openCsv(): void {
+    this.csvOpen.set(true);
+  }
+
+  closeCsv(): void {
+    this.csvOpen.set(false);
+  }
+
+  toggleHistory(): void {
+    this.historyOpen.update((open) => !open);
+  }
+
   async setStickyEnabled(event: Event): Promise<void> {
     await this.settingsService.update({
       stickyNoteEnabled: (event.target as HTMLInputElement).checked,
@@ -240,6 +417,25 @@ export class App implements OnInit, OnDestroy {
       stickyNoteAlwaysOnTop: (event.target as HTMLInputElement).checked,
     });
     await this.syncStickyWindow();
+  }
+
+  async setStickyNoteColor(color: StickyNoteColor): Promise<void> {
+    if (this.settingsService.settings().stickyNoteColor === color) {
+      return;
+    }
+
+    this.suppressStickyResizeUntil = performance.now() + this.stickyColorResizeSuppressMs;
+    this.cancelStickyResizeFrames();
+    await this.settingsService.update({ stickyNoteColor: color });
+    await this.syncStickyWindow();
+  }
+
+  async setStickyVisibleNotes(event: Event): Promise<void> {
+    await this.settingsService.update({
+      stickyVisibleNotes: this.safeInteger(event, 1, 5, 2),
+    });
+    this.stickyQueueTrim.set(0);
+    this.scheduleStickyResize('settings-note-count-change');
   }
 
   async startBreak(): Promise<void> {
@@ -270,23 +466,31 @@ export class App implements OnInit, OnDestroy {
     await this.electron.focusMainWindow();
   }
 
+  async minimizeStickyWindow(): Promise<void> {
+    await this.electron.minimizeStickyWindow();
+  }
+
   async openStickyWindow(): Promise<void> {
     await this.settingsService.update({ stickyNoteEnabled: true });
     await this.syncStickyWindow();
   }
 
   async closeStickyWindow(): Promise<void> {
+    if (this.electron.isElectron) {
+      await this.electron.closeApp();
+      return;
+    }
+
     await this.settingsService.update({ stickyNoteEnabled: false });
-    await this.electron.setStickyWindow(
-      false,
-      this.settingsService.settings().stickyNoteAlwaysOnTop,
-    );
   }
 
   async exportTasksCsv(): Promise<void> {
     await this.saveCsvFile(
       `friendly-task-reminder-tasks-${this.dateStamp()}.csv`,
-      this.csv.exportTasks(this.taskService.tasks()),
+      this.csv.exportTasks(
+        this.taskService.tasks(),
+        this.settingsService.settings().csvDateTimeFormat,
+      ),
       'Tasks CSV exported.',
     );
   }
@@ -294,7 +498,10 @@ export class App implements OnInit, OnDestroy {
   async exportHistoryCsv(): Promise<void> {
     await this.saveCsvFile(
       `friendly-task-reminder-history-${this.dateStamp()}.csv`,
-      this.csv.exportHistory(this.historyService.events()),
+      this.csv.exportHistory(
+        this.historyService.events(),
+        this.settingsService.settings().csvDateTimeFormat,
+      ),
       'History CSV exported.',
     );
   }
@@ -332,12 +539,65 @@ export class App implements OnInit, OnDestroy {
     input.value = '';
   }
 
+  async resetSettings(): Promise<void> {
+    await this.settingsService.reset();
+    this.breakMinutes.set(this.settingsService.settings().defaultBreakMinutes);
+    this.resetForm();
+    await this.syncStickyWindow();
+    this.settingsStatus.set('Settings reset to defaults.');
+  }
+
   previousHistoryPage(): void {
-    this.historyPage.update((page) => Math.max(0, page - 1));
+    this.historyPage.set(Math.max(0, this.currentHistoryPage() - 1));
   }
 
   nextHistoryPage(): void {
-    this.historyPage.update((page) => Math.min(this.historyPageCount() - 1, page + 1));
+    this.historyPage.set(Math.min(this.historyPageCount() - 1, this.currentHistoryPage() + 1));
+  }
+
+  previousPendingPage(): void {
+    this.pendingPage.set(Math.max(0, this.currentPendingPage() - 1));
+  }
+
+  nextPendingPage(): void {
+    this.pendingPage.set(Math.min(this.pendingPageCount() - 1, this.currentPendingPage() + 1));
+  }
+
+  controlInvalid(
+    name: 'name' | 'reminderAt' | 'reminderCount' | 'reminderIntervalMinutes',
+  ): boolean {
+    const control = this.taskControl(name);
+    return control.invalid && (control.touched || control.dirty);
+  }
+
+  controlError(
+    name: 'name' | 'reminderAt' | 'reminderCount' | 'reminderIntervalMinutes',
+    error: 'required' | 'min' | 'max',
+  ): boolean {
+    const control = this.taskControl(name);
+    return this.controlInvalid(name) && control.hasError(error);
+  }
+
+  isPendingFirst(taskId: string): boolean {
+    return this.pendingTasks()[0]?.id === taskId;
+  }
+
+  isPendingLast(taskId: string): boolean {
+    return this.pendingTasks().at(-1)?.id === taskId;
+  }
+
+  stickyNoteColorLabel(color: StickyNoteColor): string {
+    return `${color.charAt(0).toUpperCase()}${color.slice(1)} note`;
+  }
+
+  stickyTaskStateLabel(task: Task): string {
+    return task.status === 'paused' ? 'Paused' : 'In focus';
+  }
+
+  stickyTaskPositionLabel(index: number): string {
+    const total = this.pendingTasks().length + (this.currentTask() ? 1 : 0);
+    const offset = this.currentTask() ? 2 : 1;
+    return `Task ${index + offset} of ${Math.max(total, index + offset)}`;
   }
 
   elapsedFor(task: Task | undefined): string {
@@ -360,7 +620,132 @@ export class App implements OnInit, OnDestroy {
     return this.electron.setStickyWindow(
       settings.stickyNoteEnabled,
       settings.stickyNoteAlwaysOnTop,
+      settings.stickyNoteColor,
     );
+  }
+
+  private scheduleStickyResize(reason: StickyResizeReason): void {
+    if (!this.isStickyMode() || !this.electron.isElectron) {
+      return;
+    }
+
+    if (reason === 'color-change') {
+      return;
+    }
+
+    this.setupStickyResizeObserver();
+    this.cancelStickyResizeFrames();
+    this.stickyResizeFrameOne = requestAnimationFrame(() => {
+      this.stickyResizeFrameOne = undefined;
+      this.stickyResizeFrameTwo = requestAnimationFrame(() => {
+        this.stickyResizeFrameTwo = undefined;
+        this.measureAndResizeStickyWindow(reason);
+      });
+    });
+  }
+
+  private stickyContentRoot(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('[data-sticky-note-measure-root]');
+  }
+
+  private stickyReminderHeight(): number {
+    const reminderPanel = document.querySelector<HTMLElement>('.friendly-reminder');
+    if (!reminderPanel) {
+      return 0;
+    }
+
+    const backdrop = reminderPanel.closest<HTMLElement>('.friendly-backdrop');
+    const panelHeight = Math.ceil(
+      Math.max(reminderPanel.getBoundingClientRect().height, reminderPanel.offsetHeight),
+    );
+    if (!backdrop) {
+      return panelHeight;
+    }
+
+    const backdropStyle = getComputedStyle(backdrop);
+    const verticalPadding =
+      parseFloat(backdropStyle.paddingTop || '0') + parseFloat(backdropStyle.paddingBottom || '0');
+    return Math.ceil(panelHeight + verticalPadding);
+  }
+
+  private measureAndResizeStickyWindow(reason: StickyResizeReason): void {
+    if (reason === 'content-change' && performance.now() < this.suppressStickyResizeUntil) {
+      return;
+    }
+
+    const stickyContentRoot = this.stickyContentRoot();
+    if (!stickyContentRoot) {
+      return;
+    }
+
+    const stickyHeight = Math.ceil(
+      Math.max(stickyContentRoot.getBoundingClientRect().height, stickyContentRoot.offsetHeight),
+    );
+    const height = Math.max(stickyHeight, this.stickyReminderHeight());
+    if (!Number.isFinite(height) || height <= 0) {
+      return;
+    }
+
+    const maxAllowedHeight = Math.max(
+      280,
+      window.screen.availHeight - this.stickyWindowVerticalPadding,
+    );
+    const overflow = Math.max(0, height - maxAllowedHeight);
+    const desiredTrim =
+      overflow === 0 ? 0 : Math.ceil(overflow / this.stickyQueueNoteEstimatedHeight);
+    const maxQueueCards = Math.max(0, this.stickyVisibleNotes() - 1);
+    const boundedTrim = Math.min(maxQueueCards, desiredTrim);
+    if (boundedTrim !== this.stickyQueueTrim()) {
+      this.stickyQueueTrim.set(boundedTrim);
+      return;
+    }
+
+    const heightDelta = Math.abs(height - this.lastStickyMeasuredHeight);
+    if (this.lastStickyMeasuredHeight > 0 && heightDelta <= this.stickyResizeThresholdPx) {
+      return;
+    }
+
+    this.lastStickyMeasuredHeight = height;
+    void this.electron.resizeStickyWindow(height, reason);
+  }
+
+  private setupStickyResizeObserver(): void {
+    if (!this.isStickyMode() || this.stickyResizeObserver) {
+      return;
+    }
+
+    const stickyContentRoot = this.stickyContentRoot();
+    if (!stickyContentRoot) {
+      return;
+    }
+
+    this.stickyResizeObserver = new ResizeObserver(() => {
+      if (performance.now() < this.suppressStickyResizeUntil) {
+        return;
+      }
+
+      this.scheduleStickyResize('content-change');
+    });
+    this.stickyResizeObserver.observe(stickyContentRoot);
+  }
+
+  private teardownStickyResizeObserver(): void {
+    this.stickyResizeObserver?.disconnect();
+    this.stickyResizeObserver = undefined;
+    this.cancelStickyResizeFrames();
+    this.lastStickyMeasuredHeight = 0;
+  }
+
+  private cancelStickyResizeFrames(): void {
+    if (this.stickyResizeFrameOne !== undefined) {
+      cancelAnimationFrame(this.stickyResizeFrameOne);
+      this.stickyResizeFrameOne = undefined;
+    }
+
+    if (this.stickyResizeFrameTwo !== undefined) {
+      cancelAnimationFrame(this.stickyResizeFrameTwo);
+      this.stickyResizeFrameTwo = undefined;
+    }
   }
 
   private async saveCsvFile(
@@ -371,7 +756,9 @@ export class App implements OnInit, OnDestroy {
     this.exportStatus.set('');
 
     if (this.electron.isElectron) {
-      const result = await this.electron.saveTextFile(defaultPath, content);
+      const result = await this.electron.saveTextFile(defaultPath, content, [
+        { name: 'CSV files', extensions: ['csv'] },
+      ]);
       if (result.canceled) {
         return;
       }
@@ -408,6 +795,15 @@ export class App implements OnInit, OnDestroy {
     return new Date().toISOString().slice(0, 10);
   }
 
+  private safeInteger(event: Event, min: number, max: number, fallback: number): number {
+    const value = Number((event.target as HTMLInputElement | HTMLSelectElement).value);
+    if (!Number.isFinite(value)) {
+      return fallback;
+    }
+
+    return Math.min(max, Math.max(min, Math.floor(value)));
+  }
+
   private formToDraft(): TaskDraft {
     const value = this.taskForm.getRawValue();
     return {
@@ -418,5 +814,11 @@ export class App implements OnInit, OnDestroy {
       category: value.category,
       note: value.note,
     };
+  }
+
+  private taskControl(
+    name: 'name' | 'reminderAt' | 'reminderCount' | 'reminderIntervalMinutes',
+  ): AbstractControl {
+    return this.taskForm.controls[name];
   }
 }

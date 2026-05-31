@@ -1,11 +1,25 @@
 import { Injectable } from '@angular/core';
-import { FileOpenResult, FileSaveResult } from '../models/electron-api';
+import { StickyNoteColor } from '../models/app-settings';
+import {
+  FileDialogFilter,
+  FileOpenResult,
+  FileSaveResult,
+  StickyResizeReason,
+} from '../models/electron-api';
 import '../models/electron-api';
 
 @Injectable({ providedIn: 'root' })
 export class ElectronBridgeService {
   get isElectron(): boolean {
     return Boolean(window.assistantTime);
+  }
+
+  closeApp(): Promise<boolean> {
+    return window.assistantTime?.closeApp() ?? Promise.resolve(false);
+  }
+
+  minimizeStickyWindow(): Promise<boolean> {
+    return window.assistantTime?.minimizeStickyWindow() ?? Promise.resolve(false);
   }
 
   notify(title: string, body: string): Promise<boolean> {
@@ -16,16 +30,36 @@ export class ElectronBridgeService {
     return window.assistantTime?.openTextFile() ?? Promise.resolve({ ok: false, canceled: true });
   }
 
-  saveTextFile(defaultPath: string, content: string): Promise<FileSaveResult> {
+  setReminderOverlayState(active: boolean, stickyAlwaysOnTop: boolean): Promise<boolean> {
     return (
-      window.assistantTime?.saveTextFile({ defaultPath, content }) ??
+      window.assistantTime?.setReminderOverlayState({ active, stickyAlwaysOnTop }) ??
+      Promise.resolve(false)
+    );
+  }
+
+  saveTextFile(
+    defaultPath: string,
+    content: string,
+    filters?: FileDialogFilter[],
+  ): Promise<FileSaveResult> {
+    return (
+      window.assistantTime?.saveTextFile({ defaultPath, content, filters }) ??
       Promise.resolve({ ok: false, canceled: true })
     );
   }
 
-  setStickyWindow(enabled: boolean, alwaysOnTop: boolean): Promise<boolean> {
+  resizeStickyWindow(height: number, reason: StickyResizeReason): Promise<boolean> {
+    return window.assistantTime?.resizeStickyWindow({ height, reason }) ?? Promise.resolve(false);
+  }
+
+  setStickyWindow(
+    enabled: boolean,
+    alwaysOnTop: boolean,
+    color: StickyNoteColor,
+  ): Promise<boolean> {
     return (
-      window.assistantTime?.setStickyWindow({ enabled, alwaysOnTop }) ?? Promise.resolve(false)
+      window.assistantTime?.setStickyWindow({ enabled, alwaysOnTop, color }) ??
+      Promise.resolve(false)
     );
   }
 

@@ -49,37 +49,37 @@ export interface TaskImportResult {
 
 @Injectable({ providedIn: 'root' })
 export class CsvService {
-  exportTasks(tasks: Task[]): string {
+  exportTasks(tasks: Task[], dateTimeFormat = "yyyy-MM-dd'T'HH:mm:ssxxx"): string {
     const rows: TaskCsvRow[] = tasks.map((task) => ({
       id: task.id,
       name: task.name,
       note: task.note,
       category: task.category,
-      reminderAt: task.reminderAt,
+      reminderAt: this.formatDateTime(task.reminderAt, dateTimeFormat),
       reminderCount: String(task.reminderCount),
       reminderIntervalMinutes: String(task.reminderIntervalMinutes),
       status: task.status,
       order: String(task.order),
-      createdAt: task.createdAt,
-      updatedAt: task.updatedAt,
-      activeStartedAt: task.activeStartedAt ?? '',
-      pausedAt: task.pausedAt ?? '',
+      createdAt: this.formatDateTime(task.createdAt, dateTimeFormat),
+      updatedAt: this.formatDateTime(task.updatedAt, dateTimeFormat),
+      activeStartedAt: this.formatDateTime(task.activeStartedAt, dateTimeFormat),
+      pausedAt: this.formatDateTime(task.pausedAt, dateTimeFormat),
       pausedRemainingSeconds: task.pausedRemainingSeconds?.toString() ?? '',
       totalPausedSeconds: String(task.totalPausedSeconds ?? 0),
-      completedAt: task.completedAt ?? '',
-      nextReminderAt: task.nextReminderAt ?? '',
+      completedAt: this.formatDateTime(task.completedAt, dateTimeFormat),
+      nextReminderAt: this.formatDateTime(task.nextReminderAt, dateTimeFormat),
       reminderAttemptsShown: String(task.reminderAttemptsShown ?? 0),
     }));
 
     return Papa.unparse(rows, { columns: [...TASK_HEADERS] });
   }
 
-  exportHistory(events: HistoryEvent[]): string {
+  exportHistory(events: HistoryEvent[], dateTimeFormat = "yyyy-MM-dd'T'HH:mm:ssxxx"): string {
     const rows: HistoryCsvRow[] = events.map((event) => ({
       id: event.id,
       type: event.type,
       taskId: event.taskId ?? '',
-      occurredAt: event.occurredAt,
+      occurredAt: this.formatDateTime(event.occurredAt, dateTimeFormat),
       summary: event.summary,
       metadataJson: event.metadata ? JSON.stringify(event.metadata) : '',
     }));
@@ -225,5 +225,31 @@ export class CsvService {
 
   private isIsoDate(value: string): boolean {
     return Boolean(value && !Number.isNaN(new Date(value).getTime()));
+  }
+
+  private formatDateTime(value: string | undefined, format: string): string {
+    if (!value) {
+      return '';
+    }
+
+    if (format !== 'yyyy-MM-dd HH:mm') {
+      return value;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    const year = date.getFullYear();
+    const month = this.pad(date.getMonth() + 1);
+    const day = this.pad(date.getDate());
+    const hours = this.pad(date.getHours());
+    const minutes = this.pad(date.getMinutes());
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  }
+
+  private pad(value: number): string {
+    return String(value).padStart(2, '0');
   }
 }

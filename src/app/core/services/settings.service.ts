@@ -16,4 +16,9 @@ export class SettingsService {
     this.settings.set(nextSettings);
     await this.repository.save(nextSettings);
   }
+
+  async reset(): Promise<void> {
+    this.settings.set(DEFAULT_APP_SETTINGS);
+    await this.repository.save(DEFAULT_APP_SETTINGS);
+  }
 }

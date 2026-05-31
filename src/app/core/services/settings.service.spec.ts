@@ -27,4 +27,27 @@ describe('SettingsService', () => {
     expect(service.settings().notificationSoundEnabled).toBe(false);
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }));
   });
+
+  it('resets settings to defaults', async () => {
+    const save = vi.fn(async () => undefined);
+    TestBed.configureTestingModule({
+      providers: [
+        SettingsService,
+        {
+          provide: SettingsRepository,
+          useValue: {
+            get: vi.fn(async () => ({ ...DEFAULT_APP_SETTINGS, theme: 'dark' })),
+            save,
+          },
+        },
+      ],
+    });
+
+    const service = TestBed.inject(SettingsService);
+    await service.load();
+    await service.reset();
+
+    expect(service.settings()).toEqual(DEFAULT_APP_SETTINGS);
+    expect(save).toHaveBeenCalledWith(DEFAULT_APP_SETTINGS);
+  });
 });

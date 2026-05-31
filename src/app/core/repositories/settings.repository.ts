@@ -11,7 +11,7 @@ export class SettingsRepository {
   async get(): Promise<AppSettings> {
     const settings = await this.storage.get<AppSettings>(SETTINGS_STORE, DEFAULT_APP_SETTINGS.id);
     if (settings) {
-      return settings;
+      return { ...DEFAULT_APP_SETTINGS, ...settings };
     }
 
     await this.save(DEFAULT_APP_SETTINGS);

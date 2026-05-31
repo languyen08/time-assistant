@@ -1,15 +1,27 @@
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs/promises');
-const { app, BrowserWindow, Menu, Notification, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, screen } = require('electron');
 
 const isSmokeTest = process.argv.includes('--smoke-test');
 if (isSmokeTest) {
   app.setPath('userData', path.join(os.tmpdir(), `friendly-task-reminder-smoke-${process.pid}`));
   app.disableHardwareAcceleration();
 }
+
+const STICKY_NOTE_COLORS = {
+  yellow: '#f7efb0',
+  green: '#cfe6d2',
+  pink: '#f7d8df',
+  purple: '#e2d8f2',
+  blue: '#d4e5f7',
+  gray: '#e1e1e1',
+};
+const STICKY_NOTE_WIDTH = 460;
+
 let mainWindow;
 let stickyWindow;
+let stickyAlwaysOnTopPreference = true;
 
 function rendererEntry(windowMode) {
   const devServerUrl = process.env.ELECTRON_RENDERER_URL;
@@ -78,24 +90,47 @@ function createMainWindow() {
   return mainWindow;
 }
 
-function createStickyWindow(alwaysOnTop) {
+function stickyColorValue(color) {
+  return STICKY_NOTE_COLORS[color] ?? STICKY_NOTE_COLORS.yellow;
+}
+
+function stickyHeightBounds() {
+  const minHeight = 240;
+  const fallbackMax = 720;
+  if (!stickyWindow || stickyWindow.isDestroyed()) {
+    return { minHeight, maxHeight: fallbackMax };
+  }
+
+  const display = screen.getDisplayMatching(stickyWindow.getBounds());
+  const maxHeight = Math.max(minHeight + 40, display.workAreaSize.height - 16);
+  return { minHeight, maxHeight };
+}
+
+function createStickyWindow(alwaysOnTop, color) {
+  stickyAlwaysOnTopPreference = alwaysOnTop;
   if (stickyWindow && !stickyWindow.isDestroyed()) {
     stickyWindow.setAlwaysOnTop(alwaysOnTop);
+    stickyWindow.setBackgroundColor(stickyColorValue(color));
+    stickyWindow.setIgnoreMouseEvents(false);
     stickyWindow.show();
     return stickyWindow;
   }
 
   stickyWindow = new BrowserWindow({
-    width: 340,
-    height: 420,
-    minWidth: 300,
-    minHeight: 320,
+    width: STICKY_NOTE_WIDTH,
+    height: 360,
+    useContentSize: true,
+    minWidth: STICKY_NOTE_WIDTH,
+    maxWidth: STICKY_NOTE_WIDTH,
+    minHeight: 240,
+    maxHeight: Math.max(280, screen.getPrimaryDisplay().workAreaSize.height - 16),
     title: 'Task Sticky Note',
-    backgroundColor: '#fff2a8',
+    backgroundColor: stickyColorValue(color),
     alwaysOnTop,
     autoHideMenuBar: true,
     frame: false,
-    resizable: true,
+    resizable: false,
+    maximizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -122,13 +157,76 @@ function createStickyWindow(alwaysOnTop) {
 ipcMain.handle('assistant-time:set-sticky-window', (_event, options) => {
   const enabled = Boolean(options?.enabled);
   const alwaysOnTop = Boolean(options?.alwaysOnTop);
+  const color = typeof options?.color === 'string' ? options.color : 'yellow';
 
   if (!enabled) {
     stickyWindow?.close();
     return true;
   }
 
-  createStickyWindow(alwaysOnTop);
+  createStickyWindow(alwaysOnTop, color);
+  return true;
+});
+
+ipcMain.handle('assistant-time:set-reminder-overlay-state', (_event, payload) => {
+  const active = Boolean(payload?.active);
+  const stickyAlwaysOnTop =
+    payload?.stickyAlwaysOnTop === undefined
+      ? stickyAlwaysOnTopPreference
+      : Boolean(payload.stickyAlwaysOnTop);
+  stickyAlwaysOnTopPreference = stickyAlwaysOnTop;
+
+  if (!stickyWindow || stickyWindow.isDestroyed()) {
+    return false;
+  }
+
+  if (active) {
+    stickyWindow.setAlwaysOnTop(false);
+    stickyWindow.setIgnoreMouseEvents(true, { forward: true });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+    return true;
+  }
+
+  stickyWindow.setIgnoreMouseEvents(false);
+  stickyWindow.setAlwaysOnTop(stickyAlwaysOnTopPreference);
+  return true;
+});
+
+ipcMain.handle('assistant-time:resize-sticky-window', (_event, payload) => {
+  if (!stickyWindow || stickyWindow.isDestroyed()) {
+    return false;
+  }
+
+  const nextHeight = Number(payload?.height);
+  const reason = typeof payload?.reason === 'string' ? payload.reason : 'content-change';
+  if (!Number.isFinite(nextHeight)) {
+    return false;
+  }
+
+  if (reason === 'color-change') {
+    return false;
+  }
+
+  const { minHeight, maxHeight } = stickyHeightBounds();
+  const nextBoundedHeight = Math.min(maxHeight, Math.max(minHeight, Math.ceil(nextHeight)));
+  stickyWindow.setContentSize(STICKY_NOTE_WIDTH, nextBoundedHeight, true);
+  return true;
+});
+
+ipcMain.handle('assistant-time:minimize-sticky-window', () => {
+  if (!stickyWindow || stickyWindow.isDestroyed()) {
+    return false;
+  }
+
+  stickyWindow.minimize();
+  return true;
+});
+
+ipcMain.handle('assistant-time:close-app', () => {
+  app.quit();
   return true;
 });
 
@@ -158,9 +256,22 @@ ipcMain.handle('assistant-time:save-text-file', async (_event, payload) => {
   const content = typeof payload?.content === 'string' ? payload.content : '';
   const defaultPath =
     typeof payload?.defaultPath === 'string' ? payload.defaultPath : 'friendly-task-reminder.csv';
+  const filters = Array.isArray(payload?.filters)
+    ? payload.filters
+        .filter(
+          (filter) =>
+            typeof filter?.name === 'string' &&
+            Array.isArray(filter.extensions) &&
+            filter.extensions.every((extension) => typeof extension === 'string'),
+        )
+        .map((filter) => ({
+          name: filter.name.slice(0, 80),
+          extensions: filter.extensions.map((extension) => extension.slice(0, 12)),
+        }))
+    : [{ name: 'CSV files', extensions: ['csv'] }];
   const result = await dialog.showSaveDialog(ownerWindow(), {
     defaultPath,
-    filters: [{ name: 'CSV files', extensions: ['csv'] }],
+    filters,
   });
 
   if (result.canceled || !result.filePath) {
@@ -204,11 +315,11 @@ ipcMain.handle('assistant-time:open-text-file', async () => {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  createStickyWindow(true);
+  createStickyWindow(true, 'yellow');
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createStickyWindow(true);
+      createStickyWindow(true, 'yellow');
     }
   });
 });

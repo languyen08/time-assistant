@@ -28,7 +28,7 @@ export class NotificationService {
     await this.electron.notify(reminder.taskName, body);
 
     if (settings.notificationSoundEnabled) {
-      this.playSoftSound();
+      this.playSound(settings.notificationSoundId);
     }
   }
 
@@ -38,17 +38,20 @@ export class NotificationService {
       'Ready when you are. You can start the next task or take a moment.',
     );
     if (settings.notificationSoundEnabled) {
-      this.playSoftSound();
+      this.playSound(settings.notificationSoundId);
     }
   }
 
-  private playSoftSound(): void {
+  private playSound(soundId: string): void {
     try {
       this.audioContext ??= new AudioContext();
       const oscillator = this.audioContext.createOscillator();
       const gain = this.audioContext.createGain();
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(660, this.audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(
+        this.frequencyFor(soundId),
+        this.audioContext.currentTime,
+      );
       gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.08, this.audioContext.currentTime + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.45);
@@ -59,5 +62,17 @@ export class NotificationService {
     } catch {
       // Sound is a nice-to-have reminder cue; failures should not block the reminder.
     }
+  }
+
+  private frequencyFor(soundId: string): number {
+    if (soundId === 'low-bell') {
+      return 440;
+    }
+
+    if (soundId === 'bright-chime') {
+      return 780;
+    }
+
+    return 660;
   }
 }

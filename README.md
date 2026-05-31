@@ -19,16 +19,26 @@ PowerShell may block `npm.ps1` on some Windows machines. Use `npm.cmd` if that h
 
 ## Development
 
+Run the Windows desktop app:
+
 ```powershell
 npm.cmd start
 ```
 
-To run the Electron shell against a built Angular app:
+Preview the Angular web UI in a browser:
+
+```powershell
+npm.cmd run web
+```
+
+Run the Electron shell against an existing Angular build:
 
 ```powershell
 npm.cmd run build
 npm.cmd run electron
 ```
+
+`npm.cmd start` and `npm.cmd run electron` both launch the Electron desktop shell. `npm.cmd run web` is only for browser preview and uses the browser's own IndexedDB data.
 
 ## Quality Gates
 
@@ -40,6 +50,17 @@ npm.cmd run build
 npm.cmd run electron:smoke
 ```
 
+## Local Data and Export
+
+The app stores tasks, settings, and history locally in IndexedDB. Core task reminders work without login, backend, calendar connection, or cloud sync.
+
+CSV export includes stable headers for tasks and history. The CSV date/time format setting controls whether exports use ISO timestamps or a spreadsheet-friendly local `yyyy-MM-dd HH:mm` format.
+
+## Troubleshooting
+
+- If PowerShell blocks `npm.ps1`, use `npm.cmd`.
+- If Electron and browser preview show different data, that is expected: each runtime has its own local IndexedDB storage.
+
 ## Scope
 
-Phase 0 creates only the project foundation, desktop shell, pinned tooling, and quality commands. Product flows start in Phase 1.
+Current MVP scope is local-first desktop use with manual CSV export. Calendar integration, general cloud sync, required accounts, background sync, and mobile push are outside the MVP.
