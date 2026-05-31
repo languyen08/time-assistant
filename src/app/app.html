@@ -393,53 +393,215 @@
           [class.history-open]="historyOpen()"
           aria-label="Utilities"
         >
-          <article id="history" class="panel history-dropdown" [class.is-open]="historyOpen()">
-            <header class="history-header">
-              <div>
-                <span class="eyebrow">History</span>
+          <article
+            id="history"
+            class="panel history-dropdown"
+            [class.is-open]="historyOpen()"
+            style="
+              border-color: rgba(126, 156, 199, 0.34);
+              border-radius: 24px;
+              background:
+                radial-gradient(circle at top, rgba(255, 255, 255, 0.96), transparent 46%),
+                linear-gradient(180deg, #f7fbff 0%, #eef5ff 100%);
+              box-shadow:
+                0 14px 30px rgba(115, 140, 171, 0.14),
+                inset 0 1px 0 rgba(255, 255, 255, 0.88),
+                inset 0 -10px 20px rgba(168, 196, 234, 0.08);
+            "
+          >
+            <header
+              class="history-header"
+              style="padding: 28px 34px 22px"
+              [style.borderBottom]="historyOpen() ? '1px solid rgba(114, 145, 188, 0.18)' : 'none'"
+            >
+              <div class="history-header-copy">
+                <span
+                  class="eyebrow"
+                  style="
+                    margin: 0;
+                    color: #6f95d0;
+                    font-size: 0.92rem;
+                    font-weight: 800;
+                    letter-spacing: 0.06em;
+                  "
+                  >History</span
+                >
               </div>
               <div class="history-header-actions">
-                <span class="count-pill">{{ historyService.events().length }} events</span>
+                <span
+                  class="count-pill"
+                  style="
+                    padding: 9px 18px;
+                    border: 1px solid rgba(127, 157, 198, 0.2);
+                    background: rgba(255, 255, 255, 0.68);
+                    color: #6f95d0;
+                    font-size: 0.82rem;
+                    font-weight: 700;
+                    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+                  "
+                  >{{ historyService.events().length }} events</span
+                >
                 <button
                   type="button"
-                  class="secondary-button history-toggle"
+                  class="history-toggle"
                   [attr.aria-expanded]="historyOpen()"
                   [attr.aria-label]="historyOpen() ? 'Collapse history' : 'Expand history'"
                   aria-controls="history-body"
                   (click)="toggleHistory()"
+                  style="
+                    width: 28px;
+                    min-width: 28px;
+                    min-height: 28px;
+                    padding: 0;
+                    border: none;
+                    border-radius: 999px;
+                    background: transparent;
+                    box-shadow: none;
+                    color: #6f95d0;
+                  "
                 >
-                  <span class="chevron" [class.is-open]="historyOpen()" aria-hidden="true"></span>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    [style.transform]="historyOpen() ? 'rotate(180deg)' : 'rotate(0deg)'"
+                    style="
+                      display: block;
+                      transition: transform 120ms ease;
+                    "
+                  >
+                    <path
+                      d="M6 9.5 12 15.5 18 9.5"
+                      fill="none"
+                      stroke="#6f95d0"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2.2"
+                    />
+                  </svg>
                 </button>
               </div>
             </header>
             @if (historyOpen()) {
-              <div id="history-body" class="history-dropdown-body">
+              <div
+                id="history-body"
+                class="history-dropdown-body"
+                style="
+                  gap: 18px;
+                  padding: 10px 34px 28px;
+                "
+              >
                 @if (historyService.events().length === 0) {
-                  <p class="status-line">No recorded actions yet.</p>
+                  <p
+                    class="status-line"
+                    style="
+                      padding: 12px 0;
+                      color: #7b8697;
+                      font-size: 0.84rem;
+                      line-height: 1.45;
+                    "
+                  >
+                    No recorded actions yet.
+                  </p>
                 } @else {
-                  <ol class="history-list">
-                    @for (event of pagedHistory(); track event.id) {
-                      <li>
-                        <strong>{{ event.summary }}</strong>
-                        <span>{{ event.occurredAt | date: 'short' }}</span>
+                  <ol
+                    class="history-list"
+                    style="
+                      margin: 0;
+                      padding-left: 32px;
+                      display: grid;
+                      gap: 0;
+                      align-content: start;
+                    "
+                  >
+                    @for (event of pagedHistory(); track event.id; let isFirst = $first) {
+                      <li
+                        [style.padding]="isFirst ? '6px 0 16px' : '18px 0 16px'"
+                        style="border-bottom: 1px solid rgba(114, 145, 188, 0.18)"
+                      >
+                        <strong
+                          style="
+                            display: block;
+                            color: #353f4d;
+                            font-size: 0.98rem;
+                            font-weight: 600;
+                            line-height: 1.45;
+                          "
+                          >{{ event.summary }}</strong
+                        >
+                        <span
+                          style="
+                            display: block;
+                            margin-top: 4px;
+                            color: #7b8697;
+                            font-size: 0.82rem;
+                            font-weight: 400;
+                            line-height: 1.45;
+                          "
+                          >{{ event.occurredAt | date: 'short' }}</span
+                        >
                       </li>
                     }
                   </ol>
-                  <div class="pager-row" aria-label="History pages">
+                  <div
+                    class="pager-row"
+                    aria-label="History pages"
+                    style="
+                      gap: 12px;
+                      align-items: center;
+                    "
+                  >
                     <button
                       type="button"
                       class="secondary-button"
                       [disabled]="historyPage() === 0"
                       (click)="previousHistoryPage()"
+                      [style.background]="historyPage() === 0 ? 'rgba(255, 255, 255, 0.58)' : 'rgba(255, 255, 255, 0.82)'"
+                      [style.borderColor]="historyPage() === 0 ? 'rgba(126, 156, 199, 0.18)' : 'rgba(126, 156, 199, 0.34)'"
+                      [style.color]="historyPage() === 0 ? '#a6b0be' : '#353f4d'"
+                      style="
+                        min-height: 44px;
+                        border-radius: 12px;
+                        font-weight: 700;
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+                      "
                     >
                       Previous
                     </button>
-                    <span>Page {{ currentHistoryPage() + 1 }} of {{ historyPageCount() }}</span>
+                    <span
+                      style="
+                        color: #353f4d;
+                        font-size: 0.9rem;
+                        font-weight: 700;
+                      "
+                    >
+                      Page {{ currentHistoryPage() + 1 }} of {{ historyPageCount() }}
+                    </span>
                     <button
                       type="button"
                       class="secondary-button"
                       [disabled]="currentHistoryPage() + 1 >= historyPageCount()"
                       (click)="nextHistoryPage()"
+                      [style.background]="
+                        currentHistoryPage() + 1 >= historyPageCount()
+                          ? 'rgba(255, 255, 255, 0.58)'
+                          : 'rgba(255, 255, 255, 0.82)'
+                      "
+                      [style.borderColor]="
+                        currentHistoryPage() + 1 >= historyPageCount()
+                          ? 'rgba(126, 156, 199, 0.18)'
+                          : 'rgba(126, 156, 199, 0.34)'
+                      "
+                      [style.color]="
+                        currentHistoryPage() + 1 >= historyPageCount() ? '#a6b0be' : '#353f4d'
+                      "
+                      style="
+                        min-height: 44px;
+                        border-radius: 12px;
+                        font-weight: 700;
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+                      "
                     >
                       Next
                     </button>
