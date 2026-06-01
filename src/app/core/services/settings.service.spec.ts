@@ -21,11 +21,12 @@ describe('SettingsService', () => {
 
     const service = TestBed.inject(SettingsService);
     await service.load();
-    await service.update({ theme: 'dark', notificationSoundEnabled: false });
+    await service.update({ notificationSoundEnabled: false });
 
-    expect(service.settings().theme).toBe('dark');
     expect(service.settings().notificationSoundEnabled).toBe(false);
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }));
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ notificationSoundEnabled: false }),
+    );
   });
 
   it('resets settings to defaults', async () => {
@@ -36,7 +37,7 @@ describe('SettingsService', () => {
         {
           provide: SettingsRepository,
           useValue: {
-            get: vi.fn(async () => ({ ...DEFAULT_APP_SETTINGS, theme: 'dark' })),
+            get: vi.fn(async () => DEFAULT_APP_SETTINGS),
             save,
           },
         },

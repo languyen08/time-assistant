@@ -4,7 +4,7 @@ import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@
 import { RouterOutlet } from '@angular/router';
 import { ChartConfiguration } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
-import { AppTheme, StickyNoteColor } from './core/models/app-settings';
+import { StickyNoteColor } from './core/models/app-settings';
 import { StickyResizeReason } from './core/models/electron-api';
 import { Task, TaskDraft } from './core/models/task';
 import { BreakService } from './core/services/break.service';
@@ -78,7 +78,6 @@ export class App implements OnInit, OnDestroy {
   readonly isStickyMode = signal(
     new URLSearchParams(window.location.search).get('window') === 'sticky',
   );
-  readonly theme = computed(() => this.settingsService.settings().theme);
   readonly stickyNoteColor = computed(() => this.settingsService.settings().stickyNoteColor);
   readonly stickyVisibleNotes = computed(() =>
     Math.min(5, Math.max(1, this.settingsService.settings().stickyVisibleNotes)),
@@ -428,12 +427,6 @@ export class App implements OnInit, OnDestroy {
     this.historyService.errorMessage.set('');
     this.breakService.errorMessage.set('');
     this.reminderScheduler.errorMessage.set('');
-  }
-
-  async setTheme(event: Event): Promise<void> {
-    await this.settingsService.update({
-      theme: (event.target as HTMLSelectElement).value as AppTheme,
-    });
   }
 
   async setSoundEnabled(event: Event): Promise<void> {

@@ -109,49 +109,10 @@
   --note-line: rgba(72, 72, 72, 0.16);
 }
 
-.app-shell[data-theme='dark'] {
-  --primary: #f08321;
-  --primary-strong: #ffd7a3;
-  --secondary: #9bbcac;
-  --danger: #ff9b9b;
-  --surface: #2d2924;
-  --surface-raised: #37312a;
-  --surface-muted: #211d19;
-  --text: #f7efe5;
-  --text-muted: #d3c4b5;
-  --line: rgba(255, 240, 220, 0.2);
-  --shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
-  background: linear-gradient(135deg, #191714 0%, #2f2921 48%, #26342f 100%);
-}
-
-@media (prefers-color-scheme: dark) {
-  .app-shell[data-theme='system'] {
-    --primary: #f08321;
-    --primary-strong: #ffd7a3;
-    --secondary: #9bbcac;
-    --danger: #ff9b9b;
-    --surface: #2d2924;
-    --surface-raised: #37312a;
-    --surface-muted: #211d19;
-    --text: #f7efe5;
-    --text-muted: #d3c4b5;
-    --line: rgba(255, 240, 220, 0.2);
-    --shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
-    background: linear-gradient(135deg, #191714 0%, #2f2921 48%, #26342f 100%);
-  }
-}
-
-.sticky-shell.app-shell,
-.sticky-shell.app-shell[data-theme='dark'] {
+.sticky-shell.app-shell {
   background: var(--note-frame);
   min-height: auto;
   height: auto;
-}
-
-@media (prefers-color-scheme: dark) {
-  .sticky-shell.app-shell[data-theme='system'] {
-    background: var(--note-frame);
-  }
 }
 
 .topbar,
@@ -962,18 +923,6 @@ button:disabled {
 
 .paused-note {
   filter: saturate(0.82);
-}
-
-.app-shell[data-theme='dark'] .active-note {
-  background: linear-gradient(135deg, #5b4d21, #3f3927);
-  color: #fff6d8;
-}
-
-@media (prefers-color-scheme: dark) {
-  .app-shell[data-theme='system'] .active-note {
-    background: linear-gradient(135deg, #5b4d21, #3f3927);
-    color: #fff6d8;
-  }
 }
 
 .task-label,
