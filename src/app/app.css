@@ -1086,9 +1086,7 @@ button:disabled {
 }
 
 .new-task-panel input::placeholder,
-.new-task-panel textarea::placeholder {
-  color: #a6ad97;
-}
+.new-task-panel textarea::placeholder{color:#bcc2af}
 
 .history-toggle {
   width: 40px;

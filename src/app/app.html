@@ -162,19 +162,39 @@
                 gap: 16px;
               "
             >
-              <p
-                class="eyebrow"
+              <div
                 style="
-                  margin: 0;
-                  color: #9c7831;
-                  font-size: 0.92rem;
-                  font-weight: 700;
-                  line-height: 1;
-                  letter-spacing: 0.06em;
+                  display: grid;
+                  gap: 12px;
                 "
               >
-                In focus
-              </p>
+                <p
+                  class="eyebrow"
+                  style="
+                    margin: 0;
+                    color: #9c7831;
+                    font-size: 0.92rem;
+                    font-weight: 700;
+                    line-height: 1;
+                    letter-spacing: 0.06em;
+                  "
+                >
+                  In focus
+                </p>
+                @if (!currentTask()) {
+                  <h2
+                    style="
+                      margin: 0;
+                      color: #312917;
+                      font-size: 1.1rem;
+                      font-weight: 600;
+                      line-height: 1.3;
+                    "
+                  >
+                    No active task
+                  </h2>
+                }
+              </div>
               <span
                 aria-hidden="true"
                 style="
@@ -316,23 +336,13 @@
                 class="empty-state"
                 style="
                   margin-top: 0;
-                  padding: 8px 4px 6px;
-                  gap: 16px;
+                  padding: 2px 4px 6px;
+                  gap: 12px;
                   border: none;
                   background: transparent;
                   color: #4a4028;
                 "
               >
-                <h2
-                  style="
-                    margin: 0;
-                    color: #312917;
-                    font-size: 1.1rem;
-                    line-height: 1.3;
-                  "
-                >
-                  No active task
-                </h2>
                 <p
                   style="
                     color: #65573a;
@@ -369,37 +379,177 @@
             }
           </article>
 
-          <article class="panel queue-panel" aria-labelledby="queue-title">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Task queue</p>
-                <h2 id="queue-title">Planned reminders</h2>
+          <article
+            class="panel queue-panel"
+            aria-labelledby="queue-title"
+            style="
+              border-color: rgba(175, 155, 214, 0.3);
+              border-radius: 24px;
+              background: #f4eefb;
+              box-shadow:
+                0 16px 30px rgba(146, 126, 186, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 0.84),
+                inset 0 -10px 24px rgba(198, 182, 227, 0.1);
+            "
+          >
+            <div
+              class="section-heading"
+              style="
+                align-items: start;
+              "
+            >
+              <div
+                style="
+                  display: grid;
+                  gap: 12px;
+                "
+              >
+                <p
+                  class="eyebrow"
+                  style="
+                    margin: 0;
+                    color: #7f63ac;
+                    font-size: 0.92rem;
+                    font-weight: 700;
+                    line-height: 1;
+                    letter-spacing: 0.06em;
+                  "
+                >
+                  Task queue
+                </p>
+                <h2
+                  id="queue-title"
+                  style="font-size: 1.1rem; font-weight: 600; line-height: 1.3; color: #394429"
+                >
+                  Planned reminders
+                </h2>
               </div>
-              <span class="count-pill">{{ pendingTasks().length }} pending</span>
+              <div
+                style="
+                  display: flex;
+                  align-items: start;
+                  gap: 10px;
+                "
+              >
+                <span
+                  class="count-pill"
+                  style="
+                    padding: 8px 14px;
+                    border: 1px solid rgba(167, 147, 206, 0.22);
+                    background: rgba(255, 255, 255, 0.66);
+                    color: #7f63ac;
+                    font-size: 0.82rem;
+                    font-weight: 700;
+                    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+                  "
+                  >{{ pendingTasks().length }} pending</span
+                >
+                <span
+                  aria-hidden="true"
+                  style="
+                    flex: 0 0 auto;
+                    color: #8d70bd;
+                    filter: drop-shadow(0 2px 2px rgba(120, 98, 162, 0.18));
+                  "
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20">
+                    <path
+                      d="M8 4.5c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5 0 .4-.2.8-.5 1.1l-1.1 1.1v3.5l1.3 1.3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-2.1l-1 7.2c0 .4-.4.6-.7.6s-.7-.2-.7-.6l-1-7.2H7c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l1.3-1.3V6.7L8.5 5.6c-.3-.3-.5-.7-.5-1.1Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </span>
+              </div>
             </div>
 
             @if (pendingTasks().length === 0) {
               <div class="queue-empty">
-                <div class="empty-state">
-                  <h3>Your task tray is empty</h3>
-                  <p>Create a task with a reminder time to begin.</p>
+                <div
+                  class="empty-state"
+                  style="
+                    margin-top: 14px;
+                    min-height: 300px;
+                    padding: 22px 20px;
+                    gap: 16px;
+                    border: 1px dashed rgba(181, 164, 213, 0.42);
+                    border-radius: 16px;
+                    background: rgba(255, 255, 255, 0.34);
+                    color: #53456d;
+                  "
+                >
+                  <h3
+                    style="
+                      margin: 0;
+                      color: #46375e;
+                      font-size: 1rem;
+                      font-weight: 600;
+                    "
+                  >
+                    Your task tray is empty
+                  </h3>
+                  <p
+                    style="
+                      margin-top: auto;
+                      color: #6b5b84;
+                      line-height: 1.55;
+                    "
+                  >
+                    Create a task with a reminder time to begin.
+                  </p>
                 </div>
               </div>
             } @else {
               <div class="queue-body">
                 <ul class="task-list">
                   @for (task of pagedPendingTasks(); track task.id) {
-                    <li>
+                    <li
+                      style="
+                        gap: 14px;
+                        padding: 16px;
+                        border-color: rgba(181, 164, 213, 0.34);
+                        border-radius: 16px;
+                        background: rgba(255, 255, 255, 0.56);
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+                      "
+                    >
                       <div class="task-copy">
-                        <strong class="task-name">{{ task.name }}</strong>
-                        <span class="task-meta">{{ task.category || 'Unsorted' }}</span>
-                        <span class="task-meta">{{ task.reminderAt | date: 'short' }}</span>
+                        <strong class="task-name" style="color: #352a47; font-size: 1rem">{{
+                          task.name
+                        }}</strong>
+                        <span class="task-meta" style="color: #7a6a95; font-size: 0.82rem">{{
+                          task.category || 'Unsorted'
+                        }}</span>
+                        <span class="task-meta" style="color: #7a6a95; font-size: 0.82rem">{{
+                          task.reminderAt | date: 'short'
+                        }}</span>
                       </div>
                       <div class="task-actions">
-                        <button type="button" class="secondary-button" (click)="startTask(task.id)">
+                        <button
+                          type="button"
+                          class="secondary-button"
+                          (click)="startTask(task.id)"
+                          style="
+                            border-color: rgba(167, 147, 206, 0.24);
+                            border-radius: 12px;
+                            background: rgba(255, 255, 255, 0.74);
+                            color: #473a61;
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+                          "
+                        >
                           Start
                         </button>
-                        <button type="button" class="secondary-button" (click)="editTask(task)">
+                        <button
+                          type="button"
+                          class="secondary-button"
+                          (click)="editTask(task)"
+                          style="
+                            border-color: rgba(167, 147, 206, 0.24);
+                            border-radius: 12px;
+                            background: rgba(255, 255, 255, 0.74);
+                            color: #473a61;
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+                          "
+                        >
                           Edit
                         </button>
                         <button
@@ -408,6 +558,13 @@
                           [disabled]="isPendingFirst(task.id)"
                           aria-label="Move task up"
                           (click)="taskService.move(task.id, -1)"
+                          style="
+                            border-color: rgba(167, 147, 206, 0.24);
+                            border-radius: 12px;
+                            background: rgba(255, 255, 255, 0.74);
+                            color: #6f5a97;
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+                          "
                         >
                           ^
                         </button>
@@ -417,6 +574,13 @@
                           [disabled]="isPendingLast(task.id)"
                           aria-label="Move task down"
                           (click)="taskService.move(task.id, 1)"
+                          style="
+                            border-color: rgba(167, 147, 206, 0.24);
+                            border-radius: 12px;
+                            background: rgba(255, 255, 255, 0.74);
+                            color: #6f5a97;
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+                          "
                         >
                           v
                         </button>
@@ -424,6 +588,13 @@
                           type="button"
                           class="danger-button"
                           (click)="taskService.delete(task.id)"
+                          style="
+                            border-color: rgba(190, 143, 181, 0.26);
+                            border-radius: 12px;
+                            background: rgba(255, 242, 247, 0.86);
+                            color: #9a4f78;
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+                          "
                         >
                           Delete
                         </button>
@@ -431,21 +602,67 @@
                     </li>
                   }
                 </ul>
-                <div class="pager-row" aria-label="Task queue pages">
+                <div
+                  class="pager-row"
+                  aria-label="Task queue pages"
+                  style="
+                    gap: 12px;
+                    align-items: center;
+                  "
+                >
                   <button
                     type="button"
                     class="secondary-button"
                     [disabled]="currentPendingPage() === 0"
                     (click)="previousPendingPage()"
+                    [style.background]="
+                      currentPendingPage() === 0
+                        ? 'rgba(255, 255, 255, 0.52)'
+                        : 'rgba(255, 255, 255, 0.74)'
+                    "
+                    [style.borderColor]="
+                      currentPendingPage() === 0
+                        ? 'rgba(167, 147, 206, 0.16)'
+                        : 'rgba(167, 147, 206, 0.24)'
+                    "
+                    [style.color]="currentPendingPage() === 0 ? '#b4abc5' : '#473a61'"
+                    style="
+                      border-radius: 12px;
+                      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+                    "
                   >
                     Previous
                   </button>
-                  <span>Page {{ currentPendingPage() + 1 }} of {{ pendingPageCount() }}</span>
+                  <span
+                    style="
+                      color: #4e4068;
+                      font-size: 0.88rem;
+                      font-weight: 700;
+                    "
+                    >Page {{ currentPendingPage() + 1 }} of {{ pendingPageCount() }}</span
+                  >
                   <button
                     type="button"
                     class="secondary-button"
                     [disabled]="currentPendingPage() + 1 >= pendingPageCount()"
                     (click)="nextPendingPage()"
+                    [style.background]="
+                      currentPendingPage() + 1 >= pendingPageCount()
+                        ? 'rgba(255, 255, 255, 0.52)'
+                        : 'rgba(255, 255, 255, 0.74)'
+                    "
+                    [style.borderColor]="
+                      currentPendingPage() + 1 >= pendingPageCount()
+                        ? 'rgba(167, 147, 206, 0.16)'
+                        : 'rgba(167, 147, 206, 0.24)'
+                    "
+                    [style.color]="
+                      currentPendingPage() + 1 >= pendingPageCount() ? '#b4abc5' : '#473a61'
+                    "
+                    style="
+                      border-radius: 12px;
+                      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+                    "
                   >
                     Next
                   </button>
@@ -499,7 +716,10 @@
                 >
                   {{ editingTaskId() ? 'Edit task' : 'New task' }}
                 </p>
-                <h2 id="form-title" style="font-size: 1.1rem; line-height: 1.3; color: #394429">
+                <h2
+                  id="form-title"
+                  style="font-size: 1.1rem; font-weight: 600; line-height: 1.3; color: #394429"
+                >
                   {{ editingTaskId() ? 'Adjust the reminder card' : 'Create a reminder card' }}
                 </h2>
               </div>
