@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
+import { ChartConfiguration } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
 import { AppTheme, StickyNoteColor } from './core/models/app-settings';
 import { StickyResizeReason } from './core/models/electron-api';
@@ -130,6 +131,76 @@ export class App implements OnInit, OnDestroy {
     this.chartSummary.reminderSummary(this.historyService.events()),
   );
   readonly barChartOptions = this.chartSummary.chartOptions;
+  readonly insightsChartOptions: ChartConfiguration<'bar'>['options'] = {
+    ...this.chartSummary.chartOptions,
+    maintainAspectRatio: false,
+    layout: {
+      padding: {
+        top: 8,
+        right: 6,
+        bottom: 10,
+        left: 0,
+      },
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: '#6f6657',
+          font: {
+            size: 12,
+            weight: 500,
+          },
+        },
+        grid: {
+          display: false,
+        },
+        border: {
+          display: false,
+        },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0,
+          color: '#817867',
+          font: {
+            size: 12,
+            weight: 400,
+          },
+          padding: 8,
+        },
+        grid: {
+          color: 'rgba(138, 124, 97, 0.11)',
+        },
+        border: {
+          display: false,
+        },
+      },
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(59, 52, 40, 0.94)',
+        bodyColor: '#fffaf0',
+        titleColor: '#fffaf0',
+        cornerRadius: 12,
+        displayColors: false,
+        padding: 10,
+      },
+    },
+  };
+  readonly completedTasksInsightsChart = computed(() =>
+    this.withInsightsPalette(this.completedTasksChart(), '#f7dd77', '#efcb57'),
+  );
+  readonly focusMinutesInsightsChart = computed(() =>
+    this.withInsightsPalette(this.focusMinutesChart(), '#b9d97f', '#9fc766'),
+  );
+  readonly categoryMinutesInsightsChart = computed(() =>
+    this.withInsightsPalette(this.categoryMinutesChart(), '#f2a0a3', '#ea878c'),
+  );
+  readonly reminderSummaryInsightsChart = computed(() =>
+    this.withInsightsPalette(this.reminderSummaryChart(), '#a88dd8', '#9678ce'),
+  );
   readonly stickyNoteColors: readonly StickyNoteColor[] = [
     'yellow',
     'green',
@@ -844,5 +915,27 @@ export class App implements OnInit, OnDestroy {
     name: 'name' | 'reminderAt' | 'reminderCount' | 'reminderIntervalMinutes',
   ): AbstractControl {
     return this.taskForm.controls[name];
+  }
+
+  private withInsightsPalette(
+    data: ChartConfiguration<'bar'>['data'],
+    backgroundColor: string,
+    borderColor: string,
+  ): ChartConfiguration<'bar'>['data'] {
+    return {
+      labels: data.labels,
+      datasets: data.datasets.map((dataset) => ({
+        ...dataset,
+        backgroundColor,
+        borderColor,
+        hoverBackgroundColor: borderColor,
+        hoverBorderColor: borderColor,
+        borderWidth: 1,
+        borderRadius: 8,
+        categoryPercentage: 0.72,
+        barPercentage: 0.9,
+        maxBarThickness: 74,
+      })),
+    };
   }
 }
