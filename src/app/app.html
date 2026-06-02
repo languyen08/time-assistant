@@ -55,6 +55,453 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.98);
     }
 
+    .csv-modal {
+      width: min(100%, 1480px);
+      padding: 30px 40px 32px;
+      border-color: rgba(209, 191, 160, 0.38);
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 24% 18%, rgba(248, 224, 164, 0.12), transparent 24%),
+        radial-gradient(circle at 76% 18%, rgba(208, 228, 199, 0.11), transparent 22%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 251, 244, 0.94));
+      box-shadow:
+        0 24px 56px rgba(113, 92, 56, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98),
+        inset 0 -10px 22px rgba(181, 154, 100, 0.06);
+    }
+
+    .csv-modal-header {
+      align-items: start;
+      margin-bottom: 28px;
+    }
+
+    .csv-title-block {
+      display: grid;
+      gap: 10px;
+    }
+
+    .csv-modal .eyebrow {
+      margin-bottom: 0;
+      color: #7ea84a;
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .csv-modal h2 {
+      color: #2e2720;
+      font-size: 2.1rem;
+      font-weight: 700;
+      line-height: 1.08;
+    }
+
+    .csv-modal-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      margin-left: auto;
+    }
+
+    .csv-pin {
+      color: #95bc61;
+      transform: rotate(28deg);
+      filter: drop-shadow(0 4px 6px rgba(124, 155, 79, 0.22));
+    }
+
+    .csv-close-button {
+      width: 60px;
+      min-width: 60px;
+      min-height: 60px;
+      border-color: rgba(198, 217, 164, 0.62);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #f4fae9, #e9f3d6);
+      color: #6d9b39;
+      font-size: 1.28rem;
+      font-weight: 700;
+      box-shadow:
+        0 12px 24px rgba(124, 156, 73, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    }
+
+    .csv-close-button:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        0 16px 26px rgba(124, 156, 73, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+    }
+
+    .csv-close-button:active {
+      transform: translateY(0);
+      box-shadow:
+        inset 0 2px 4px rgba(112, 141, 67, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .csv-modal-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .csv-section {
+      padding: 28px 28px 30px;
+      border: 1px solid rgba(223, 205, 174, 0.4);
+      border-radius: 24px;
+      box-shadow:
+        0 14px 28px rgba(170, 141, 97, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.96);
+    }
+
+    .csv-export-section {
+      background:
+        radial-gradient(circle at 18% 22%, rgba(249, 221, 144, 0.12), transparent 28%),
+        linear-gradient(180deg, rgba(255, 253, 247, 0.94), rgba(255, 248, 236, 0.94));
+    }
+
+    .csv-import-section {
+      border-color: rgba(218, 204, 242, 0.56);
+      background:
+        radial-gradient(circle at 22% 18%, rgba(216, 199, 248, 0.14), transparent 28%),
+        linear-gradient(180deg, rgba(251, 247, 255, 0.96), rgba(246, 240, 255, 0.93));
+      box-shadow:
+        0 14px 28px rgba(155, 132, 202, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.96);
+    }
+
+    .csv-section-head {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 22px;
+    }
+
+    .csv-section-icon {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      background: transparent;
+    }
+
+    .csv-section-icon-export {
+      color: #e0b03b;
+      filter: drop-shadow(0 8px 14px rgba(214, 177, 74, 0.2));
+    }
+
+    .csv-section-icon-import {
+      color: #9b82df;
+      filter: drop-shadow(0 8px 14px rgba(156, 132, 214, 0.2));
+    }
+
+    .csv-section-copy {
+      display: grid;
+      gap: 6px;
+      align-content: center;
+      padding-top: 4px;
+    }
+
+    .csv-section-title {
+      color: #2f2a26;
+      font-size: 1.08rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .csv-import-section .csv-section-title {
+      color: #43356a;
+    }
+
+    .csv-section-text {
+      color: #6c6358;
+      font-size: 0.96rem;
+      line-height: 1.45;
+    }
+
+    .csv-import-section .csv-section-text {
+      color: #6d6286;
+    }
+
+    .csv-export-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .csv-action-card {
+      transition:
+        transform 160ms ease,
+        box-shadow 160ms ease,
+        border-color 160ms ease,
+        background-color 160ms ease;
+    }
+
+    .csv-export-card {
+      min-height: 164px;
+      padding: 22px 24px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 18px;
+      border-color: rgba(231, 214, 186, 0.52);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 250, 242, 0.96));
+      color: #2f281f;
+      text-align: left;
+      box-shadow:
+        0 10px 24px rgba(169, 137, 91, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    }
+
+    .csv-export-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(225, 205, 168, 0.74);
+      box-shadow:
+        0 16px 28px rgba(169, 137, 91, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+    }
+
+    .csv-export-card:active {
+      transform: translateY(0);
+      box-shadow:
+        inset 0 2px 5px rgba(161, 132, 88, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    }
+
+    .csv-action-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      color: #ddb03b;
+      background: linear-gradient(180deg, rgba(251, 226, 163, 0.56), rgba(246, 215, 138, 0.34));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      flex: 0 0 auto;
+    }
+
+    .csv-action-copy {
+      display: grid;
+      gap: 6px;
+      align-content: center;
+    }
+
+    .csv-action-title {
+      color: #2f2a26;
+      font-size: 1.02rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .csv-action-text {
+      color: #6a6257;
+      font-size: 0.96rem;
+      font-weight: 400;
+      line-height: 1.45;
+      white-space: normal;
+    }
+
+    .csv-action-chevron {
+      width: 16px;
+      height: 16px;
+      transform: rotate(45deg);
+      border-top: 3px solid rgba(83, 71, 59, 0.86);
+      border-right: 3px solid rgba(83, 71, 59, 0.86);
+      justify-self: end;
+      flex: 0 0 auto;
+    }
+
+    .csv-import-card {
+      min-height: 392px;
+      width: 100%;
+      padding: 40px 30px 34px;
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      gap: 16px;
+      border: 2px dashed rgba(194, 173, 236, 0.86);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.28);
+      color: #493774;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    }
+
+    .csv-import-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(180, 156, 230, 0.94);
+      box-shadow:
+        0 14px 26px rgba(150, 129, 194, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.96);
+    }
+
+    .csv-import-card:active {
+      transform: translateY(0);
+      box-shadow:
+        inset 0 2px 6px rgba(138, 114, 187, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.84);
+    }
+
+    .csv-import-glyph {
+      color: #9a7fe0;
+      display: grid;
+      place-items: center;
+    }
+
+    .csv-import-title {
+      color: #4b3a76;
+      font-size: 1.16rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .csv-import-text {
+      max-width: 380px;
+      color: #6f6487;
+      font-size: 0.98rem;
+      font-weight: 400;
+      line-height: 1.5;
+      text-align: center;
+      white-space: normal;
+    }
+
+    .csv-browse-chip {
+      margin-top: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 24px;
+      border: 1px solid rgba(196, 174, 236, 0.84);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(242, 231, 255, 0.94));
+      box-shadow:
+        0 10px 18px rgba(160, 136, 208, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.96);
+      color: #5c4697;
+      font-size: 0.98rem;
+      font-weight: 700;
+    }
+
+    .csv-tips-panel {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      align-items: center;
+      padding: 20px 24px;
+      border: 1px solid rgba(192, 213, 241, 0.56);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(245, 250, 255, 0.96), rgba(239, 246, 255, 0.92));
+      box-shadow:
+        0 10px 24px rgba(143, 168, 207, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    }
+
+    .csv-tips-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, #7ab4ff, #4c90e6);
+      color: #ffffff;
+      font-size: 1.55rem;
+      font-weight: 700;
+      box-shadow:
+        0 10px 18px rgba(88, 134, 208, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+
+    .csv-tips-copy {
+      display: grid;
+      gap: 4px;
+    }
+
+    .csv-tips-title {
+      color: #2557a5;
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .csv-tips-text {
+      color: #4f648c;
+      font-size: 0.96rem;
+      line-height: 1.45;
+    }
+
+    .csv-modal .status-line,
+    .csv-modal .error-list {
+      margin-top: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(201, 214, 235, 0.48);
+      background: rgba(245, 249, 255, 0.9);
+      box-shadow:
+        0 8px 18px rgba(134, 157, 191, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.96);
+    }
+
+    .csv-modal .status-line {
+      padding: 14px 16px;
+      color: #4a6078;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .csv-modal .error-list {
+      padding: 14px 16px 14px 34px;
+      gap: 8px;
+      border-color: rgba(226, 171, 171, 0.42);
+      background: rgba(255, 245, 245, 0.92);
+      color: #9d4343;
+    }
+
+    .csv-footer {
+      justify-content: flex-end;
+      margin-top: 18px;
+    }
+
+    .csv-footer-close {
+      min-width: 146px;
+      min-height: 52px;
+      border-color: rgba(222, 207, 183, 0.94);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 240, 228, 0.94));
+      color: #2d261f;
+      font-size: 1rem;
+      font-weight: 700;
+      box-shadow:
+        0 10px 22px rgba(161, 138, 101, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    }
+
+    @media (max-width: 1080px) {
+      .csv-modal-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .csv-import-card {
+        min-height: 280px;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .csv-modal {
+        padding: 26px 22px 24px;
+      }
+
+      .csv-modal-toolbar {
+        gap: 14px;
+      }
+
+      .csv-export-card {
+        grid-template-columns: auto 1fr;
+      }
+
+      .csv-action-chevron {
+        display: none;
+      }
+    }
+
   </style>
   @if (isStickyMode()) {
     <section class="sticky-window" aria-labelledby="sticky-title">
@@ -1490,19 +1937,34 @@
       <section class="modal-backdrop settings-backdrop" role="presentation">
         <article
           id="csv"
-          class="reminder-modal settings-modal"
+          class="reminder-modal settings-modal csv-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="csv-title"
         >
-          <header class="modal-header">
-            <div>
+          <header class="modal-header csv-modal-header">
+            <div class="csv-title-block">
               <p class="eyebrow">CSV</p>
               <h2 id="csv-title">Import and export</h2>
             </div>
-            <button type="button" class="icon-button" aria-label="Close CSV" (click)="closeCsv()">
-              x
-            </button>
+            <div class="csv-modal-toolbar">
+              <span class="csv-pin" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path
+                    d="M8 4.5c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5 0 .4-.2.8-.5 1.1l-1.1 1.1v3.5l1.3 1.3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-2.1l-1 7.2c0 .4-.4.6-.7.6s-.7-.2-.7-.6l-1-7.2H7c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l1.3-1.3V6.7L8.5 5.6c-.3-.3-.5-.7-.5-1.1Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </span>
+              <button
+                type="button"
+                class="icon-button csv-close-button"
+                aria-label="Close CSV"
+                (click)="closeCsv()"
+              >
+                x
+              </button>
+            </div>
           </header>
 
           <input
@@ -1513,17 +1975,187 @@
             (change)="importTasksCsvFromInput($event)"
           />
 
-          <div class="button-row">
-            <button type="button" class="secondary-button" (click)="exportTasksCsv()">
-              Export tasks
-            </button>
-            <button type="button" class="secondary-button" (click)="exportHistoryCsv()">
-              Export history
-            </button>
-            <button type="button" class="primary-button" (click)="importTasksCsv(taskCsvInput)">
-              Import tasks
-            </button>
+          <div class="csv-modal-grid">
+            <section class="csv-section csv-export-section" aria-labelledby="csv-export-heading">
+              <div class="csv-section-head">
+                <span class="csv-section-icon csv-section-icon-export" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="54" height="54">
+                    <path
+                      d="M7 2.75h6.45L19.25 8v10.5A2.75 2.75 0 0 1 16.5 21.25H7A2.75 2.75 0 0 1 4.25 18.5v-13A2.75 2.75 0 0 1 7 2.75Z"
+                      fill="currentColor"
+                      opacity="0.96"
+                    />
+                    <path
+                      d="M13.45 2.75V8h5.8"
+                      fill="#f8d87b"
+                      opacity="0.96"
+                    />
+                    <path
+                      d="M12 8.25v6.2m0 0-2.65-2.65M12 14.45l2.65-2.65"
+                      fill="none"
+                      stroke="#fffdf7"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M10.2 16.8h3.6"
+                      fill="none"
+                      stroke="#fffdf7"
+                      stroke-linecap="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </span>
+                <span class="csv-section-copy">
+                  <span id="csv-export-heading" class="csv-section-title">Export data</span>
+                  <span class="csv-section-text">Export your tasks and history to CSV files.</span>
+                </span>
+              </div>
+
+              <div class="csv-export-list">
+                <button
+                  type="button"
+                  class="secondary-button csv-action-card csv-export-card"
+                  (click)="exportTasksCsv()"
+                >
+                  <span class="csv-action-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="36" height="36">
+                      <path
+                        d="M7.25 4h7.1l3.65 3.65v9.1A2.25 2.25 0 0 1 15.75 19h-8.5A2.25 2.25 0 0 1 5 16.75v-10.5A2.25 2.25 0 0 1 7.25 4Z"
+                        fill="currentColor"
+                        opacity="0.22"
+                      />
+                      <path
+                        d="M13.75 4v3.75h3.75M9 9.5h1.8M9 14h1.8M13 9.5h2M13 14h2M8.85 9.35l.7.75 1.2-1.45M8.85 13.85l.7.75 1.2-1.45"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="1.65"
+                      />
+                    </svg>
+                  </span>
+                  <span class="csv-action-copy">
+                    <span class="csv-action-title">Export tasks</span>
+                    <span class="csv-action-text">Export all tasks to a CSV file.</span>
+                  </span>
+                  <span class="csv-action-chevron" aria-hidden="true"></span>
+                </button>
+
+                <button
+                  type="button"
+                  class="secondary-button csv-action-card csv-export-card"
+                  (click)="exportHistoryCsv()"
+                >
+                  <span class="csv-action-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="36" height="36">
+                      <path
+                        d="M5 8.25V4.75m0 0h3.5M5 4.75 7.3 7.1M6 12a6.75 6.75 0 1 0 1.75-4.55M12 8.25v3.7l2.55 1.65"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="1.95"
+                      />
+                    </svg>
+                  </span>
+                  <span class="csv-action-copy">
+                    <span class="csv-action-title">Export history</span>
+                    <span class="csv-action-text"
+                      >Export all history events to a CSV file.</span
+                    >
+                  </span>
+                  <span class="csv-action-chevron" aria-hidden="true"></span>
+                </button>
+              </div>
+            </section>
+
+            <section class="csv-section csv-import-section" aria-labelledby="csv-import-heading">
+              <div class="csv-section-head">
+                <span class="csv-section-icon csv-section-icon-import" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="54" height="54">
+                    <path
+                      d="M7 2.75h6.45L19.25 8v10.5A2.75 2.75 0 0 1 16.5 21.25H7A2.75 2.75 0 0 1 4.25 18.5v-13A2.75 2.75 0 0 1 7 2.75Z"
+                      fill="currentColor"
+                      opacity="0.96"
+                    />
+                    <path
+                      d="M13.45 2.75V8h5.8"
+                      fill="#c9b8f3"
+                      opacity="0.98"
+                    />
+                    <path
+                      d="M12 15.45v-6.2m0 0-2.65 2.65M12 9.25l2.65 2.65"
+                      fill="none"
+                      stroke="#fffdfd"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M10.2 16.8h3.6"
+                      fill="none"
+                      stroke="#fffdfd"
+                      stroke-linecap="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </span>
+                <span class="csv-section-copy">
+                  <span id="csv-import-heading" class="csv-section-title">Import data</span>
+                  <span class="csv-section-text">Import tasks from a CSV file.</span>
+                </span>
+              </div>
+
+              <button
+                type="button"
+                class="primary-button csv-action-card csv-import-card"
+                (click)="importTasksCsv(taskCsvInput)"
+              >
+                <span class="csv-import-glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="56" height="56">
+                    <path
+                      d="m8 10 4-4 4 4M12 17V6M5 16.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-2.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </span>
+                <span class="csv-import-title">Import tasks</span>
+                <span class="csv-import-text"
+                  >Choose a CSV file from your computer to import tasks.</span
+                >
+                <span class="csv-browse-chip">
+                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                    <path
+                      d="M4.5 8.25A2.25 2.25 0 0 1 6.75 6h3l1.5 1.5h6A2.25 2.25 0 0 1 19.5 9.75v6A2.25 2.25 0 0 1 17.25 18h-10.5A2.25 2.25 0 0 1 4.5 15.75v-7.5Z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                  Browse file
+                </span>
+              </button>
+            </section>
           </div>
+
+          <section class="csv-tips-panel" aria-labelledby="csv-tips-title">
+            <span class="csv-tips-icon" aria-hidden="true">i</span>
+            <span class="csv-tips-copy">
+              <span id="csv-tips-title" class="csv-tips-title">Tips</span>
+              <span class="csv-tips-text"
+                >CSV files should be UTF-8 encoded. Make sure the file follows the expected
+                structure before importing.</span
+              >
+            </span>
+          </section>
 
           @if (exportStatus()) {
             <p class="status-line">{{ exportStatus() }}</p>
@@ -1538,6 +2170,12 @@
               }
             </ul>
           }
+
+          <div class="button-row csv-footer">
+            <button type="button" class="secondary-button csv-footer-close" (click)="closeCsv()">
+              Close
+            </button>
+          </div>
         </article>
       </section>
     }

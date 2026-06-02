@@ -784,6 +784,7 @@ button:disabled {
   overflow: auto;
 }
 
+
 .settings-checks {
   display: grid;
   gap: 10px;
