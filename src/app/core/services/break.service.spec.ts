@@ -44,4 +44,13 @@ describe('BreakService', () => {
 
     vi.useRealTimers();
   });
+
+  it('stops an active break early and records the event', async () => {
+    await service.start(5);
+    await service.stopEarly();
+
+    expect(service.state()).toBe('idle');
+    expect(service.session().remainingSeconds).toBe(0);
+    expect(record).toHaveBeenCalledWith('break_skipped', 'Break stopped early.');
+  });
 });

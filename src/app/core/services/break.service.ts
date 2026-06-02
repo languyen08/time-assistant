@@ -77,6 +77,19 @@ export class BreakService {
     }
   }
 
+  async stopEarly(): Promise<void> {
+    this.stopTimer();
+    this.session.update((session) => ({ ...session, state: 'idle', remainingSeconds: 0 }));
+    try {
+      await this.history.record('break_skipped', 'Break stopped early.');
+      this.errorMessage.set('');
+    } catch (error) {
+      this.errorMessage.set(
+        toFriendlyErrorMessage(error, 'Break stop could not be saved.'),
+      );
+    }
+  }
+
   async complete(): Promise<void> {
     this.stopTimer();
     this.session.update((session) => ({ ...session, state: 'complete', remainingSeconds: 0 }));

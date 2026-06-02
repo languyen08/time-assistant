@@ -4,6 +4,30 @@ import { App } from './app';
 import { HistoryEvent } from './core/models/history-event';
 import { Task } from './core/models/task';
 
+function pendingTask(
+  id: string,
+  name: string,
+  order: number,
+  overrides: Partial<Task> = {},
+): Task {
+  return {
+    id,
+    name,
+    note: '',
+    category: '',
+    reminderAt: '2026-05-30T10:30:00.000Z',
+    reminderCount: 3,
+    reminderIntervalMinutes: 5,
+    order,
+    status: 'pending',
+    createdAt: '2026-05-30T10:00:00.000Z',
+    updatedAt: '2026-05-30T10:00:00.000Z',
+    totalPausedSeconds: 0,
+    reminderAttemptsShown: 0,
+    ...overrides,
+  };
+}
+
 describe('App', () => {
   const originalAssistantTime = window.assistantTime;
   const originalAvailHeight = window.screen.availHeight;
@@ -316,7 +340,7 @@ describe('App', () => {
     expect(app.extensionMinutes()).toBe(17);
 
     const buttons = Array.from(
-      host.querySelectorAll<HTMLButtonElement>('.friendly-reminder .button-row button'),
+      host.querySelectorAll<HTMLButtonElement>('.friendly-reminder .reminder-actions button'),
     );
     expect(buttons).toHaveLength(4);
 
@@ -330,6 +354,123 @@ describe('App', () => {
     expect(pauseTaskSpy).toHaveBeenCalledTimes(1);
     expect(completeActiveTaskSpy).toHaveBeenCalledTimes(1);
     expect(dismissSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should show a break-conflict modal instead of starting a task during a running break', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const startSpy = vi.spyOn(app.taskService, 'start').mockResolvedValue();
+
+    app.taskService.tasks.set([pendingTask('task-2', 'Second task', 0)]);
+    app.breakService.session.set({
+      id: 'break-1',
+      startedAt: '2026-05-30T10:30:00.000Z',
+      durationMinutes: 10,
+      remainingSeconds: 420,
+      state: 'running',
+    });
+
+    await app.startTask('task-2');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(startSpy).not.toHaveBeenCalled();
+    expect(app.breakConflictTask()?.id).toBe('task-2');
+    expect(host.querySelector('.break-conflict-modal')?.textContent).toContain(
+      'Break time is still running',
+    );
+  });
+
+  it('should keep the break running and preserve the selected next task after keep break', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const startSpy = vi.spyOn(app.taskService, 'start').mockResolvedValue();
+
+    app.taskService.tasks.set([
+      pendingTask('task-1', 'First task', 0),
+      pendingTask('task-2', 'Second task', 1),
+    ]);
+    app.breakService.session.set({
+      id: 'break-1',
+      startedAt: '2026-05-30T10:30:00.000Z',
+      durationMinutes: 10,
+      remainingSeconds: 420,
+      state: 'running',
+    });
+
+    await app.startTask('task-2');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-testid="break-conflict-keep-break"]')
+      ?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(startSpy).not.toHaveBeenCalled();
+    expect(app.breakService.state()).toBe('running');
+    expect(app.currentTask()).toBeUndefined();
+    expect(app.breakConflictTask()).toBeUndefined();
+    expect(app.breakNextTaskCandidate()?.id).toBe('task-2');
+
+    app.breakService.session.update((session) => ({ ...session, state: 'complete' }));
+    await app.startNextTask();
+
+    expect(startSpy).toHaveBeenCalledOnce();
+    expect(startSpy).toHaveBeenCalledWith('task-2');
+  });
+
+  it('should stop the break early and start the selected task when confirmed', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const stopEarlySpy = vi.spyOn(app.breakService, 'stopEarly').mockImplementation(async () => {
+      app.breakService.session.update((session) => ({
+        ...session,
+        state: 'idle',
+        remainingSeconds: 0,
+      }));
+    });
+    const startSpy = vi.spyOn(app.taskService, 'start').mockImplementation(async (taskId) => {
+      app.taskService.tasks.update((tasks) =>
+        tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                status: 'active',
+                activeStartedAt: '2026-05-30T10:35:00.000Z',
+                nextReminderAt: task.reminderAt,
+              }
+            : task,
+        ),
+      );
+    });
+
+    app.taskService.tasks.set([pendingTask('task-2', 'Second task', 0)]);
+    app.breakService.session.set({
+      id: 'break-1',
+      startedAt: '2026-05-30T10:30:00.000Z',
+      durationMinutes: 10,
+      remainingSeconds: 420,
+      state: 'running',
+    });
+
+    await app.startTask('task-2');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-testid="break-conflict-start-now"]')
+      ?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(stopEarlySpy).toHaveBeenCalledOnce();
+    expect(startSpy).toHaveBeenCalledWith('task-2');
+    expect(app.breakService.state()).toBe('idle');
+    expect(app.currentTask()?.id).toBe('task-2');
+    expect(app.deferredBreakTaskId()).toBeUndefined();
   });
 
   it('should resize sticky window for reminder open and shrink after reminder closes', () => {

@@ -75,6 +75,8 @@ export class App implements OnInit, OnDestroy {
   readonly stickyQueueTrim = signal(0);
   readonly extensionMinutes = signal(10);
   readonly breakMinutes = signal(10);
+  readonly breakConflictTaskId = signal<string | undefined>(undefined);
+  readonly deferredBreakTaskId = signal<string | undefined>(undefined);
   readonly isStickyMode = signal(
     new URLSearchParams(window.location.search).get('window') === 'sticky',
   );
@@ -214,6 +216,21 @@ export class App implements OnInit, OnDestroy {
       Math.max(0, this.stickyVisibleNotes() - 1 - this.stickyQueueTrim()),
     ),
   );
+  readonly breakConflictTask = computed(() => {
+    const taskId = this.breakConflictTaskId();
+    return taskId ? this.pendingTasks().find((task) => task.id === taskId) : undefined;
+  });
+  readonly breakNextTaskCandidate = computed(() => {
+    const deferredTaskId = this.deferredBreakTaskId();
+    if (deferredTaskId) {
+      const deferredTask = this.pendingTasks().find((task) => task.id === deferredTaskId);
+      if (deferredTask) {
+        return deferredTask;
+      }
+    }
+
+    return this.nextTaskCandidate();
+  });
   private notifiedReminderKey = '';
 
   readonly taskForm = this.formBuilder.nonNullable.group({
@@ -389,7 +406,14 @@ export class App implements OnInit, OnDestroy {
   }
 
   async startTask(taskId: string): Promise<void> {
-    await this.taskService.start(taskId);
+    if (this.breakService.state() === 'running') {
+      this.deferredBreakTaskId.set(taskId);
+      this.breakConflictTaskId.set(taskId);
+      return;
+    }
+
+    this.breakConflictTaskId.set(undefined);
+    await this.beginTask(taskId);
   }
 
   async completeActiveTask(): Promise<void> {
@@ -540,14 +564,33 @@ export class App implements OnInit, OnDestroy {
   }
 
   async startNextTask(): Promise<void> {
-    const nextTask = this.nextTaskCandidate();
+    const nextTask = this.breakNextTaskCandidate();
     if (!nextTask) {
+      this.breakConflictTaskId.set(undefined);
+      this.deferredBreakTaskId.set(undefined);
       this.breakService.reset();
       return;
     }
 
+    this.breakConflictTaskId.set(undefined);
     this.breakService.reset();
-    await this.startTask(nextTask.id);
+    await this.beginTask(nextTask.id);
+  }
+
+  keepBreakRunning(): void {
+    this.breakConflictTaskId.set(undefined);
+  }
+
+  async startTaskNow(): Promise<void> {
+    const taskId = this.breakConflictTaskId();
+    if (!taskId) {
+      return;
+    }
+
+    this.breakConflictTaskId.set(undefined);
+    this.deferredBreakTaskId.set(undefined);
+    await this.breakService.stopEarly();
+    await this.beginTask(taskId);
   }
 
   async focusMainWindow(): Promise<void> {
@@ -701,6 +744,18 @@ export class App implements OnInit, OnDestroy {
   formatDuration(seconds: number): string {
     this.timerService.nowTick();
     return this.timerService.format(seconds);
+  }
+
+  private async beginTask(taskId: string): Promise<void> {
+    await this.taskService.start(taskId);
+    if (this.currentTask()?.id !== taskId) {
+      return;
+    }
+
+    this.breakConflictTaskId.set(undefined);
+    if (this.deferredBreakTaskId() === taskId) {
+      this.deferredBreakTaskId.set(undefined);
+    }
   }
 
   private syncStickyWindow(): Promise<boolean> {

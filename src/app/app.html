@@ -3235,6 +3235,164 @@
       </section>
     }
 
+    @if (breakService.state() === 'running' && breakConflictTask(); as conflictTask) {
+      <section class="modal-backdrop" role="presentation">
+        <article
+          class="reminder-modal settings-modal reminder-sheet break-conflict-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="break-conflict-title"
+        >
+          <div class="break-conflict-crest" aria-hidden="true">
+            <div class="break-conflict-crest-inner">
+              <span class="break-conflict-crest-emoji">☕</span>
+            </div>
+          </div>
+
+          <div class="break-conflict-copy">
+            <h2 id="break-conflict-title">Break time is still running</h2>
+            <div class="break-conflict-divider" aria-hidden="true"></div>
+            <p>You are still on break.</p>
+            <p>Do you want to stop the break and start this task now?</p>
+          </div>
+
+          <div class="break-conflict-summary" aria-label="Break and next task summary">
+            <span class="break-conflict-tape break-conflict-tape-left" aria-hidden="true"></span>
+            <span class="break-conflict-tape break-conflict-tape-right" aria-hidden="true"></span>
+
+            <div class="break-conflict-summary-block">
+              <div
+                class="break-conflict-summary-icon break-conflict-summary-icon-time"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="8"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                  />
+                  <path
+                    d="M12 7.7v4.6l2.65 1.8"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M12 4.7v1.2M6.15 6.15l.85.85M17 7l.85-.85"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <div class="break-conflict-summary-copy">
+                <span class="break-conflict-summary-label">Remaining break time</span>
+                <strong>{{ formatDuration(breakService.session().remainingSeconds) }}</strong>
+              </div>
+            </div>
+
+            <div class="break-conflict-summary-arrow" aria-hidden="true">→</div>
+
+            <div class="break-conflict-summary-block">
+              <div
+                class="break-conflict-summary-icon break-conflict-summary-icon-task"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
+                  <rect
+                    x="6.2"
+                    y="4.3"
+                    width="11.6"
+                    height="15.5"
+                    rx="2.2"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                  />
+                  <path
+                    d="M9 8.3h6M9 11.9h6M9 15.5h3.4"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M10.2 4.3h3.6"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <div class="break-conflict-summary-copy">
+                <span class="break-conflict-summary-label">Task to start</span>
+                <strong>{{ conflictTask.name }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="break-conflict-actions">
+            <button
+              type="button"
+              class="secondary-button settings-action-button settings-open-sticky reminder-button reminder-button-secondary break-conflict-keep-button"
+              data-testid="break-conflict-keep-break"
+              (click)="keepBreakRunning()"
+            >
+              <span class="reminder-button-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
+                  <path
+                    d="M9 6.9v10.2M15 6.9v10.2"
+                    stroke="currentColor"
+                    stroke-width="2.6"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </span>
+              <span>Keep break</span>
+            </button>
+            <button
+              type="button"
+              class="primary-button settings-action-button reminder-button break-conflict-start-button"
+              data-testid="break-conflict-start-now"
+              (click)="startTaskNow()"
+            >
+              <span class="reminder-button-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
+                  <path
+                    d="M8.2 12.35 10.75 14.9 15.8 9.85"
+                    stroke="currentColor"
+                    stroke-width="2.3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </span>
+              <span>Start task now</span>
+            </button>
+          </div>
+
+          <p class="break-conflict-note">
+            <span class="break-conflict-note-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                <circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="1.9" />
+                <path
+                  d="M12 10.4v5"
+                  stroke="currentColor"
+                  stroke-width="1.9"
+                  stroke-linecap="round"
+                />
+                <circle cx="12" cy="7.4" r="1.1" fill="currentColor" />
+              </svg>
+            </span>
+            <span>
+              If you stop the break, the break time will be cancelled and recorded in history.
+            </span>
+          </p>
+        </article>
+      </section>
+    }
+
     @if (breakService.state() === 'complete') {
       <section class="modal-backdrop" role="presentation">
         <article
@@ -3245,7 +3403,7 @@
         >
           <p class="eyebrow">Break complete</p>
           <h2 id="break-complete-title">Ready for the next task?</h2>
-          @if (nextTaskCandidate(); as nextTask) {
+          @if (breakNextTaskCandidate(); as nextTask) {
             <p>{{ nextTask.name }}</p>
             <button type="button" class="primary-button" (click)="startNextTask()">
               Start next task
