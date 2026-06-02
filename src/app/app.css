@@ -1097,6 +1097,191 @@ button:disabled {
   border-color: color-mix(in srgb, var(--primary) 32%, var(--line));
 }
 
+.reminder-sheet {
+  width: min(100%, 580px);
+  padding: 24px 24px 22px;
+  border-color: rgba(240, 203, 116, 0.7);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(255, 227, 138, 0.24), transparent 24%),
+    radial-gradient(circle at 80% 18%, rgba(255, 237, 173, 0.2), transparent 26%),
+    linear-gradient(180deg, rgba(255, 254, 245, 0.97), rgba(255, 249, 222, 0.94));
+  box-shadow:
+    0 28px 64px rgba(154, 122, 54, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -12px 22px rgba(226, 191, 93, 0.08);
+  overflow: auto;
+}
+
+.reminder-sheet.csv-modal .eyebrow,
+.reminder-sheet .eyebrow {
+  margin: 0;
+  color: #d46f21;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.reminder-sheet-header {
+  margin-bottom: 6px;
+}
+
+.reminder-sheet-header .settings-card-header {
+  margin: 0;
+}
+
+.reminder-sheet-copy {
+  display: grid;
+  gap: 8px;
+  max-width: 360px;
+  margin-top: -38px;
+  margin-bottom: 14px;
+}
+
+.reminder-sheet h2 {
+  color: #23201c;
+  font-size: clamp(1.75rem, 1.58rem + 0.42vw, 2.25rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.reminder-sheet-message {
+  color: #5f564d;
+  font-size: clamp(0.98rem, 0.94rem + 0.12vw, 1.08rem);
+  line-height: 1.38;
+}
+
+.reminder-sheet-close {
+  width: 62px;
+  min-width: 62px;
+  min-height: 62px;
+  border-radius: 18px;
+}
+
+.reminder-bell-icon {
+  background: linear-gradient(180deg, rgba(255, 248, 235, 0.98), rgba(255, 241, 219, 0.95));
+  color: #ef8d3c;
+}
+
+.reminder-field {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+  color: inherit;
+}
+
+.reminder-field-label {
+  color: #4f473f;
+  font-size: clamp(1.08rem, 1rem + 0.12vw, 1.2rem);
+  font-weight: 700;
+}
+
+.reminder-shell {
+  position: relative;
+  min-height: 82px;
+  padding-left: 70px;
+  border-radius: 18px;
+}
+
+.reminder-badge {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  transform: translateY(-50%);
+  margin: 0;
+}
+
+.reminder-input {
+  min-height: 82px;
+  padding: 10px 18px 10px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #201d1a;
+  font-size: clamp(1.28rem, 1.22rem + 0.14vw, 1.42rem);
+  font-weight: 700;
+}
+
+.reminder-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.reminder-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.reminder-button {
+  min-height: 68px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  justify-content: flex-start;
+  font-size: clamp(0.98rem, 0.94rem + 0.1vw, 1.06rem);
+  gap: 12px;
+}
+
+.reminder-button-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.reminder-button-primary {
+  border-color: #d56d21;
+  background: linear-gradient(180deg, #fb942d, #ef7c22);
+  color: #fffef9;
+  box-shadow:
+    0 18px 30px rgba(206, 103, 23, 0.2),
+    inset 0 1px 0 rgba(255, 221, 183, 0.48);
+}
+
+.reminder-button-primary .reminder-button-icon {
+  background: #fffefb;
+  color: #ef8326;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 8px 16px rgba(167, 84, 17, 0.16);
+}
+
+.reminder-button-secondary {
+  border-color: rgba(228, 208, 177, 0.9);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(251, 244, 233, 0.95));
+  color: #28231f;
+  box-shadow:
+    0 14px 28px rgba(164, 135, 96, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+.reminder-button-success .reminder-button-icon,
+.reminder-button-pause .reminder-button-icon {
+  background: linear-gradient(180deg, rgba(239, 245, 220, 0.98), rgba(225, 236, 197, 0.96));
+  color: #72ad4e;
+}
+
+.reminder-button-pause .reminder-button-icon svg,
+.reminder-button-success .reminder-button-icon svg {
+  color: #72ad4e;
+}
+
+.reminder-button-dismiss .reminder-button-icon {
+  background: linear-gradient(180deg, rgba(243, 239, 231, 0.98), rgba(232, 225, 211, 0.96));
+  color: #73685a;
+}
+
+.reminder-button-dismiss .reminder-button-icon svg {
+  color: #73685a;
+}
+
 .break-ribbon {
   position: fixed;
   right: 24px;
@@ -1138,6 +1323,38 @@ button:disabled {
   .sticky-panel {
     position: static;
   }
+
+  .reminder-sheet {
+    width: min(100%, 460px);
+    padding: 22px 20px 18px;
+  }
+
+  .reminder-sheet-close {
+    width: 58px;
+    min-width: 58px;
+    min-height: 58px;
+  }
+
+  .reminder-shell,
+  .reminder-input {
+    min-height: 76px;
+  }
+
+  .reminder-shell {
+    padding-left: 64px;
+    border-radius: 16px;
+  }
+
+  .reminder-badge {
+    left: 12px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .reminder-button {
+    min-height: 64px;
+    border-radius: 16px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1168,5 +1385,108 @@ button:disabled {
 
   .task-actions {
     justify-content: start;
+  }
+
+  .reminder-sheet {
+    width: min(100%, 420px);
+    padding: 18px 16px 16px;
+  }
+
+  .reminder-sheet-copy {
+    gap: 12px;
+    margin-top: -12px;
+    margin-bottom: 14px;
+  }
+
+  .reminder-sheet h2 {
+    font-size: clamp(1.48rem, 1.38rem + 0.22vw, 1.72rem);
+  }
+
+  .reminder-sheet-message {
+    font-size: 0.94rem;
+  }
+
+  .reminder-sheet-close {
+    width: 50px;
+    min-width: 50px;
+    min-height: 50px;
+  }
+
+  .reminder-shell,
+  .reminder-input {
+    min-height: 68px;
+  }
+
+  .reminder-shell {
+    padding-left: 58px;
+    border-radius: 14px;
+  }
+
+  .reminder-badge {
+    left: 10px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .reminder-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .reminder-button {
+    min-height: 56px;
+    padding-inline: 14px;
+    border-radius: 14px;
+  }
+
+  .reminder-button-icon {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (max-width: 560px) {
+  .reminder-sheet {
+    width: min(100%, 360px);
+    padding: 16px 12px 12px;
+    border-radius: 20px;
+  }
+
+  .reminder-sheet .eyebrow {
+    font-size: 0.76rem;
+  }
+
+  .reminder-field-label {
+    font-size: 1rem;
+  }
+
+  .reminder-shell,
+  .reminder-input {
+    min-height: 60px;
+  }
+
+  .reminder-shell {
+    padding-left: 52px;
+    border-radius: 12px;
+  }
+
+  .reminder-badge {
+    left: 9px;
+    width: 30px;
+    height: 30px;
+  }
+
+  .reminder-input {
+    font-size: 1.12rem;
+  }
+
+  .reminder-button {
+    min-height: 52px;
+    padding-inline: 12px;
+    font-size: 0.94rem;
+  }
+
+  .reminder-button-icon {
+    width: 30px;
+    height: 30px;
   }
 }

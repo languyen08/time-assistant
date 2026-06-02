@@ -3264,37 +3264,158 @@
   @if (reminderScheduler.activeReminder(); as reminder) {
     <section class="modal-backdrop friendly-backdrop" role="presentation">
       <article
-        class="reminder-modal friendly-reminder"
+        class="reminder-modal settings-modal friendly-reminder reminder-sheet"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reminder-title"
       >
-        <p class="eyebrow">
-          Gentle reminder {{ reminder.attemptNumber }} of {{ reminder.maxAttempts }}
-        </p>
-        <h2 id="reminder-title">{{ reminder.taskName }}</h2>
-        <p>{{ notificationService.messageFor(reminder) }}</p>
+        <header class="modal-header csv-modal-header reminder-sheet-header">
+          <div class="settings-card-header">
+            <div class="settings-card-icon reminder-bell-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="34" height="34" fill="none">
+                <path
+                  d="M12 4.3a4.1 4.1 0 0 0-4.1 4.1v1.15c0 .85-.3 1.67-.86 2.32l-1.17 1.4c-.45.54-.07 1.36.63 1.36h11a.83.83 0 0 0 .63-1.36l-1.17-1.4a3.58 3.58 0 0 1-.86-2.32V8.4A4.1 4.1 0 0 0 12 4.3Z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M10.35 17.1a1.95 1.95 0 0 0 3.3 0"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M12 3.2v1.1"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </div>
+            <div class="break-status-copy">
+              <p class="eyebrow">
+                Gentle reminder {{ reminder.attemptNumber }} of {{ reminder.maxAttempts }}
+              </p>
+            </div>
+          </div>
 
-        <label>
-          <span>More minutes</span>
-          <input
-            type="number"
-            min="1"
-            [value]="extensionMinutes()"
-            (input)="setExtensionMinutes($event)"
-          />
+          <button
+            type="button"
+            class="icon-button csv-close-button reminder-sheet-close"
+            aria-label="Close reminder"
+            (click)="reminderScheduler.dismiss()"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="28" height="28" fill="none">
+              <path
+                d="M7 7 17 17M17 7 7 17"
+                stroke="currentColor"
+                stroke-width="2.6"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </header>
+
+        <div class="reminder-sheet-copy">
+          <h2 id="reminder-title">{{ reminder.taskName }}</h2>
+          <p class="reminder-sheet-message">{{ notificationService.messageFor(reminder) }}</p>
+        </div>
+
+        <label class="reminder-field">
+          <span class="settings-field-label reminder-field-label">More minutes</span>
+          <span class="settings-control-shell reminder-shell">
+            <span class="settings-card-icon settings-card-icon-general reminder-badge" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="42" height="42" fill="none">
+                <circle cx="12" cy="12" r="6.65" stroke="currentColor" stroke-width="2.05" />
+                <path
+                  d="M12 8.25v4.2l2.45 1.65"
+                  stroke="currentColor"
+                  stroke-width="2.05"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+            <input
+              class="settings-input reminder-input"
+              type="number"
+              min="1"
+              [value]="extensionMinutes()"
+              (input)="setExtensionMinutes($event)"
+            />
+          </span>
         </label>
 
-        <div class="button-row">
-          <button type="button" class="primary-button" (click)="addReminderTime()">
-            Give me more time
+        <div class="reminder-actions">
+          <button
+            type="button"
+            class="primary-button settings-action-button reminder-button reminder-button-primary"
+            (click)="addReminderTime()"
+          >
+            <span class="reminder-button-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
+                <path
+                  d="M12 5.8v12.4M5.8 12h12.4"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </span>
+            <span>Give me more time</span>
           </button>
-          <button type="button" class="secondary-button" (click)="pauseTask()">Pause task</button>
-          <button type="button" class="secondary-button" (click)="completeActiveTask()">
-            Task completed
+          <button
+            type="button"
+            class="secondary-button settings-action-button settings-open-sticky reminder-button reminder-button-secondary reminder-button-pause"
+            (click)="pauseTask()"
+          >
+            <span class="reminder-button-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
+                <path
+                  d="M9 6.9v10.2M15 6.9v10.2"
+                  stroke="currentColor"
+                  stroke-width="2.6"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </span>
+            <span>Pause task</span>
           </button>
-          <button type="button" class="secondary-button" (click)="reminderScheduler.dismiss()">
-            Dismiss for now
+          <button
+            type="button"
+            class="secondary-button settings-action-button settings-open-sticky reminder-button reminder-button-secondary reminder-button-success"
+            (click)="completeActiveTask()"
+          >
+            <span class="reminder-button-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
+                <path
+                  d="m6.75 12.4 3.3 3.35 7.2-7.25"
+                  stroke="currentColor"
+                  stroke-width="2.25"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+            <span>Task completed</span>
+          </button>
+          <button
+            type="button"
+            class="secondary-button settings-action-button settings-open-sticky reminder-button reminder-button-secondary reminder-button-dismiss"
+            (click)="reminderScheduler.dismiss()"
+          >
+            <span class="reminder-button-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
+                <path
+                  d="M7 7 17 17M17 7 7 17"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </span>
+            <span>Dismiss for now</span>
           </button>
         </div>
       </article>
