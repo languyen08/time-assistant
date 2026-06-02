@@ -913,10 +913,14 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.96);
     }
 
+    .break-prompt-modal{width:min(100%,720px);padding:22px 24px 20px;border-radius:26px}.break-modal-header{margin-bottom:12px}.break-modal-header .settings-card-header{margin:0}.break-status-copy,.break-modal-copy{display:grid}.break-status-copy{gap:8px}.break-modal-copy{gap:14px;max-width:560px;margin-bottom:16px}.break-prompt-modal h2{color:#23201c;font-size:clamp(1.65rem,1.5rem + .55vw,2.3rem);font-weight:700;line-height:1.08;letter-spacing:-.03em}.break-prompt-modal .eyebrow{margin:0;color:#bf6c2d;font-size:.82rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}.break-close-button{width:60px;min-width:60px;min-height:60px;border-radius:18px}.break-modal-description{max-width:560px;color:#5f564d;font-size:clamp(.94rem,.9rem + .16vw,1.08rem);line-height:1.4}.break-field{display:grid;gap:10px;margin:16px 0 16px;color:inherit}.break-field-label{color:#4f473f;font-size:clamp(1.04rem,.98rem + .12vw,1.18rem);font-weight:700}.break-control-shell{position:relative;min-height:78px;padding-left:70px;border-radius:18px}.break-control-badge{position:absolute;left:14px;top:50%;width:42px;height:42px;transform:translateY(-50%);margin:0}.break-input{min-height:78px;padding:10px 18px 10px 0;border:0;background:transparent;box-shadow:none;color:#201d1a;font-size:clamp(1.28rem,1.2rem + .2vw,1.55rem);font-weight:700}.break-input:focus-visible{outline:none;box-shadow:none}.break-field-helper{color:#6d6358;font-size:.88rem;line-height:1.38;padding-left:4px}.break-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.break-action-button{min-height:68px;padding:12px 18px;border-radius:18px;justify-content:center;font-size:clamp(1rem,.96rem + .12vw,1.12rem);gap:12px}.break-skip-button .break-button-icon svg{color:inherit}.break-start-button{border-color:#d56d21;background:linear-gradient(180deg,#fb942d,#ef7c22);color:#fffef9;box-shadow:0 14px 24px rgba(206,103,23,.2),inset 0 1px 0 rgba(255,221,183,.48)}.break-button-icon{display:grid;place-items:center;width:38px;height:38px;margin:0;border-radius:999px}.break-button-icon-start{background:#fffefb;color:#ef8326;box-shadow:inset 0 1px 0 rgba(255,255,255,.98),0 8px 16px rgba(167,84,17,.16)}
+
     @media (max-width: 980px) {
       .settings-modal-sheet {
         padding: 24px 20px 22px;
       }
+
+      .break-prompt-modal{width:min(100%,660px);padding:20px 20px 18px}.break-close-button{width:56px;min-width:56px;min-height:56px}.break-control-shell,.break-input{min-height:72px}.break-control-shell{padding-left:64px;border-radius:16px}.break-control-badge{left:12px;width:38px;height:38px}.break-actions{gap:14px}.break-action-button{min-height:62px;border-radius:16px}
 
       .settings-card-grid-two,
       .settings-card-grid-three,
@@ -936,9 +940,15 @@
         min-height: 62px;
       }
 
+      .break-prompt-modal{width:min(100%,520px);padding:18px 16px 16px}.break-close-button{width:52px;min-width:52px;min-height:52px}.break-modal-copy{gap:12px;margin-bottom:14px}.break-control-shell,.break-input{min-height:66px}.break-control-shell{padding-left:58px;border-radius:14px}.break-control-badge{left:10px;width:34px;height:34px}.break-actions{grid-template-columns:1fr}.break-action-button{min-height:58px;padding-inline:16px;gap:10px}.break-button-icon{width:34px;height:34px}
+
       .settings-modal-toolbar {
         gap: 16px;
       }
+    }
+
+    @media (max-width: 560px) {
+      .break-prompt-modal{padding:16px 12px 14px;border-radius:20px}.break-prompt-modal .eyebrow{font-size:.78rem}
     }
 
     .current-task-active-note {
@@ -3086,27 +3096,133 @@
     @if (breakService.state() === 'prompt') {
       <section class="modal-backdrop" role="presentation">
         <article
-          class="reminder-modal break-modal"
+          class="reminder-modal settings-modal csv-modal break-modal break-prompt-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="break-title"
         >
-          <p class="eyebrow">Task complete</p>
-          <h2 id="break-title">Would a short break help?</h2>
-          <p>Step away for a moment, or keep moving if you are already warmed up.</p>
-          <label>
-            <span>Break minutes</span>
-            <input
-              type="number"
-              min="1"
-              max="120"
-              [value]="breakMinutes()"
-              (input)="setBreakMinutes($event)"
-            />
+          <header class="modal-header csv-modal-header break-modal-header">
+            <div class="settings-card-header">
+              <div class="settings-card-icon settings-card-icon-general" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none">
+                  <path
+                    d="m6.75 12.4 3.3 3.35 7.2-7.25"
+                    stroke="currentColor"
+                    stroke-width="2.25"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
+              <div class="break-status-copy">
+                <p class="eyebrow">Task complete</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="icon-button csv-close-button break-close-button"
+              aria-label="Close break prompt"
+              (click)="skipBreak()"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="30" height="30" fill="none">
+                <path
+                  d="M7 7 17 17M17 7 7 17"
+                  stroke="currentColor"
+                  stroke-width="2.6"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </header>
+
+          <div class="break-modal-copy">
+            <h2 id="break-title">Would a short break help?</h2>
+            <p class="break-modal-description">
+              Step away for a moment, or keep moving if you are already warmed up.
+            </p>
+          </div>
+
+          <label class="break-field">
+            <span class="settings-field-label break-field-label">Break minutes</span>
+            <span class="settings-control-shell break-control-shell">
+              <span class="settings-card-icon settings-card-icon-general break-control-badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="42" height="42" fill="none">
+                  <circle cx="12" cy="12" r="6.65" stroke="currentColor" stroke-width="2.05" />
+                  <path
+                    d="M12 8.25v4.2l2.45 1.65"
+                    stroke="currentColor"
+                    stroke-width="2.05"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </span>
+              <input
+                class="settings-input break-input"
+                type="number"
+                min="1"
+                max="120"
+                [value]="breakMinutes()"
+                (input)="setBreakMinutes($event)"
+              />
+            </span>
+            <span class="break-field-helper">
+              Default break time is 10 minutes. You can change it anytime.
+            </span>
           </label>
-          <div class="button-row">
-            <button type="button" class="primary-button" (click)="startBreak()">Start break</button>
-            <button type="button" class="secondary-button" (click)="skipBreak()">Skip break</button>
+
+          <div class="break-actions">
+            <button
+              type="button"
+              class="secondary-button settings-action-button settings-open-sticky break-action-button break-skip-button"
+              (click)="skipBreak()"
+            >
+              <span class="settings-card-icon settings-card-icon-defaults break-button-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="38" height="38" fill="none">
+                  <path
+                    d="M7 8.25h8.35a3.15 3.15 0 0 1 0 6.3h-.65"
+                    stroke="currentColor"
+                    stroke-width="1.95"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M7.35 8.25h6.35v4.35a4.35 4.35 0 0 1-4.35 4.35h-.8A4.35 4.35 0 0 1 4.2 12.6V11.4"
+                    stroke="currentColor"
+                    stroke-width="1.95"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M9.1 4.8c0 1.05-.3 1.95-.95 2.75M12.65 4.8c0 1.05-.3 1.95-.95 2.75"
+                    stroke="currentColor"
+                    stroke-width="1.95"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </span>
+              <span>Skip break</span>
+            </button>
+
+            <button
+              type="button"
+              class="primary-button settings-action-button break-action-button break-start-button"
+              (click)="startBreak()"
+            >
+              <span class="break-button-icon break-button-icon-start" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="34" height="34" fill="none">
+                  <path
+                    d="m9 7.75 7 4.25-7 4.25V7.75Z"
+                    fill="currentColor"
+                    stroke="currentColor"
+                    stroke-width="1.2"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </span>
+              <span>Start break</span>
+            </button>
           </div>
         </article>
       </section>
