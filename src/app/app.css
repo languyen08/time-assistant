@@ -912,6 +912,8 @@ button:disabled {
 
 .active-note {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
   gap: 16px;
   margin-top: 14px;
   padding: 18px;

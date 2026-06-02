@@ -56,8 +56,8 @@
     }
 
     .csv-modal {
-      width: min(100%, 1480px);
-      padding: 30px 40px 32px;
+      width: min(100%, 1300px);
+      padding: 24px 30px 26px;
       border-color: rgba(209, 191, 160, 0.38);
       border-radius: 28px;
       background:
@@ -72,7 +72,7 @@
 
     .csv-modal-header {
       align-items: start;
-      margin-bottom: 28px;
+      margin-bottom: 22px;
     }
 
     .csv-title-block {
@@ -90,7 +90,7 @@
 
     .csv-modal h2 {
       color: #2e2720;
-      font-size: 2.1rem;
+      font-size: 1.92rem;
       font-weight: 700;
       line-height: 1.08;
     }
@@ -140,12 +140,12 @@
     .csv-modal-grid {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 24px;
+      gap: 20px;
       align-items: stretch;
     }
 
     .csv-section {
-      padding: 28px 28px 30px;
+      padding: 22px 22px 24px;
       border: 1px solid rgba(223, 205, 174, 0.4);
       border-radius: 24px;
       box-shadow:
@@ -174,7 +174,7 @@
       grid-template-columns: auto 1fr;
       gap: 18px;
       align-items: start;
-      margin-bottom: 22px;
+      margin-bottom: 18px;
     }
 
     .csv-section-icon {
@@ -225,7 +225,7 @@
 
     .csv-export-list {
       display: grid;
-      gap: 16px;
+      gap: 14px;
     }
 
     .csv-action-card {
@@ -237,8 +237,8 @@
     }
 
     .csv-export-card {
-      min-height: 164px;
-      padding: 22px 24px;
+      min-height: 136px;
+      padding: 18px 20px;
       display: grid;
       grid-template-columns: auto 1fr auto;
       align-items: center;
@@ -312,9 +312,9 @@
     }
 
     .csv-import-card {
-      min-height: 392px;
+      min-height: 306px;
       width: 100%;
-      padding: 40px 30px 34px;
+      padding: 26px 22px;
       display: grid;
       justify-items: center;
       align-content: center;
@@ -349,15 +349,15 @@
 
     .csv-import-title {
       color: #4b3a76;
-      font-size: 1.16rem;
+      font-size: 1.08rem;
       font-weight: 700;
       line-height: 1.2;
     }
 
     .csv-import-text {
-      max-width: 380px;
+      max-width: 330px;
       color: #6f6487;
-      font-size: 0.98rem;
+      font-size: 0.94rem;
       font-weight: 400;
       line-height: 1.5;
       text-align: center;
@@ -382,12 +382,12 @@
     }
 
     .csv-tips-panel {
-      margin-top: 18px;
+      margin-top: 14px;
       display: grid;
       grid-template-columns: auto 1fr;
       gap: 16px;
       align-items: center;
-      padding: 20px 24px;
+      padding: 16px 20px;
       border: 1px solid rgba(192, 213, 241, 0.56);
       border-radius: 22px;
       background: linear-gradient(180deg, rgba(245, 250, 255, 0.96), rgba(239, 246, 255, 0.92));
@@ -457,7 +457,7 @@
 
     .csv-footer {
       justify-content: flex-end;
-      margin-top: 18px;
+      margin-top: 14px;
     }
 
     .csv-footer-close {
@@ -486,7 +486,7 @@
 
     @media (max-width: 860px) {
       .csv-modal {
-        padding: 26px 22px 24px;
+        padding: 22px 18px 20px;
       }
 
       .csv-modal-toolbar {
@@ -499,6 +499,626 @@
 
       .csv-action-chevron {
         display: none;
+      }
+    }
+
+    .settings-modal-sheet {
+      width: min(100%, 980px);
+      max-height: calc(100dvh - 48px);
+      padding: 30px 32px 28px;
+      border-color: rgba(220, 201, 169, 0.42);
+      border-radius: 30px;
+      background:
+        radial-gradient(circle at 24% 18%, rgba(248, 226, 169, 0.1), transparent 28%),
+        radial-gradient(circle at 76% 74%, rgba(206, 225, 245, 0.08), transparent 24%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(255, 251, 245, 0.95));
+      box-shadow:
+        0 28px 60px rgba(118, 94, 58, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98),
+        inset 0 -10px 24px rgba(187, 159, 107, 0.05);
+      overflow: auto;
+    }
+
+    .settings-modal-header {
+      align-items: start;
+      margin-bottom: 22px;
+    }
+
+    .settings-title-block {
+      display: grid;
+      gap: 10px;
+    }
+
+    .settings-modal-sheet .eyebrow {
+      margin-bottom: 0;
+      color: #a14d1f;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .settings-modal-sheet h2 {
+      color: #29231d;
+      font-size: 1.92rem;
+      font-weight: 700;
+      line-height: 1.06;
+    }
+
+    .settings-modal-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      margin-left: auto;
+    }
+
+    .settings-pin {
+      color: #e3b847;
+      transform: rotate(30deg);
+      filter: drop-shadow(0 6px 8px rgba(190, 152, 64, 0.24));
+    }
+
+    .settings-close-button {
+      width: 72px;
+      min-width: 72px;
+      min-height: 72px;
+      border: 1px solid rgba(222, 205, 179, 0.9);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 243, 232, 0.94));
+      color: #342920;
+      box-shadow:
+        0 14px 26px rgba(159, 132, 93, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+      transition:
+        transform 120ms ease,
+        box-shadow 120ms ease,
+        border-color 120ms ease;
+    }
+
+    .settings-close-button:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        0 18px 30px rgba(159, 132, 93, 0.13),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+    }
+
+    .settings-close-button:active {
+      transform: translateY(0);
+      box-shadow:
+        inset 0 2px 5px rgba(137, 111, 75, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.76);
+    }
+
+    .settings-close-button:focus-visible {
+      border-color: rgba(207, 175, 124, 0.92);
+      box-shadow:
+        0 0 0 4px rgba(225, 197, 150, 0.22),
+        0 14px 26px rgba(159, 132, 93, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    }
+
+    .settings-stack {
+      display: grid;
+      gap: 22px;
+    }
+
+    .settings-card {
+      padding: 18px 18px 22px;
+      border: 1px solid rgba(223, 205, 174, 0.4);
+      border-radius: 24px;
+      box-shadow:
+        0 14px 28px rgba(168, 142, 99, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.97);
+    }
+
+    .settings-card-general {
+      border-color: rgba(241, 211, 145, 0.56);
+      background:
+        radial-gradient(circle at 18% 14%, rgba(253, 229, 166, 0.12), transparent 28%),
+        linear-gradient(180deg, rgba(255, 252, 243, 0.96), rgba(255, 249, 231, 0.93));
+    }
+
+    .settings-card-defaults {
+      border-color: rgba(205, 220, 173, 0.62);
+      background:
+        radial-gradient(circle at 18% 16%, rgba(205, 229, 166, 0.12), transparent 28%),
+        linear-gradient(180deg, rgba(250, 253, 244, 0.97), rgba(242, 248, 228, 0.94));
+    }
+
+    .settings-card-sticky {
+      border-color: rgba(200, 215, 243, 0.72);
+      background:
+        radial-gradient(circle at 16% 18%, rgba(188, 212, 248, 0.1), transparent 26%),
+        linear-gradient(180deg, rgba(248, 252, 255, 0.97), rgba(242, 247, 255, 0.94));
+      box-shadow:
+        0 14px 28px rgba(145, 170, 206, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.97);
+    }
+
+    .settings-card-header {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .settings-card-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.94),
+        0 10px 18px rgba(170, 147, 93, 0.08);
+    }
+
+    .settings-card-icon-general {
+      background: linear-gradient(180deg, rgba(255, 243, 208, 0.98), rgba(255, 236, 186, 0.96));
+      color: #efb21c;
+    }
+
+    .settings-card-icon-defaults {
+      background: linear-gradient(180deg, rgba(233, 245, 216, 0.98), rgba(216, 235, 184, 0.96));
+      color: #7cad45;
+    }
+
+    .settings-card-icon-sticky {
+      background: linear-gradient(180deg, rgba(230, 241, 255, 0.98), rgba(211, 228, 252, 0.96));
+      color: #6a9fe8;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.94),
+        0 10px 18px rgba(125, 157, 210, 0.1);
+    }
+
+    .settings-card-title {
+      color: #2d2620;
+      font-size: 1.04rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .settings-card-grid-two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .settings-card-grid-three {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px 18px;
+    }
+
+    .settings-field {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .settings-field-label {
+      color: #6b5a44;
+      font-size: 0.98rem;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .settings-control-shell {
+      position: relative;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      border: 1px solid rgba(220, 205, 180, 0.86);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(252, 247, 239, 0.95));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.98),
+        inset 0 -1px 0 rgba(231, 219, 198, 0.32);
+    }
+
+    .settings-card-sticky .settings-control-shell {
+      border-color: rgba(210, 219, 238, 0.92);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.96));
+    }
+
+    .settings-control-icon {
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: grid;
+      place-items: center;
+      color: #f0b52c;
+      pointer-events: none;
+    }
+
+    .settings-control-icon-calendar {
+      color: #f1b93f;
+    }
+
+    .settings-select {
+      width: 100%;
+      min-height: 60px;
+      padding: 14px 48px 14px 54px;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #2f2922;
+      font-size: 0.98rem;
+      font-weight: 600;
+      appearance: none;
+    }
+
+    .settings-input {
+      width: 100%;
+      min-height: 60px;
+      padding: 14px 16px 14px 18px;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #2f2922;
+      font-size: 0.98rem;
+      font-weight: 600;
+    }
+
+    .settings-input::-webkit-outer-spin-button,
+    .settings-input::-webkit-inner-spin-button {
+      opacity: 1;
+      height: 42px;
+    }
+
+    .settings-control-chevron {
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #534438;
+      pointer-events: none;
+    }
+
+    .settings-sticky-checks {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px 24px;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+
+    .settings-check-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: #2f2922;
+      font-size: 0.98rem;
+      font-weight: 500;
+      line-height: 1.3;
+      align-self: center;
+      justify-self: start;
+      min-height: 28px;
+    }
+
+    .settings-check-row input[type='checkbox'] {
+      appearance: none;
+      -webkit-appearance: none;
+      display: inline-grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      min-height: 28px;
+      max-width: 28px;
+      max-height: 28px;
+      margin: 0;
+      padding: 0;
+      flex: 0 0 auto;
+      border: 1.5px solid rgba(155, 166, 181, 0.9);
+      border-radius: 7px !important;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(130, 153, 191, 0.08);
+      position: relative;
+      cursor: pointer;
+      vertical-align: middle;
+    }
+
+    .settings-check-row input[type='checkbox']::after {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 4px;
+      width: 7px;
+      height: 13px;
+      border-right: 3px solid transparent;
+      border-bottom: 3px solid transparent;
+      transform: rotate(45deg);
+    }
+
+    .settings-check-row input[type='checkbox']:checked {
+      border-color: rgba(78, 139, 225, 0.88);
+      background: linear-gradient(180deg, #5e99eb, #4e88db);
+      border-radius: 7px !important;
+      box-shadow:
+        0 8px 14px rgba(84, 134, 208, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    }
+
+    .settings-check-row input[type='checkbox']:checked::after {
+      border-right-color: #ffffff;
+      border-bottom-color: #ffffff;
+    }
+
+    .settings-check-row input[type='checkbox']:focus-visible {
+      outline: 0;
+      box-shadow:
+        0 0 0 4px rgba(110, 162, 236, 0.18),
+        0 2px 5px rgba(130, 153, 191, 0.1);
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 24px;
+      margin-top: 2px;
+    }
+
+    .settings-action-button {
+      min-height: 54px;
+      padding: 12px 22px 12px 18px;
+      border-radius: 18px;
+      font-size: 0.98rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      transition:
+        transform 120ms ease,
+        box-shadow 120ms ease,
+        border-color 120ms ease;
+    }
+
+    .settings-action-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .settings-open-sticky {
+      border-color: rgba(225, 203, 165, 0.84);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(250, 242, 224, 0.94));
+      color: #2d251d;
+      box-shadow:
+        0 12px 24px rgba(163, 135, 95, 0.09),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    }
+
+    .settings-open-sticky svg {
+      color: #efb94c;
+    }
+
+    .settings-reset {
+      border-color: rgba(244, 194, 194, 0.82);
+      background: linear-gradient(180deg, rgba(255, 245, 245, 0.98), rgba(255, 237, 237, 0.95));
+      color: #e06161;
+      box-shadow:
+        0 12px 24px rgba(193, 126, 126, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    }
+
+    .settings-modal-sheet .status-line {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(208, 217, 231, 0.58);
+      background: rgba(247, 250, 255, 0.9);
+      color: #56657d;
+      box-shadow:
+        0 8px 18px rgba(143, 160, 186, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.96);
+    }
+
+    @media (max-width: 980px) {
+      .settings-modal-sheet {
+        padding: 24px 20px 22px;
+      }
+
+      .settings-card-grid-two,
+      .settings-card-grid-three,
+      .settings-sticky-checks {
+        grid-template-columns: 1fr;
+      }
+
+      .settings-actions {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .settings-close-button {
+        width: 62px;
+        min-width: 62px;
+        min-height: 62px;
+      }
+
+      .settings-modal-toolbar {
+        gap: 16px;
+      }
+    }
+
+    .current-task-active-note {
+      display:grid;
+      gap:18px;
+      margin-top:-25px;
+      padding:8px 0 4px;
+      color:#3b3421;
+    }
+
+    .current-task-active-title {
+      margin: 0;
+      color: #312917;
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .current-task-active-copy {
+      display:grid;
+      gap:12px;
+      padding-inline:4px;
+    }
+
+    .current-task-active-note-text {
+      margin: 0;
+      color: #62563a;
+      line-height: 1.55;
+    }
+
+    .current-task-active-panels {
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:12px;
+      width: calc(100% - 8px);
+      margin-inline: auto;
+    }
+
+    .current-task-active-panel {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(217, 201, 165, 0.46);
+      box-shadow:
+        0 10px 20px rgba(149, 125, 79, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.94);
+    }
+
+    .current-task-active-panel--elapsed {
+      background: linear-gradient(180deg, rgba(252, 249, 238, 0.96), rgba(241, 248, 227, 0.94));
+    }
+
+    .current-task-active-panel--reminder {
+      background: linear-gradient(180deg, rgba(253, 248, 255, 0.96), rgba(243, 237, 255, 0.94));
+      border-color: rgba(202, 189, 228, 0.48);
+    }
+
+    .current-task-active-panel-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    }
+
+    .current-task-active-panel--elapsed .current-task-active-panel-icon {
+      background: linear-gradient(180deg, rgba(227, 242, 213, 0.98), rgba(210, 232, 184, 0.96));
+      color: #7aa24b;
+    }
+
+    .current-task-active-panel--reminder .current-task-active-panel-icon {
+      background: linear-gradient(180deg, rgba(232, 225, 255, 0.98), rgba(216, 202, 250, 0.96));
+      color: #8b71c7;
+    }
+
+    .current-task-active-panel-copy {
+      display: grid;
+      gap: 4px;
+      align-content: center;
+    }
+
+    .current-task-active-panel-label {
+      color: #7a6d54;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .current-task-active-panel--reminder .current-task-active-panel-label {
+      color: #74668f;
+    }
+
+    .current-task-active-panel-value {
+      color: #30281a;
+      font-size: 1.38rem;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .current-task-active-actions {
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:12px;
+      width: calc(100% - 8px);
+      margin-inline: auto;
+    }
+
+    .current-task-active-button {
+      min-height: 52px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 0.96rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      transition:
+        transform 120ms ease,
+        box-shadow 120ms ease,
+        border-color 120ms ease,
+        background-color 120ms ease;
+    }
+
+    .current-task-active-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .current-task-active-button-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+    }
+
+    .current-task-active-button--secondary {
+      border-color: rgba(215, 203, 179, 0.9);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 240, 228, 0.94));
+      color: #332c1e;
+      box-shadow:
+        0 10px 20px rgba(161, 138, 101, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    }
+
+    .current-task-active-button--secondary .current-task-active-button-icon {
+      background: linear-gradient(180deg, rgba(227, 242, 213, 0.98), rgba(210, 232, 184, 0.96));
+      color: #79a44b;
+    }
+
+    .current-task-active-button--primary {
+      border-color: rgba(204, 125, 57, 0.86);
+      background: linear-gradient(180deg, #e59a4d, #cf7d36);
+      color: #fffdf9;
+      box-shadow:
+        0 12px 22px rgba(162, 94, 34, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    }
+
+    .current-task-active-button--primary .current-task-active-button-icon {
+      background: rgba(255, 255, 255, 0.96);
+      color: #cf7d36;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1);
+    }
+
+    .current-task-active-button:focus-visible {
+      outline: 3px solid rgba(214, 179, 125, 0.22);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 720px) {
+      .current-task-active-panels,
+      .current-task-active-actions {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -716,118 +1336,118 @@
                 [class.paused-note]="task.status === 'paused'"
                 style="
                   margin-top: 16px;
-                  gap: 18px;
-                  padding: 8px 4px 4px;
+                  padding: 0;
                   border: none;
                   background: transparent;
                   box-shadow: none;
                   color: #3b3421;
                 "
               >
-                <div>
-                  <p
-                    class="task-label"
-                    style="
-                      display: inline-flex;
-                      margin: 0 0 10px;
-                      padding: 6px 10px;
-                      border-radius: 999px;
-                      background: rgba(255, 255, 255, 0.58);
-                      color: #8d7332;
-                      font-size: 0.8rem;
-                      font-weight: 700;
-                    "
-                  >
-                    {{ task.status === 'paused' ? 'Paused' : task.category || 'Unsorted' }}
-                  </p>
-                  <h2
-                    style="
-                      margin: 0;
-                      color: #332c1e;
-                      font-size: 2rem;
-                      line-height: 1.08;
-                    "
-                  >
+                <div class="current-task-active-note">
+                  <div class="current-task-active-copy">
+                    <h2 class="current-task-active-title">
                     {{ task.name }}
-                  </h2>
-                  @if (task.note) {
-                    <p
-                      style="
-                        margin-top: 12px;
-                        color: #62563a;
-                        line-height: 1.55;
-                      "
-                    >
-                      {{ task.note }}
-                    </p>
-                  }
-                </div>
-                <div class="timer-grid" style="gap: 12px">
-                  <div
-                    style="
-                      padding: 14px 16px;
-                      border: 1px solid rgba(216, 190, 104, 0.24);
-                      border-radius: 14px;
-                      background: rgba(255, 255, 255, 0.58);
-                      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
-                    "
-                  >
-                    <span
-                      style="
-                        color: #7b6a42;
-                        font-size: 0.8rem;
-                        font-weight: 700;
-                      "
-                      >Elapsed</span
-                    >
-                    <strong
-                      style="
-                        margin-top: 6px;
-                        color: #332c1e;
-                        font-size: 1.35rem;
-                      "
-                      >{{ elapsedFor(task) }}</strong
-                    >
+                    </h2>
+                    @if (task.note) {
+                      <p class="current-task-active-note-text">
+                        {{ task.note }}
+                      </p>
+                    }
                   </div>
-                  <div
-                    style="
-                      padding: 14px 16px;
-                      border: 1px solid rgba(216, 190, 104, 0.24);
-                      border-radius: 14px;
-                      background: rgba(255, 255, 255, 0.58);
-                      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
-                    "
-                  >
-                    <span
-                      style="
-                        color: #7b6a42;
-                        font-size: 0.8rem;
-                        font-weight: 700;
-                      "
-                      >Reminder in</span
+
+                  <div class="current-task-active-panels">
+                    <div class="current-task-active-panel current-task-active-panel--elapsed">
+                      <div class="current-task-active-panel-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+                          <circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="2" />
+                          <path
+                            d="M12 7.4v4.8l3.1 1.8"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </div>
+                      <div class="current-task-active-panel-copy">
+                        <span class="current-task-active-panel-label">Elapsed</span>
+                        <strong class="current-task-active-panel-value">{{ elapsedFor(task) }}</strong>
+                      </div>
+                    </div>
+
+                    <div class="current-task-active-panel current-task-active-panel--reminder">
+                      <div class="current-task-active-panel-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+                          <path
+                            d="M12 4.2a4.2 4.2 0 0 0-4.2 4.2v1.3c0 .7-.2 1.4-.6 2l-1.6 2.3a1 1 0 0 0 .8 1.6h11.2a1 1 0 0 0 .8-1.6l-1.6-2.3a3.7 3.7 0 0 1-.6-2V8.4A4.2 4.2 0 0 0 12 4.2Z"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linejoin="round"
+                          />
+                          <path
+                            d="M10.3 18.2a2 2 0 0 0 3.4 0"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                          />
+                        </svg>
+                      </div>
+                      <div class="current-task-active-panel-copy">
+                        <span class="current-task-active-panel-label">Reminder in</span>
+                        <strong class="current-task-active-panel-value">{{ remainingFor(task) }}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="current-task-active-actions">
+                    @if (task.status === 'paused') {
+                      <button
+                        type="button"
+                        class="secondary-button current-task-active-button current-task-active-button--secondary"
+                        (click)="resumeTask()"
+                      >
+                        <span class="current-task-active-button-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M8 6.3c0-.8.9-1.3 1.6-.8l7.1 5.2c.6.4.6 1.3 0 1.8l-7.1 5.2c-.7.5-1.6 0-1.6-.8V6.3Z" />
+                          </svg>
+                        </span>
+                        <span>Resume task</span>
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        class="secondary-button current-task-active-button current-task-active-button--secondary"
+                        (click)="pauseTask()"
+                      >
+                        <span class="current-task-active-button-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M7 5h3v14H7zM14 5h3v14h-3z" />
+                          </svg>
+                        </span>
+                        <span>Pause task</span>
+                      </button>
+                    }
+
+                    <button
+                      type="button"
+                      class="primary-button current-task-active-button current-task-active-button--primary"
+                      (click)="completeActiveTask()"
                     >
-                    <strong
-                      style="
-                        margin-top: 6px;
-                        color: #332c1e;
-                        font-size: 1.35rem;
-                      "
-                      >{{ remainingFor(task) }}</strong
-                    >
+                      <span class="current-task-active-button-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                          <path
+                            d="m6.8 12.5 3.2 3.2 7-7"
+                            stroke="currentColor"
+                            stroke-width="2.4"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </span>
+                      <span>Complete task</span>
+                    </button>
                   </div>
                 </div>
-                <app-task-action-buttons
-                  [paused]="task.status === 'paused'"
-                  style="
-                    --primary: #a88c32;
-                    --surface-raised: rgba(255, 255, 255, 0.9);
-                    --surface-muted: rgba(248, 231, 170, 0.76);
-                    --text: #3b3421;
-                  "
-                  (pause)="pauseTask()"
-                  (resume)="resumeTask()"
-                  (complete)="completeActiveTask()"
-                />
               </div>
             } @else {
               <div
@@ -2184,128 +2804,277 @@
       <section class="modal-backdrop settings-backdrop" role="presentation">
         <article
           id="settings"
-          class="reminder-modal settings-modal"
+          class="reminder-modal settings-modal settings-modal-sheet"
           role="dialog"
           aria-modal="true"
           aria-labelledby="settings-title"
         >
-          <header class="modal-header">
-            <div>
+          <header class="modal-header settings-modal-header">
+            <div class="settings-title-block">
               <p class="eyebrow">Settings</p>
               <h2 id="settings-title">Daily comfort</h2>
             </div>
-            <button
-              type="button"
-              class="icon-button"
-              aria-label="Close settings"
-              (click)="closeSettings()"
-            >
-              x
-            </button>
+            <div class="settings-modal-toolbar">
+              <svg
+                class="settings-pin"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="34"
+                height="34"
+              >
+                <path
+                  d="M8 4.5c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5 0 .4-.2.8-.5 1.1l-1.1 1.1v3.5l1.3 1.3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-2.1l-1 7.2c0 .4-.4.6-.7.6s-.7-.2-.7-.6l-1-7.2H7c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l1.3-1.3V6.7L8.5 5.6c-.3-.3-.5-.7-.5-1.1Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <button
+                type="button"
+                class="icon-button settings-close-button"
+                aria-label="Close settings"
+                (click)="closeSettings()"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none">
+                  <path
+                    d="M7 7 17 17M17 7 7 17"
+                    stroke="currentColor"
+                    stroke-width="2.6"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
           </header>
 
-          <div class="settings-grid">
-            <label>
-              <span>Notification sound</span>
-              <select
-                [value]="settingsService.settings().notificationSoundId"
-                (change)="setNotificationSound($event)"
+          <div class="settings-stack">
+            <section class="settings-card settings-card-general">
+              <div class="settings-card-header">
+                <div class="settings-card-icon settings-card-icon-general">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" width="28" height="28" fill="none">
+                    <circle cx="12" cy="12" r="5.2" stroke="currentColor" stroke-width="2" />
+                    <path
+                      d="M12 2.8v2.4M12 18.8v2.4M21.2 12h-2.4M5.2 12H2.8M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7M18.5 18.5l-1.7-1.7M7.2 7.2 5.5 5.5"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </div>
+                <h3 class="settings-card-title">General</h3>
+              </div>
+
+              <div class="settings-card-grid-two">
+                <label class="settings-field">
+                  <span class="settings-field-label">Notification sound</span>
+                  <div class="settings-control-shell">
+                    <span class="settings-control-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+                        <path
+                          d="M12 4.2a4.2 4.2 0 0 0-4.2 4.2v1.3c0 .7-.2 1.4-.6 2l-1.6 2.3a1 1 0 0 0 .8 1.6h11.2a1 1 0 0 0 .8-1.6l-1.6-2.3a3.7 3.7 0 0 1-.6-2V8.4A4.2 4.2 0 0 0 12 4.2Z"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linejoin="round"
+                        />
+                        <path
+                          d="M10.3 18.2a2 2 0 0 0 3.4 0"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                    </span>
+                    <select
+                      class="settings-select"
+                      [value]="settingsService.settings().notificationSoundId"
+                      (change)="setNotificationSound($event)"
+                    >
+                      <option value="soft-chime">Soft chime</option>
+                      <option value="low-bell">Low bell</option>
+                      <option value="bright-chime">Bright chime</option>
+                    </select>
+                    <span class="settings-control-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+                        <path
+                          d="M7 10.5 12 15.5 17 10.5"
+                          stroke="currentColor"
+                          stroke-width="2.3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                </label>
+
+                <label class="settings-field">
+                  <span class="settings-field-label">CSV date/time format</span>
+                  <div class="settings-control-shell">
+                    <span class="settings-control-icon settings-control-icon-calendar" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+                        <rect x="3.5" y="5" width="17" height="15.5" rx="2.6" stroke="currentColor" stroke-width="2" />
+                        <path d="M3.5 9h17M8 3.5v3M16 3.5v3M8 12.5h3M13 12.5h3M8 16h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                      </svg>
+                    </span>
+                    <select
+                      class="settings-select"
+                      [value]="settingsService.settings().csvDateTimeFormat"
+                      (change)="setCsvDateTimeFormat($event)"
+                    >
+                      <option value="yyyy-MM-dd'T'HH:mm:ssxxx">ISO timestamp</option>
+                      <option value="yyyy-MM-dd HH:mm">Spreadsheet local</option>
+                    </select>
+                    <span class="settings-control-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+                        <path
+                          d="M7 10.5 12 15.5 17 10.5"
+                          stroke="currentColor"
+                          stroke-width="2.3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </section>
+
+            <section class="settings-card settings-card-defaults">
+              <div class="settings-card-header">
+                <div class="settings-card-icon settings-card-icon-defaults">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" width="28" height="28" fill="none">
+                    <circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="2" />
+                    <path d="M12 7.3v5.1l3.4 2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </div>
+                <h3 class="settings-card-title">Defaults</h3>
+              </div>
+
+              <div class="settings-card-grid-three">
+                <label class="settings-field">
+                  <span class="settings-field-label">Default break minutes</span>
+                  <div class="settings-control-shell">
+                    <input
+                      class="settings-input"
+                      type="number"
+                      min="1"
+                      max="120"
+                      [value]="settingsService.settings().defaultBreakMinutes"
+                      (change)="setDefaultBreakMinutes($event)"
+                    />
+                  </div>
+                </label>
+
+                <label class="settings-field">
+                  <span class="settings-field-label">Default repeat minutes</span>
+                  <div class="settings-control-shell">
+                    <input
+                      class="settings-input"
+                      type="number"
+                      min="1"
+                      max="240"
+                      [value]="settingsService.settings().defaultReminderRepeatMinutes"
+                      (change)="setDefaultReminderRepeat($event)"
+                    />
+                  </div>
+                </label>
+
+                <label class="settings-field">
+                  <span class="settings-field-label">Default attempts</span>
+                  <div class="settings-control-shell">
+                    <input
+                      class="settings-input"
+                      type="number"
+                      min="1"
+                      max="20"
+                      [value]="settingsService.settings().defaultReminderCount"
+                      (change)="setDefaultReminderCount($event)"
+                    />
+                  </div>
+                </label>
+              </div>
+            </section>
+
+            <section class="settings-card settings-card-sticky">
+              <div class="settings-card-header">
+                <div class="settings-card-icon settings-card-icon-sticky">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" width="28" height="28" fill="none">
+                    <rect x="4.5" y="4.5" width="15" height="15" rx="2.8" stroke="currentColor" stroke-width="2" />
+                    <path d="M4.5 9.2h15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <h3 class="settings-card-title">Sticky note</h3>
+              </div>
+
+              <div class="settings-sticky-checks">
+                <label class="settings-check-row">
+                  <input
+                    type="checkbox"
+                    [checked]="settingsService.settings().notificationSoundEnabled"
+                    (change)="setSoundEnabled($event)"
+                  />
+                  <span>Soft reminder sound</span>
+                </label>
+
+                <label class="settings-check-row">
+                  <input
+                    type="checkbox"
+                    [checked]="settingsService.settings().stickyNoteAlwaysOnTop"
+                    (change)="setStickyAlwaysOnTop($event)"
+                  />
+                  <span>Keep sticky note on top</span>
+                </label>
+
+                <label class="settings-check-row">
+                  <input
+                    type="checkbox"
+                    [checked]="settingsService.settings().stickyNoteEnabled"
+                    (change)="setStickyEnabled($event)"
+                  />
+                  <span>Sticky-note window</span>
+                </label>
+              </div>
+
+              <label class="settings-field">
+                <span class="settings-field-label">Sticky notes shown</span>
+                <div class="settings-control-shell">
+                  <input
+                    class="settings-input"
+                    type="number"
+                    min="1"
+                    max="5"
+                    [value]="settingsService.settings().stickyVisibleNotes"
+                    (change)="setStickyVisibleNotes($event)"
+                  />
+                </div>
+              </label>
+            </section>
+
+            <div class="settings-actions">
+              <button
+                type="button"
+                class="secondary-button settings-action-button settings-open-sticky"
+                (click)="openStickyWindow()"
               >
-                <option value="soft-chime">Soft chime</option>
-                <option value="low-bell">Low bell</option>
-                <option value="bright-chime">Bright chime</option>
-              </select>
-            </label>
-            <label>
-              <span>CSV date/time format</span>
-              <select
-                [value]="settingsService.settings().csvDateTimeFormat"
-                (change)="setCsvDateTimeFormat($event)"
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none">
+                  <rect x="5" y="5.5" width="14" height="13" rx="2.4" stroke="currentColor" stroke-width="2" />
+                  <path d="M8 9h7M8 12h5M8 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="m15.5 13.5 2 2 3.2-3.3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Open sticky note</span>
+              </button>
+
+              <button
+                type="button"
+                class="danger-button settings-action-button settings-reset"
+                (click)="resetSettings()"
               >
-                <option value="yyyy-MM-dd'T'HH:mm:ssxxx">ISO timestamp</option>
-                <option value="yyyy-MM-dd HH:mm">Spreadsheet local</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="settings-grid">
-            <label>
-              <span>Default break minutes</span>
-              <input
-                type="number"
-                min="1"
-                max="120"
-                [value]="settingsService.settings().defaultBreakMinutes"
-                (change)="setDefaultBreakMinutes($event)"
-              />
-            </label>
-            <label>
-              <span>Default repeat minutes</span>
-              <input
-                type="number"
-                min="1"
-                max="240"
-                [value]="settingsService.settings().defaultReminderRepeatMinutes"
-                (change)="setDefaultReminderRepeat($event)"
-              />
-            </label>
-            <label>
-              <span>Default attempts</span>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                [value]="settingsService.settings().defaultReminderCount"
-                (change)="setDefaultReminderCount($event)"
-              />
-            </label>
-          </div>
-
-          <div class="settings-checks">
-            <label class="check-row">
-              <input
-                type="checkbox"
-                [checked]="settingsService.settings().notificationSoundEnabled"
-                (change)="setSoundEnabled($event)"
-              />
-              <span>Soft reminder sound</span>
-            </label>
-            <label class="check-row">
-              <input
-                type="checkbox"
-                [checked]="settingsService.settings().stickyNoteEnabled"
-                (change)="setStickyEnabled($event)"
-              />
-              <span>Sticky-note window</span>
-            </label>
-            <label class="check-row">
-              <input
-                type="checkbox"
-                [checked]="settingsService.settings().stickyNoteAlwaysOnTop"
-                (change)="setStickyAlwaysOnTop($event)"
-              />
-              <span>Keep sticky note on top</span>
-            </label>
-          </div>
-
-          <label>
-            <span>Sticky notes shown</span>
-            <input
-              type="number"
-              min="1"
-              max="5"
-              [value]="settingsService.settings().stickyVisibleNotes"
-              (change)="setStickyVisibleNotes($event)"
-            />
-          </label>
-
-          <div class="button-row">
-            <button type="button" class="secondary-button" (click)="openStickyWindow()">
-              Open sticky note
-            </button>
-            <button type="button" class="danger-button" (click)="resetSettings()">
-              Reset settings
-            </button>
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none">
+                  <path d="M20 11.5A8 8 0 1 0 17.6 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                  <path d="M20 6.8v4.8h-4.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Reset settings</span>
+              </button>
+            </div>
           </div>
           @if (settingsStatus()) {
             <p class="status-line" aria-live="polite">{{ settingsStatus() }}</p>
