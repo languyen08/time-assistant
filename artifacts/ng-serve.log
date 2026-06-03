@@ -1,6 +1,0 @@
-
-> friendly-task-reminder@0.0.0 web
-> ng serve --host 127.0.0.1 --port 4300
-
-[1m[31mAn unhandled exception occurred: Port 4300 is already in use. Use '--port' to specify a different port.
-See "C:\Users\PC\AppData\Local\Temp\ng-UYyNlp\angular-errors.log" for further details.[39m[22m
