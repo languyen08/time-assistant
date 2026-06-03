@@ -229,7 +229,7 @@ export class TaskService {
     }
   }
 
-  async addTimeToActive(minutes: number): Promise<void> {
+  async addTimeToActive(minutes: number, now = new Date()): Promise<void> {
     const task = this.currentTask();
     if (!task || !Number.isInteger(minutes) || minutes < 1) {
       this.errorMessage.set('Extra time must be at least 1 minute.');
@@ -237,13 +237,25 @@ export class TaskService {
     }
 
     const nextReminderAt =
-      task.status === 'paused' ? undefined : new Date(Date.now() + minutes * 60_000).toISOString();
+      task.status === 'paused'
+        ? undefined
+        : new Date(
+            Math.max(
+              now.getTime(),
+              task.nextReminderAt ? new Date(task.nextReminderAt).getTime() : now.getTime(),
+            ) +
+              minutes * 60_000,
+          ).toISOString();
+    const pausedRemainingSeconds =
+      task.status === 'paused'
+        ? Math.max(0, task.pausedRemainingSeconds ?? 0) + minutes * 60
+        : undefined;
     const updated: Task = {
       ...task,
       status: task.status,
       reminderAt: nextReminderAt ?? task.reminderAt,
       nextReminderAt,
-      pausedRemainingSeconds: task.status === 'paused' ? minutes * 60 : undefined,
+      pausedRemainingSeconds,
       updatedAt: nowIso(),
     };
 

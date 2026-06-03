@@ -427,7 +427,9 @@ export class App implements OnInit, OnDestroy {
   }
 
   async addReminderTime(): Promise<void> {
-    await this.taskService.addTimeToActive(this.extensionMinutes());
+    const now = new Date();
+    this.timerService.now.set(now);
+    await this.taskService.addTimeToActive(this.extensionMinutes(), now);
     this.reminderScheduler.dismiss();
   }
 

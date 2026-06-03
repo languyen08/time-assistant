@@ -4,12 +4,7 @@ import { App } from './app';
 import { HistoryEvent } from './core/models/history-event';
 import { Task } from './core/models/task';
 
-function pendingTask(
-  id: string,
-  name: string,
-  order: number,
-  overrides: Partial<Task> = {},
-): Task {
+function pendingTask(id: string, name: string, order: number, overrides: Partial<Task> = {}): Task {
   return {
     id,
     name,
@@ -422,6 +417,30 @@ describe('App', () => {
       'Task completed',
       'Dismiss for now',
     ]);
+  });
+
+  it('should sync the visible timer with the exact add-time click time', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-30T10:10:00.000Z'));
+
+    try {
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+      const addTimeSpy = vi.spyOn(app.taskService, 'addTimeToActive').mockResolvedValue();
+      const dismissSpy = vi.spyOn(app.reminderScheduler, 'dismiss');
+
+      app.timerService.now.set(new Date('2026-05-30T10:09:58.500Z'));
+      app.extensionMinutes.set(1);
+
+      await app.addReminderTime();
+
+      const clickTime = new Date('2026-05-30T10:10:00.000Z');
+      expect(addTimeSpy).toHaveBeenCalledWith(1, clickTime);
+      expect(app.timerService.now().toISOString()).toBe(clickTime.toISOString());
+      expect(dismissSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('should show a break-conflict modal instead of starting a task during a running break', async () => {

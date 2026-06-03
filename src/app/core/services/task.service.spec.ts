@@ -75,4 +75,20 @@ describe('TaskService pause/resume', () => {
     expect(service.currentTask()?.nextReminderAt).toBe('2026-05-30T10:40:00.000Z');
     expect(record).toHaveBeenCalledWith('task_resumed', 'Resumed "Deep work".', 'task_1');
   });
+
+  it('extends the existing active reminder instead of overwriting it', async () => {
+    await service.addTimeToActive(1, new Date('2026-05-30T10:10:00.000Z'));
+    await service.addTimeToActive(1, new Date('2026-05-30T10:10:10.000Z'));
+
+    expect(service.currentTask()?.nextReminderAt).toBe('2026-05-30T10:32:00.000Z');
+    expect(service.currentTask()?.reminderAt).toBe('2026-05-30T10:32:00.000Z');
+  });
+
+  it('extends paused reminder seconds instead of replacing them', async () => {
+    await service.pauseActive(new Date('2026-05-30T10:10:00.000Z'));
+    await service.addTimeToActive(1, new Date('2026-05-30T10:11:00.000Z'));
+
+    expect(service.currentTask()?.status).toBe('paused');
+    expect(service.currentTask()?.pausedRemainingSeconds).toBe(1260);
+  });
 });
