@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('assistantTime', {
   platform: process.platform,
   closeApp: () => ipcRenderer.invoke('assistant-time:close-app'),
+  closeMainWindow: () => ipcRenderer.invoke('assistant-time:close-main-window'),
   focusMainWindow: () => ipcRenderer.invoke('assistant-time:focus-main-window'),
   minimizeStickyWindow: () => ipcRenderer.invoke('assistant-time:minimize-sticky-window'),
   notify: (payload) => ipcRenderer.invoke('assistant-time:notify', payload),

@@ -18,6 +18,10 @@ export class ElectronBridgeService {
     return window.assistantTime?.closeApp() ?? Promise.resolve(false);
   }
 
+  closeMainWindow(): Promise<boolean> {
+    return window.assistantTime?.closeMainWindow?.() ?? Promise.resolve(false);
+  }
+
   minimizeStickyWindow(): Promise<boolean> {
     return window.assistantTime?.minimizeStickyWindow() ?? Promise.resolve(false);
   }

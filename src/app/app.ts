@@ -597,6 +597,14 @@ export class App implements OnInit, OnDestroy {
     await this.electron.focusMainWindow();
   }
 
+  async closeMainWindow(): Promise<void> {
+    if (!this.electron.isElectron) {
+      return;
+    }
+
+    await this.electron.closeMainWindow();
+  }
+
   async minimizeStickyWindow(): Promise<void> {
     await this.electron.minimizeStickyWindow();
   }

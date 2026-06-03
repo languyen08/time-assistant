@@ -242,6 +242,7 @@ select {
 .sticky-panel {
   position: sticky;
   top: 16px;
+  z-index: 3;
   background: linear-gradient(115deg, rgba(255, 255, 255, 0.18), transparent 34%), var(--surface);
 }
 
@@ -2057,4 +2058,153 @@ button:disabled {
     width: 30px;
     height: 30px;
   }
+}
+
+:host-context(body.sticky-mode) .friendly-backdrop {
+  place-items: center;
+  padding: 4px 8px 6px;
+  overflow: auto;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder.reminder-sheet {
+  width: min(100%, 332px);
+  padding: 10px 11px 11px;
+  border-radius: 18px;
+  box-shadow:
+    0 16px 28px rgba(154, 122, 54, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.99),
+    inset 0 -8px 14px rgba(226, 191, 93, 0.08);
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-sheet-header {
+  margin-bottom: -4px;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .settings-card-header {
+  gap: 8px;
+  align-items: center;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .break-status-copy {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-bell-icon {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  border-radius: 999px;
+  box-shadow:
+    0 8px 14px rgba(202, 160, 75, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-sheet .eyebrow,
+:host-context(body.sticky-mode) .friendly-reminder .eyebrow {
+  font-size: 0.56rem;
+  letter-spacing: 0.04em;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-sheet-copy {
+  max-width: none;
+  gap: 0;
+  margin-top: -10px;
+  margin-bottom: 10px;
+  padding-left: 8px;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder h2 {
+  font-size: 1.2rem;
+  line-height: 1.02;
+  margin-bottom: 6px;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-sheet-message {
+  max-width: 100%;
+  font-size: 0.74rem;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-sheet-close {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  align-self: start;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-field {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding-left: 8px;
+  padding-right: 4px;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-field-label {
+  font-size: 0.74rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-shell,
+:host-context(body.sticky-mode) .friendly-reminder .reminder-input {
+  min-height: 42px;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-shell {
+  width: 100%;
+  max-width: none;
+  padding-left: 10px;
+  border-radius: 10px;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-badge {
+  display: none;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-input {
+  padding: 6px 10px 6px 0;
+  font-size: 0.88rem;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-actions {
+  grid-template-columns: minmax(0, 1.14fr) repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-button {
+  min-height: 42px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  justify-content: center;
+  font-size: 0.61rem;
+  font-weight: 700;
+  gap: 0;
+  text-align: center;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-button-icon {
+  display: none;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-button > span:last-child {
+  white-space: nowrap;
+}
+
+:host-context(body.sticky-mode) .friendly-reminder .reminder-button-primary {
+  box-shadow:
+    0 12px 20px rgba(206, 103, 23, 0.2),
+    inset 0 1px 0 rgba(255, 221, 183, 0.48);
 }

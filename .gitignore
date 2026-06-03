@@ -50,3 +50,6 @@ Thumbs.db
 
 # Release
 /release
+
+# Artifacts
+/artifacts

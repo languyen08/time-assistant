@@ -3,6 +3,7 @@ import { StickyNoteColor } from './app-settings';
 export interface AssistantTimeApi {
   platform: string;
   closeApp: () => Promise<boolean>;
+  closeMainWindow?: () => Promise<boolean>;
   focusMainWindow: () => Promise<boolean>;
   minimizeStickyWindow: () => Promise<boolean>;
   notify: (payload: { title: string; body: string }) => Promise<boolean>;

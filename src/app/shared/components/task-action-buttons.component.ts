@@ -76,17 +76,34 @@ import { Component, input, output } from '@angular/core';
 
     .sticky-action-row > button {
       flex: 1 1 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       min-width: 0;
       min-height: 38px;
       padding: 8px 10px;
       border-radius: 12px;
       border-color: var(--note-line, rgba(78, 67, 36, 0.18));
-      font-size: 0.95rem;
+      font-size: 0.88rem;
       font-weight: 700;
       letter-spacing: 0.01em;
+      line-height: 1.1;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.34),
         0 5px 12px rgba(30, 28, 22, 0.08);
+    }
+
+    .sticky-action-row > .sticky-time-button {
+      flex: 0.82 1 0;
+    }
+
+    .sticky-action-row > .sticky-complete-button {
+      flex: 1.18 1 0;
+      gap: 6px;
+      justify-content: center;
+      font-size: 0.78rem;
+      flex-wrap: nowrap;
+      white-space: nowrap;
     }
 
     .sticky-action-row > .secondary-button {
@@ -99,16 +116,32 @@ import { Component, input, output } from '@angular/core';
     }
 
     .sticky-action-row > .primary-button {
-      border-color: color-mix(in srgb, var(--primary, #9b3f19) 48%, var(--note-line, black));
-      background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--primary, #9b3f19) 76%, white),
-        var(--primary, #9b3f19)
-      );
-      color: #fff9f1;
+      border-color: rgba(204, 125, 57, 0.86);
+      background: linear-gradient(180deg, #e59a4d, #cf7d36);
+      color: #fffdf9;
       box-shadow:
-        0 6px 14px rgba(111, 44, 16, 0.18),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        0 12px 22px rgba(162, 94, 34, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    }
+
+    .sticky-complete-button-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      background: rgba(255, 255, 255, 0.96);
+      color: #cf7d36;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1);
+    }
+
+    .sticky-complete-button-icon svg {
+      display: block;
+    }
+
+    .sticky-complete-button > span:last-child {
+      white-space: nowrap;
     }
 
     .sticky-action-row > button:hover:not(:disabled),
@@ -138,12 +171,30 @@ import { Component, input, output } from '@angular/core';
         </button>
       }
       @if (sticky()) {
-        <button type="button" class="secondary-button" (click)="addTime.emit()">
+        <button type="button" class="secondary-button sticky-time-button" (click)="addTime.emit()">
           +{{ extensionMinutes() }}m
         </button>
       }
-      <button type="button" class="primary-button" (click)="complete.emit()">
-        {{ sticky() ? 'Done' : 'Complete task' }}
+      <button
+        type="button"
+        class="primary-button"
+        [class.sticky-complete-button]="sticky()"
+        (click)="complete.emit()"
+      >
+        @if (sticky()) {
+          <span class="sticky-complete-button-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none">
+              <path
+                d="m6.8 12.5 3.2 3.2 7-7"
+                stroke="currentColor"
+                stroke-width="2.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+        }
+        <span>Complete task</span>
       </button>
     </div>
   `,

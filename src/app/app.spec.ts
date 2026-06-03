@@ -67,6 +67,40 @@ describe('App', () => {
     expect(compiled.querySelector('#app-title')?.textContent).toContain('Time Assistant');
   });
 
+  it('should render a close button beside settings in Electron mode and wire it', async () => {
+    const closeMainWindow = vi.fn().mockResolvedValue(true);
+    window.assistantTime = {
+      platform: 'win32',
+      closeApp: vi.fn().mockResolvedValue(true),
+      closeMainWindow,
+      focusMainWindow: vi.fn().mockResolvedValue(true),
+      minimizeStickyWindow: vi.fn().mockResolvedValue(true),
+      notify: vi.fn().mockResolvedValue(true),
+      openTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
+      setReminderOverlayState: vi.fn().mockResolvedValue(true),
+      saveTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
+      resizeStickyWindow: vi.fn().mockResolvedValue(true),
+      setStickyWindow: vi.fn().mockResolvedValue(true),
+    };
+
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const closeSpy = vi.spyOn(app, 'closeMainWindow').mockResolvedValue();
+    app.loading.set(true);
+
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const closeButton = host.querySelector<HTMLButtonElement>(
+      '.topbar .nav-tabs button[aria-label="Close main window"]',
+    );
+
+    expect(closeButton).not.toBeNull();
+    closeButton!.click();
+
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('should send smaller sticky heights after notes are removed', async () => {
     const resizeStickyWindow = vi.fn().mockResolvedValue(true);
     window.assistantTime = {
@@ -342,18 +376,52 @@ describe('App', () => {
     const buttons = Array.from(
       host.querySelectorAll<HTMLButtonElement>('.friendly-reminder .reminder-actions button'),
     );
-    expect(buttons).toHaveLength(4);
+    expect(buttons).toHaveLength(3);
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual([
+      'More time',
+      'Pause',
+      'Complete',
+    ]);
 
     buttons[0].click();
     buttons[1].click();
     buttons[2].click();
-    buttons[3].click();
+    host.querySelector<HTMLButtonElement>('.friendly-reminder .reminder-sheet-close')?.click();
     await fixture.whenStable();
 
     expect(addReminderTimeSpy).toHaveBeenCalledTimes(1);
     expect(pauseTaskSpy).toHaveBeenCalledTimes(1);
     expect(completeActiveTaskSpy).toHaveBeenCalledTimes(1);
     expect(dismissSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should keep the full app reminder actions unchanged', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+
+    app.reminderScheduler.activeReminder.set({
+      taskId: 'task-1',
+      taskName: 'Focus block',
+      attemptNumber: 1,
+      maxAttempts: 3,
+      shownAt: new Date().toISOString(),
+      message: 'A friendly reminder.',
+    });
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(
+      host.querySelectorAll<HTMLButtonElement>('.friendly-reminder .reminder-actions button'),
+    );
+
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual([
+      'Give me more time',
+      'Pause task',
+      'Task completed',
+      'Dismiss for now',
+    ]);
   });
 
   it('should show a break-conflict modal instead of starting a task during a running break', async () => {

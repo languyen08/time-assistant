@@ -133,6 +133,7 @@ function createMainWindow() {
     title: APP_NAME,
     backgroundColor: '#f7efe0',
     autoHideMenuBar: true,
+    frame: false,
     ...(appIconPath ? { icon: appIconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -146,6 +147,10 @@ function createMainWindow() {
   if (appIconPath) {
     mainWindow.setIcon(appIconPath);
   }
+
+  mainWindow.on('closed', () => {
+    mainWindow = undefined;
+  });
 
   if (isSmokeTest) {
     mainWindow.webContents.once('did-finish-load', () => {
@@ -314,6 +319,15 @@ ipcMain.handle('assistant-time:minimize-sticky-window', () => {
 
 ipcMain.handle('assistant-time:close-app', () => {
   app.quit();
+  return true;
+});
+
+ipcMain.handle('assistant-time:close-main-window', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return false;
+  }
+
+  mainWindow.close();
   return true;
 });
 
