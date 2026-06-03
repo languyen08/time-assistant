@@ -3396,24 +3396,106 @@
     @if (breakService.state() === 'complete') {
       <section class="modal-backdrop" role="presentation">
         <article
-          class="reminder-modal break-modal"
+          class="reminder-modal break-modal break-complete-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="break-complete-title"
         >
-          <p class="eyebrow">Break complete</p>
-          <h2 id="break-complete-title">Ready for the next task?</h2>
-          @if (breakNextTaskCandidate(); as nextTask) {
-            <p>{{ nextTask.name }}</p>
-            <button type="button" class="primary-button" (click)="startNextTask()">
-              Start next task
+          <header class="modal-header csv-modal-header break-complete-header">
+            <div class="settings-card-header break-complete-status">
+              <div class="settings-card-icon break-complete-cup-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="50" height="50" fill="none">
+                  <path
+                    d="M7.4 10v1.2a4.6 4.6 0 0 0 4.6 4.6h.45a4.6 4.6 0 0 0 4.6-4.6V10"
+                    stroke="currentColor"
+                    stroke-width="1.95"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M7.35 9.95h8.35"
+                    stroke="currentColor"
+                    stroke-width="1.95"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M15.7 10.3h1.1a2.2 2.2 0 1 1 0 4.4h-1.1"
+                    stroke="currentColor"
+                    stroke-width="1.95"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M9.25 18h6.1"
+                    stroke="currentColor"
+                    stroke-width="1.95"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M9.45 4.8c.7.75.82 1.72.16 2.62M12.1 4.1c.7.76.83 1.73.17 2.63M14.8 4.8c.7.75.82 1.72.16 2.62"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <div class="break-status-copy">
+                <p class="eyebrow">Break complete</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="icon-button csv-close-button break-complete-close"
+              aria-label="Close break complete modal"
+              (click)="breakService.reset()"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="30" height="30" fill="none">
+                <path
+                  d="M7 7 17 17M17 7 7 17"
+                  stroke="currentColor"
+                  stroke-width="2.6"
+                  stroke-linecap="round"
+                />
+              </svg>
             </button>
-          } @else {
-            <p>No queued task is waiting right now.</p>
-            <button type="button" class="secondary-button" (click)="breakService.reset()">
-              Close
-            </button>
-          }
+          </header>
+
+          <div class="break-complete-copy">
+            <h2 id="break-complete-title">Ready for the next task?</h2>
+            @if (breakNextTaskCandidate(); as nextTask) {
+              <p class="break-complete-task">{{ nextTask.name }}</p>
+              <button
+                type="button"
+                class="primary-button settings-action-button break-complete-start"
+                (click)="startNextTask()"
+              >
+                <span class="break-complete-start-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
+                    <path
+                      d="m9 7.75 7 4.25-7 4.25V7.75Z"
+                      fill="currentColor"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span>Start next task</span>
+              </button>
+            } @else {
+              <p class="break-complete-task break-complete-task-empty">
+                No queued task is waiting right now.
+              </p>
+              <button
+                type="button"
+                class="secondary-button settings-action-button break-complete-dismiss"
+                (click)="breakService.reset()"
+              >
+                Close
+              </button>
+            }
+          </div>
         </article>
       </section>
     }
