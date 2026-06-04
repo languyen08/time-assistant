@@ -136,9 +136,7 @@
 
       .download-panel {
         display: grid;
-        grid-template-columns: minmax(0, 1.3fr) auto;
         gap: 18px;
-        align-items: center;
         margin-top: 22px;
         padding: 20px 22px;
         border: 1px solid rgba(186, 122, 44, 0.22);
@@ -155,22 +153,65 @@
         display: block;
         margin-bottom: 8px;
         color: var(--ink);
-        font-size: 1.05rem;
+        font-size: 1.18rem;
       }
 
       .download-copy p {
         margin: 0;
       }
 
-      .download-list {
-        display: grid;
-        gap: 10px;
-        margin: 0;
-        padding-left: 20px;
+      .download-intro {
+        max-width: none;
       }
 
-      .download-list li {
-        color: var(--muted);
+      .download-intro code {
+        white-space: nowrap;
+      }
+
+      .download-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .download-option {
+        padding: 16px 18px;
+        border: 1px solid rgba(186, 122, 44, 0.16);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.66);
+      }
+
+      .download-option strong {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--ink);
+        font-size: 0.98rem;
+      }
+
+      .download-option p {
+        margin: 0;
+      }
+
+      .download-link {
+        margin-top: 12px;
+      }
+
+      .download-link a {
+        color: #8b581a;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .download-link a:hover {
+        text-decoration: underline;
+      }
+
+      .download-meta {
+        margin-top: 10px;
+        font-size: 0.94rem;
       }
 
       .mini-card {
@@ -264,6 +305,10 @@
           grid-template-columns: 1fr;
         }
 
+        .download-list {
+          grid-template-columns: 1fr;
+        }
+
         main {
           width: min(100% - 20px, 980px);
           margin: 20px auto 28px;
@@ -286,7 +331,7 @@
           aria-label="Close guide"
           onclick="window.close()"
         >
-          ×
+          &times;
         </button>
       </header>
 
@@ -302,20 +347,34 @@
           <div class="download-panel">
             <div class="download-copy">
               <strong>Get the Windows app</strong>
-              <p>
-                <code>Time Assistant.exe</code> is not hosted directly on this guide anymore. Use
-                one of these paths instead:
+              <p class="download-intro">
+                Use the published build if it is available, or package
+                <code>Time&nbsp;Assistant.exe</code> locally from the repository.
               </p>
             </div>
             <ol class="download-list">
-              <li>
-                Check the repository
-                <a href="https://github.com/languyen08/time-assistant/releases">Releases page</a>
-                if a packaged Windows build has been published.
+              <li class="download-option">
+                <strong>Download from Releases</strong>
+                <p>
+                  Open the
+                  <a href="https://github.com/languyen08/time-assistant/releases">Releases page</a>
+                  and download the latest packaged Windows build if one has been published.
+                </p>
               </li>
-              <li>Or build it locally with <code>npm.cmd install</code> then <code>npm.cmd run package:win</code>.</li>
-              <li>The generated file will be <code>release/Time Assistant.exe</code>.</li>
+              <li class="download-option">
+                <strong>Build it locally</strong>
+                <p>
+                  Run <code>npm.cmd install</code> and then <code>npm.cmd run package:win</code>.
+                </p>
+                <p class="download-meta">Output file: <code>release/Time Assistant.exe</code></p>
+              </li>
             </ol>
+            <p class="download-link">
+              Repository:
+              <a href="https://github.com/languyen08/time-assistant"
+                >languyen08/time-assistant</a
+              >
+            </p>
           </div>
           <div class="hero-grid">
             <div class="mini-card">
