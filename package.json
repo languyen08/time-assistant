@@ -25,6 +25,7 @@
     "electron:smoke": "ng build && node scripts/run-electron.cjs --smoke-test",
     "package:dir": "npm run build && electron-builder --dir",
     "package:win": "npm run build && electron-builder --win portable",
+    "package:win:signed": "npm run build && node scripts/package-win-signed.cjs",
     "package:installer": "npm run build && electron-builder --win nsis"
   },
   "private": true,
@@ -79,7 +80,6 @@
     },
     "win": {
       "icon": "src/assets/icons/app-icon.png",
-      "signAndEditExecutable": false,
       "target": "portable"
     },
     "portable": {
