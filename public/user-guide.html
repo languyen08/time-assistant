@@ -134,6 +134,64 @@
         margin-top: 24px;
       }
 
+      .download-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) auto;
+        gap: 18px;
+        align-items: center;
+        margin-top: 22px;
+        padding: 20px 22px;
+        border: 1px solid rgba(186, 122, 44, 0.22);
+        border-radius: 22px;
+        background:
+          radial-gradient(circle at 18% 18%, rgba(243, 216, 171, 0.24), transparent 34%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 247, 237, 0.92));
+        box-shadow:
+          0 14px 28px rgba(144, 108, 58, 0.1),
+          inset 0 1px 0 rgba(255, 255, 255, 0.95);
+      }
+
+      .download-copy strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--ink);
+        font-size: 1.05rem;
+      }
+
+      .download-copy p {
+        margin: 0;
+      }
+
+      .download-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        min-height: 58px;
+        padding: 14px 22px;
+        border: 1px solid rgba(191, 137, 60, 0.55);
+        border-radius: 18px;
+        background: linear-gradient(180deg, #d79247, #ba7a2c);
+        color: #fffaf2;
+        font-size: 1rem;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow:
+          0 14px 28px rgba(157, 104, 38, 0.18),
+          inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      }
+
+      .download-button:hover {
+        transform: translateY(-1px);
+        box-shadow:
+          0 18px 32px rgba(157, 104, 38, 0.22),
+          inset 0 1px 0 rgba(255, 255, 255, 0.34);
+      }
+
+      .download-button svg {
+        flex: 0 0 auto;
+      }
+
       .mini-card {
         padding: 18px;
         border: 1px solid rgba(186, 122, 44, 0.18);
@@ -220,7 +278,8 @@
         }
 
         .hero-grid,
-        .grid {
+        .grid,
+        .download-panel {
           grid-template-columns: 1fr;
         }
 
@@ -251,29 +310,50 @@
       </header>
 
       <main>
-      <section class="hero">
-        <p class="eyebrow">Time Assistant Guide</p>
-        <h1>Plan calmly. Focus on one task. Move cleanly to the next one.</h1>
-        <p class="lead">
-          Time Assistant is a local-first desktop app for task transitions. It keeps your
-          reminders, break flow, history, and settings on your machine without requiring an
-          account or cloud sync.
-        </p>
-        <div class="hero-grid">
-          <div class="mini-card">
-            <strong>Single active task</strong>
-            <span>Queue work, then start one task at a time.</span>
+        <section class="hero">
+          <p class="eyebrow">Time Assistant Guide</p>
+          <h1>Plan calmly. Focus on one task. Move cleanly to the next one.</h1>
+          <p class="lead">
+            Time Assistant is a local-first desktop app for task transitions. It keeps your
+            reminders, break flow, history, and settings on your machine without requiring an
+            account or cloud sync.
+          </p>
+          <div class="download-panel">
+            <div class="download-copy">
+              <strong>Download the Windows app</strong>
+              <p>
+                Interested in trying it? Download the current portable
+                <code>Time Assistant.exe</code> build directly from this page.
+              </p>
+            </div>
+            <a class="download-button" href="./Time%20Assistant.exe" download="Time Assistant.exe">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none">
+                <path
+                  d="M12 4.5v9m0 0-3.3-3.3M12 13.5l3.3-3.3M7.25 18.25h9.5"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Download .exe</span>
+            </a>
           </div>
-          <div class="mini-card">
-            <strong>Gentle reminders</strong>
-            <span>Choose more time, pause, complete, or dismiss for now.</span>
+          <div class="hero-grid">
+            <div class="mini-card">
+              <strong>Single active task</strong>
+              <span>Queue work, then start one task at a time.</span>
+            </div>
+            <div class="mini-card">
+              <strong>Gentle reminders</strong>
+              <span>Choose more time, pause, complete, or dismiss for now.</span>
+            </div>
+            <div class="mini-card">
+              <strong>Local history</strong>
+              <span>Review actions and export tasks or history as CSV.</span>
+            </div>
           </div>
-          <div class="mini-card">
-            <strong>Local history</strong>
-            <span>Review actions and export tasks or history as CSV.</span>
-          </div>
-        </div>
-      </section>
+        </section>
 
       <section class="card">
         <h2>Daily flow</h2>
