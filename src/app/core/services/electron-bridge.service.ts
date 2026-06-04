@@ -30,6 +30,10 @@ export class ElectronBridgeService {
     return window.assistantTime?.notify({ title, body }) ?? Promise.resolve(false);
   }
 
+  openUserGuide(): Promise<boolean> {
+    return window.assistantTime?.openUserGuide?.() ?? Promise.resolve(false);
+  }
+
   openTextFile(): Promise<FileOpenResult> {
     return window.assistantTime?.openTextFile() ?? Promise.resolve({ ok: false, canceled: true });
   }

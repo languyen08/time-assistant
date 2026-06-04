@@ -39,6 +39,7 @@ const STICKY_RESIZE_REASONS = new Set([
 
 let mainWindow;
 let stickyWindow;
+let guideWindow;
 let stickyAlwaysOnTopPreference = true;
 
 function resolveAppIconPath() {
@@ -160,6 +161,62 @@ function createMainWindow() {
   }
 
   return mainWindow;
+}
+
+function resolveGuidePath() {
+  const candidates = [
+    path.join(__dirname, '..', 'user-guide.html'),
+    path.join(process.resourcesPath, 'user-guide.html'),
+  ];
+
+  return candidates.find((candidate) => {
+    try {
+      fsSync.accessSync(candidate);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function openGuideWindow() {
+  if (guideWindow && !guideWindow.isDestroyed()) {
+    guideWindow.show();
+    guideWindow.focus();
+    return true;
+  }
+
+  const guidePath = resolveGuidePath();
+  if (!guidePath) {
+    dialog.showErrorBox('Time Assistant Guide', 'user-guide.html could not be found.');
+    return false;
+  }
+
+  guideWindow = new BrowserWindow({
+    width: 1180,
+    height: 900,
+    minWidth: 900,
+    minHeight: 680,
+    title: 'Time Assistant Guide',
+    backgroundColor: '#f7efe0',
+    autoHideMenuBar: true,
+    ...(appIconPath ? { icon: appIconPath } : {}),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  guideWindow.on('closed', () => {
+    guideWindow = undefined;
+  });
+  guideWindow.loadFile(guidePath);
+  if (appIconPath) {
+    guideWindow.setIcon(appIconPath);
+  }
+
+  return true;
 }
 
 function stickyColorValue(color) {
@@ -322,6 +379,8 @@ ipcMain.handle('assistant-time:close-app', () => {
   return true;
 });
 
+ipcMain.handle('assistant-time:open-user-guide', () => openGuideWindow());
+
 ipcMain.handle('assistant-time:close-main-window', () => {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return false;
@@ -346,8 +405,7 @@ ipcMain.handle('assistant-time:notify', (_event, payload) => {
     return false;
   }
 
-  const title =
-    typeof payload.title === 'string' ? payload.title.slice(0, 120) : APP_NAME;
+  const title = typeof payload.title === 'string' ? payload.title.slice(0, 120) : APP_NAME;
   const body = typeof payload.body === 'string' ? payload.body.slice(0, 240) : '';
 
   if (Notification.isSupported()) {

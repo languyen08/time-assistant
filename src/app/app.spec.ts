@@ -554,6 +554,24 @@ describe('App', () => {
     expect(dismissSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('should open the user guide from the sticky header info button', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.isStickyMode.set(true);
+    const guideSpy = vi.spyOn(app, 'openUserGuide').mockResolvedValue();
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const guideButton = host.querySelector<HTMLButtonElement>('.sticky-guide-button');
+
+    expect(guideButton).not.toBeNull();
+    guideButton!.click();
+
+    expect(guideSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('should keep the full app reminder actions unchanged', async () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;

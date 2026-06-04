@@ -1362,6 +1362,24 @@
             </button>
           </div>
           <div id="sticky-title" class="sticky-window-actions">
+            <button
+              type="button"
+              class="sticky-chrome-button sticky-guide-button"
+              aria-label="Open user guide"
+              title="Open user guide"
+              (click)="openUserGuide()"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none">
+                <circle cx="12" cy="12" r="8.1" stroke="currentColor" stroke-width="1.8" />
+                <path
+                  d="M12 10.2v5"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
+                <circle cx="12" cy="7.55" r="1.1" fill="currentColor" />
+              </svg>
+            </button>
             <div class="sticky-color-row" aria-label="Sticky note colors">
               @for (color of stickyNoteColors; track color) {
                 <button

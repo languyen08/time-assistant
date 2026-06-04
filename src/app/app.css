@@ -306,6 +306,13 @@ select {
   -webkit-app-region: no-drag;
 }
 
+.sticky-window
+  .sticky-note-measure-root
+  :is(button, a, label, [role='button'])
+  :is(svg, path, circle, rect, line, polyline, span) {
+  -webkit-app-region: no-drag;
+}
+
 .modal-backdrop,
 .modal-backdrop *,
 .reminder-modal,
@@ -365,6 +372,19 @@ select {
 .sticky-close-button {
   font-size: 1.35rem;
   line-height: 1;
+}
+
+.sticky-guide-button {
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+}
+
+.sticky-guide-button svg {
+  display: block;
 }
 
 .sticky-color-row {
@@ -785,7 +805,6 @@ button:disabled {
   overflow: auto;
 }
 
-
 .settings-checks {
   display: grid;
   gap: 10px;
@@ -1043,7 +1062,9 @@ button:disabled {
 }
 
 .new-task-panel input::placeholder,
-.new-task-panel textarea::placeholder{color:#bcc2af}
+.new-task-panel textarea::placeholder {
+  color: #bcc2af;
+}
 
 .history-toggle {
   width: 40px;

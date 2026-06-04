@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('assistantTime', {
   focusMainWindow: () => ipcRenderer.invoke('assistant-time:focus-main-window'),
   minimizeStickyWindow: () => ipcRenderer.invoke('assistant-time:minimize-sticky-window'),
   notify: (payload) => ipcRenderer.invoke('assistant-time:notify', payload),
+  openUserGuide: () => ipcRenderer.invoke('assistant-time:open-user-guide'),
   openTextFile: () => ipcRenderer.invoke('assistant-time:open-text-file'),
   setReminderOverlayState: (payload) =>
     ipcRenderer.invoke('assistant-time:set-reminder-overlay-state', payload),

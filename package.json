@@ -15,6 +15,9 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test --watch=false",
     "e2e:break-conflict": "playwright test -c e2e/playwright.break-conflict.config.mjs",
+    "guide:screens": "node scripts/capture-user-guide-screenshots.cjs",
+    "guide:preview": "node scripts/render-user-guide-preview.cjs",
+    "guide:refresh": "npm run guide:screens && npm run guide:preview",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "prettier --check .",
@@ -62,9 +65,11 @@
     "files": [
       "dist/friendly-task-reminder/browser/**/*",
       "electron/**/*",
+      "artifacts/*.png",
       "build-resources/app-icon.ico",
       "src/assets/icons/app-icon.png",
       "src/assets/icons/app-icon-notification.png",
+      "user-guide.html",
       "package.json"
     ],
     "directories": {

@@ -7,6 +7,7 @@ export interface AssistantTimeApi {
   focusMainWindow: () => Promise<boolean>;
   minimizeStickyWindow: () => Promise<boolean>;
   notify: (payload: { title: string; body: string }) => Promise<boolean>;
+  openUserGuide?: () => Promise<boolean>;
   openTextFile: () => Promise<FileOpenResult>;
   setReminderOverlayState: (payload: {
     active: boolean;

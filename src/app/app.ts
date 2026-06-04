@@ -633,6 +633,15 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     await this.electron.focusMainWindow();
   }
 
+  async openUserGuide(): Promise<void> {
+    if (this.electron.isElectron) {
+      await this.electron.openUserGuide();
+      return;
+    }
+
+    window.open('user-guide.html', '_blank', 'noopener,noreferrer');
+  }
+
   async closeMainWindow(): Promise<void> {
     if (!this.electron.isElectron) {
       return;
