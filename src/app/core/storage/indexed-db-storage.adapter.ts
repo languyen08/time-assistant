@@ -31,6 +31,12 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     });
   }
 
+  clear(storeName: string): Promise<void> {
+    return this.withStore(storeName, 'readwrite', async (store) => {
+      await this.request(store.clear());
+    });
+  }
+
   private async withStore<T>(
     storeName: string,
     mode: IDBTransactionMode,

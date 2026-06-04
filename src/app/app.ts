@@ -82,6 +82,8 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly settingsOpen = signal(false);
   readonly csvOpen = signal(false);
   readonly historyOpen = signal(true);
+  readonly historyClearModalOpen = signal(false);
+  readonly clearingHistory = signal(false);
   readonly historyPage = signal(0);
   readonly historyPageSize = signal(this.defaultHistoryPageSize);
   readonly pendingPage = signal(0);
@@ -549,8 +551,39 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     this.csvOpen.set(false);
   }
 
+  openHistoryClearModal(): void {
+    if (this.historyService.events().length === 0 || this.clearingHistory()) {
+      return;
+    }
+
+    this.historyClearModalOpen.set(true);
+  }
+
+  closeHistoryClearModal(): void {
+    if (this.clearingHistory()) {
+      return;
+    }
+
+    this.historyClearModalOpen.set(false);
+  }
+
   toggleHistory(): void {
     this.historyOpen.update((open) => !open);
+  }
+
+  async clearHistory(): Promise<void> {
+    if (this.clearingHistory() || this.historyService.events().length === 0) {
+      return;
+    }
+
+    this.clearingHistory.set(true);
+    try {
+      await this.historyService.clear();
+      this.historyPage.set(0);
+      this.historyClearModalOpen.set(false);
+    } finally {
+      this.clearingHistory.set(false);
+    }
   }
 
   async setStickyEnabled(event: Event): Promise<void> {

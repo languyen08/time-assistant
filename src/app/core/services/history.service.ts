@@ -49,4 +49,15 @@ export class HistoryService {
       throw error;
     }
   }
+
+  async clear(): Promise<void> {
+    try {
+      await this.repository.clear();
+      this.events.set([]);
+      this.errorMessage.set('');
+    } catch (error) {
+      this.errorMessage.set(toFriendlyErrorMessage(error, 'History could not be cleared.'));
+      throw error;
+    }
+  }
 }

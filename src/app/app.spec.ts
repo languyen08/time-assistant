@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 import { App } from './app';
 import { HistoryEvent } from './core/models/history-event';
 import { Task } from './core/models/task';
+import { BaseChartDirective } from 'ng2-charts';
 
 function pendingTask(id: string, name: string, order: number, overrides: Partial<Task> = {}): Task {
   return {
@@ -63,6 +64,49 @@ describe('App', () => {
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('#app-title')?.textContent).toContain('Time Assistant');
+  });
+
+  it('should open a confirmation modal and clear history from the header action', async () => {
+    vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.loading.set(false);
+    app.historyService.events.set([
+      {
+        id: 'event_1',
+        type: 'task_created',
+        occurredAt: '2026-05-30T10:00:00.000Z',
+        summary: 'Created first task',
+      },
+    ]);
+    const clearSpy = vi.spyOn(app.historyService, 'clear').mockImplementation(async () => {
+      app.historyService.events.set([]);
+    });
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const clearButton = host.querySelector<HTMLButtonElement>(
+      '[data-testid="history-clear-button"]',
+    );
+
+    expect(clearButton).not.toBeNull();
+    expect(clearButton?.disabled).toBe(false);
+
+    clearButton!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.textContent).toContain('Clear all events?');
+
+    host.querySelector<HTMLButtonElement>('[data-testid="history-clear-confirm"]')?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(clearSpy).toHaveBeenCalledOnce();
+    expect(app.historyService.events()).toHaveLength(0);
+    expect(app.historyClearModalOpen()).toBe(false);
   });
 
   it('should render a close button beside settings in Electron mode and wire it', async () => {

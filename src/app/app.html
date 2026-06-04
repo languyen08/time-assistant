@@ -2325,6 +2325,30 @@
                 >
                 <button
                   type="button"
+                  class="icon-button history-clear-button"
+                  aria-label="Clear history"
+                  data-testid="history-clear-button"
+                  [disabled]="historyService.events().length === 0"
+                  (click)="openHistoryClearModal()"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none">
+                    <path
+                      d="M9 5.25h6m-8.75 2h11.5m-10.2 0 .42 9.35c.05 1 .87 1.78 1.87 1.78h4.32c1 0 1.82-.78 1.87-1.78l.42-9.35M10.3 10.25v4.9m3.4-4.9v4.9"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M10.1 5.25c.12-1.1.83-1.75 1.9-1.75s1.78.65 1.9 1.75"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
                   class="history-toggle"
                   [attr.aria-expanded]="historyOpen()"
                   [attr.aria-label]="historyOpen() ? 'Collapse history' : 'Expand history'"
@@ -2705,6 +2729,81 @@
                 [options]="insightsChartOptions"
               ></canvas>
             </section>
+          </div>
+        </article>
+      </section>
+    }
+
+    @if (historyClearModalOpen()) {
+      <section class="modal-backdrop settings-backdrop" role="presentation">
+        <article
+          class="reminder-modal settings-modal history-clear-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="history-clear-title"
+        >
+          <header class="modal-header">
+            <div class="history-clear-copy">
+              <p class="eyebrow">History</p>
+              <h2 id="history-clear-title">Clear all events?</h2>
+            </div>
+            <div class="history-clear-toolbar">
+              <svg
+                class="history-clear-pin"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="24"
+                height="24"
+              >
+                <path
+                  d="M8 4.5c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5 0 .4-.2.8-.5 1.1l-1.1 1.1v3.5l1.3 1.3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-2.1l-1 7.2c0 .4-.4.6-.7.6s-.7-.2-.7-.6l-1-7.2H7c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l1.3-1.3V6.7L8.5 5.6c-.3-.3-.5-.7-.5-1.1Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <button
+                type="button"
+                class="icon-button history-clear-close"
+                aria-label="Close clear history confirmation"
+                [disabled]="clearingHistory()"
+                (click)="closeHistoryClearModal()"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none">
+                  <path
+                    d="M7 7 17 17M17 7 7 17"
+                    stroke="currentColor"
+                    stroke-width="2.6"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </header>
+
+          <div class="history-clear-copy">
+            <p>
+              This permanently deletes every recorded history event. This action cannot be undone.
+            </p>
+          </div>
+
+          <div class="history-clear-actions">
+            <button
+              type="button"
+              class="secondary-button settings-action-button settings-open-sticky history-clear-cancel-button"
+              data-testid="history-clear-cancel"
+              [disabled]="clearingHistory()"
+              (click)="closeHistoryClearModal()"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="danger-button settings-action-button settings-reset history-clear-confirm-button"
+              data-testid="history-clear-confirm"
+              [disabled]="clearingHistory()"
+              (click)="clearHistory()"
+            >
+              Clear history
+            </button>
           </div>
         </article>
       </section>
