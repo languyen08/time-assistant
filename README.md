@@ -70,6 +70,9 @@ npm.cmd run electron:smoke
 npm.cmd run package:dir
 npm.cmd run package:win
 npm.cmd run package:installer
+npm.cmd run release:patch
+npm.cmd run release:minor
+npm.cmd run release:major
 ```
 
 `npm.cmd run package:win` builds a portable [Time Assistant.exe](</c:/Where I improve myself/time assistant/release/Time Assistant.exe>) that you can launch immediately. `npm.cmd run package:dir` builds the unpacked app folder, and `npm.cmd run package:installer` creates the Windows installer.
@@ -84,6 +87,35 @@ Release triggers:
 
 - Push a tag like `v1.0.0`
 - Or run the `Release Windows App` workflow manually and provide a tag
+
+Release helpers:
+
+- `npm.cmd run release:patch` creates and pushes the next patch tag like `v1.0.1`
+- `npm.cmd run release:minor` creates and pushes the next minor tag like `v1.1.0`
+- `npm.cmd run release:major` creates and pushes the next major tag like `v2.0.0`
+
+These helpers require a clean git working tree before tagging.
+
+When to run them:
+
+- Run a release helper only when you want to publish a new app version to GitHub Releases.
+- Use them after your code changes are committed and pushed to `main`.
+- Do not run them for every ordinary commit or for docs-only updates unless you also want a new `.exe` release.
+
+Typical release flow:
+
+```powershell
+git add .
+git commit -m "Describe the release changes"
+git push origin main
+npm.cmd run release:patch
+```
+
+Versioning guide:
+
+- Use `release:patch` for bug fixes or small improvements.
+- Use `release:minor` for new features that do not break existing usage.
+- Use `release:major` for large or breaking changes.
 
 GitHub Pages trigger:
 
