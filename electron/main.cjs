@@ -165,9 +165,9 @@ function createMainWindow() {
 
 function resolveGuidePath() {
   const candidates = [
-    path.join(__dirname, '..', 'public', 'user-guide.html'),
+    path.join(__dirname, '..', 'docs', 'user-guide.html'),
     path.join(__dirname, '..', 'dist', 'friendly-task-reminder', 'browser', 'user-guide.html'),
-    path.join(process.resourcesPath, 'public', 'user-guide.html'),
+    path.join(process.resourcesPath, 'docs', 'user-guide.html'),
     path.join(process.resourcesPath, 'dist', 'friendly-task-reminder', 'browser', 'user-guide.html'),
   ];
 

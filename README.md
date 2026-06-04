@@ -82,7 +82,7 @@ npm.cmd run guide:preview
 npm.cmd run guide:refresh
 ```
 
-The guide preview scripts use [public/user-guide.html](/c:/Where%20I%20improve%20myself/time%20assistant/public/user-guide.html) and write image artifacts into `artifacts/`.
+The guide preview scripts use [docs/user-guide.html](/c:/Where%20I%20improve%20myself/time%20assistant/docs/user-guide.html) and write image artifacts into `artifacts/`.
 
 ## Data and CSV Behavior
 

@@ -23,6 +23,11 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "user-guide.html",
+                "input": "docs",
+                "output": "/"
               }
             ],
             "styles": ["src/styles.css"],
