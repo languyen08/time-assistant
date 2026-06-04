@@ -6,16 +6,20 @@ import { createId, nowIso } from '../utils/date-time.util';
 
 @Injectable({ providedIn: 'root' })
 export class HistoryService {
+  private readonly maxEvents = 10_000;
   private readonly repository = inject(HistoryRepository);
   readonly events = signal<HistoryEvent[]>([]);
   readonly errorMessage = signal('');
 
   async load(): Promise<void> {
     try {
-      const events = await this.repository.list();
-      this.events.set(
-        events.sort((first, second) => second.occurredAt.localeCompare(first.occurredAt)),
-      );
+      const events = this.sortNewestFirst(await this.repository.list());
+      const { kept, removed } = this.trimToCap(events);
+      if (removed.length > 0) {
+        await this.deleteEvents(removed);
+      }
+
+      this.events.set(kept);
       this.errorMessage.set('');
     } catch (error) {
       this.errorMessage.set(
@@ -42,7 +46,12 @@ export class HistoryService {
 
     try {
       await this.repository.append(event);
-      this.events.update((events) => [event, ...events]);
+      const { kept, removed } = this.trimToCap([event, ...this.events()]);
+      if (removed.length > 0) {
+        await this.deleteEvents(removed);
+      }
+
+      this.events.set(kept);
       this.errorMessage.set('');
     } catch (error) {
       this.errorMessage.set(toFriendlyErrorMessage(error, 'History event could not be recorded.'));
@@ -59,5 +68,23 @@ export class HistoryService {
       this.errorMessage.set(toFriendlyErrorMessage(error, 'History could not be cleared.'));
       throw error;
     }
+  }
+
+  private sortNewestFirst(events: HistoryEvent[]): HistoryEvent[] {
+    return [...events].sort((first, second) => second.occurredAt.localeCompare(first.occurredAt));
+  }
+
+  private trimToCap(events: HistoryEvent[]): {
+    kept: HistoryEvent[];
+    removed: HistoryEvent[];
+  } {
+    return {
+      kept: events.slice(0, this.maxEvents),
+      removed: events.slice(this.maxEvents),
+    };
+  }
+
+  private async deleteEvents(events: HistoryEvent[]): Promise<void> {
+    await Promise.all(events.map((event) => this.repository.delete(event.id)));
   }
 }

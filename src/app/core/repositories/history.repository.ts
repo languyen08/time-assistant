@@ -16,6 +16,10 @@ export class HistoryRepository {
     return this.storage.put(HISTORY_STORE, event);
   }
 
+  delete(id: string): Promise<void> {
+    return this.storage.delete(HISTORY_STORE, id);
+  }
+
   clear(): Promise<void> {
     return this.storage.clear(HISTORY_STORE);
   }
