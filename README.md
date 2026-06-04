@@ -101,6 +101,14 @@ For CI, store these as GitHub Actions secrets:
 - `WIN_CSC_LINK`
 - `WIN_CSC_KEY_PASSWORD`
 
+This repository includes [.github/workflows/release-windows.yml](/c:/Where%20I%20improve%20myself/time%20assistant/.github/workflows/release-windows.yml),
+which builds, signs, and publishes `Time Assistant.exe` to a GitHub Release.
+
+Release triggers:
+
+- Push a tag like `v1.0.0`
+- Or run the `Release Windows App` workflow manually and provide a tag
+
 Notes:
 
 - Standard OV certificates can still show SmartScreen warnings at first while reputation builds.
