@@ -104,10 +104,18 @@ For CI, store these as GitHub Actions secrets:
 This repository includes [.github/workflows/release-windows.yml](/c:/Where%20I%20improve%20myself/time%20assistant/.github/workflows/release-windows.yml),
 which builds, signs, and publishes `Time Assistant.exe` to a GitHub Release.
 
+This repository also includes [.github/workflows/deploy-pages.yml](/c:/Where%20I%20improve%20myself/time%20assistant/.github/workflows/deploy-pages.yml),
+which deploys the `docs/` folder to GitHub Pages with GitHub Actions.
+
 Release triggers:
 
 - Push a tag like `v1.0.0`
 - Or run the `Release Windows App` workflow manually and provide a tag
+
+GitHub Pages trigger:
+
+- Push changes to `main` that touch `docs/**`
+- Or run the `Deploy Pages` workflow manually
 
 Notes:
 
