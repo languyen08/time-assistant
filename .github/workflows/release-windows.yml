@@ -49,11 +49,8 @@ jobs:
           }
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Build and sign portable Windows app
-        run: npm.cmd run package:win:signed
-        env:
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      - name: Build portable Windows app
+        run: npm.cmd run package:win
 
       - name: Upload packaged app as workflow artifact
         uses: actions/upload-artifact@v4

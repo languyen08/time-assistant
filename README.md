@@ -69,40 +69,13 @@ npm.cmd run lint
 npm.cmd run electron:smoke
 npm.cmd run package:dir
 npm.cmd run package:win
-npm.cmd run package:win:signed
 npm.cmd run package:installer
 ```
 
 `npm.cmd run package:win` builds a portable [Time Assistant.exe](</c:/Where I improve myself/time assistant/release/Time Assistant.exe>) that you can launch immediately. `npm.cmd run package:dir` builds the unpacked app folder, and `npm.cmd run package:installer` creates the Windows installer.
 
-## Windows Signing
-
-Unsigned `.exe` files downloaded from the internet will usually trigger Microsoft Defender
-SmartScreen. To produce a signed Windows build with `electron-builder`, prepare a code-signing
-certificate and provide it through environment variables.
-
-For local packaging:
-
-```powershell
-$env:WIN_CSC_LINK = Get-Content .\cert_encoded.txt -Raw
-$env:WIN_CSC_KEY_PASSWORD = 'your-certificate-password'
-npm.cmd run package:win:signed
-```
-
-`WIN_CSC_LINK` should contain the base64-encoded contents of your `.pfx` certificate. You can
-create it with:
-
-```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("certificate.pfx")) | Out-File cert_encoded.txt
-```
-
-For CI, store these as GitHub Actions secrets:
-
-- `WIN_CSC_LINK`
-- `WIN_CSC_KEY_PASSWORD`
-
 This repository includes [.github/workflows/release-windows.yml](/c:/Where%20I%20improve%20myself/time%20assistant/.github/workflows/release-windows.yml),
-which builds, signs, and publishes `Time Assistant.exe` to a GitHub Release.
+which builds and publishes `Time Assistant.exe` to a GitHub Release.
 
 This repository also includes [.github/workflows/deploy-pages.yml](/c:/Where%20I%20improve%20myself/time%20assistant/.github/workflows/deploy-pages.yml),
 which deploys the `docs/` folder to GitHub Pages with GitHub Actions.
@@ -119,9 +92,8 @@ GitHub Pages trigger:
 
 Notes:
 
-- Standard OV certificates can still show SmartScreen warnings at first while reputation builds.
-- EV certificates are better if you want fewer SmartScreen warnings on fresh downloads.
-- GitHub Releases are a better place to publish the signed `.exe` than GitHub Pages.
+- Unsigned `.exe` files downloaded from the internet will usually trigger Microsoft Defender SmartScreen.
+- GitHub Releases are a better place to publish the `.exe` than GitHub Pages.
 
 Guide asset helpers:
 
