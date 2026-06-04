@@ -47,6 +47,9 @@ describe('App', () => {
     document
       .querySelector('.friendly-backdrop')
       ?.parentElement?.removeChild(document.querySelector('.friendly-backdrop') as HTMLElement);
+    document
+      .querySelector('[data-history-body]')
+      ?.parentElement?.removeChild(document.querySelector('[data-history-body]') as HTMLElement);
   });
 
   it('should create the app', () => {
@@ -94,6 +97,167 @@ describe('App', () => {
     closeButton!.click();
 
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should size history pages from the available history list height', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const events: HistoryEvent[] = Array.from({ length: 30 }, (_, index) => ({
+      id: `event_${index}`,
+      type: 'task_created',
+      occurredAt: `2026-05-30T10:${String(index % 60).padStart(2, '0')}:00.000Z`,
+      summary: `Event ${index}`,
+    }));
+
+    app.historyService.events.set(events);
+
+    const historyPanel = document.createElement('article');
+    historyPanel.setAttribute('data-history-panel', '');
+    const historyHeader = document.createElement('header');
+    historyHeader.setAttribute('data-history-header', '');
+    const historyBody = document.createElement('div');
+    historyBody.setAttribute('data-history-body', '');
+    historyBody.style.display = 'grid';
+    historyBody.style.gap = '18px';
+    historyBody.style.padding = '10px 34px 28px';
+    const historyPager = document.createElement('div');
+    historyPager.setAttribute('data-history-pager', '');
+    const historyList = document.createElement('ol');
+    historyList.setAttribute('data-history-list', '');
+    for (let index = 0; index < 5; index += 1) {
+      const item = document.createElement('li');
+      Object.defineProperty(item, 'clientHeight', {
+        configurable: true,
+        get: () => 78,
+      });
+      Object.defineProperty(item, 'scrollHeight', {
+        configurable: true,
+        get: () => 78,
+      });
+      item.getBoundingClientRect = () =>
+        ({
+          width: 320,
+          height: 78,
+          top: 0,
+          right: 320,
+          bottom: 78,
+          left: 0,
+          x: 0,
+          y: 0,
+          toJSON: () => '',
+        }) as DOMRect;
+      historyList.appendChild(item);
+    }
+
+    let panelHeight = 782;
+    let bodyHeight = 620;
+    let clientHeight = 500;
+    let scrollHeight = 600;
+    Object.defineProperty(historyPanel, 'clientHeight', {
+      configurable: true,
+      get: () => panelHeight,
+    });
+    historyPanel.getBoundingClientRect = () =>
+      ({
+        width: 320,
+        height: panelHeight,
+        top: 0,
+        right: 320,
+        bottom: panelHeight,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => '',
+      }) as DOMRect;
+    Object.defineProperty(historyHeader, 'clientHeight', {
+      configurable: true,
+      get: () => 60,
+    });
+    historyHeader.getBoundingClientRect = () =>
+      ({
+        width: 320,
+        height: 60,
+        top: 0,
+        right: 320,
+        bottom: 60,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => '',
+      }) as DOMRect;
+    Object.defineProperty(historyBody, 'clientHeight', {
+      configurable: true,
+      get: () => bodyHeight,
+    });
+    historyBody.getBoundingClientRect = () =>
+      ({
+        width: 320,
+        height: bodyHeight,
+        top: 0,
+        right: 320,
+        bottom: bodyHeight,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => '',
+      }) as DOMRect;
+    Object.defineProperty(historyPager, 'clientHeight', {
+      configurable: true,
+      get: () => 42,
+    });
+    historyPager.getBoundingClientRect = () =>
+      ({
+        width: 320,
+        height: 42,
+        top: 0,
+        right: 320,
+        bottom: 42,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => '',
+      }) as DOMRect;
+    Object.defineProperty(historyList, 'clientHeight', {
+      configurable: true,
+      get: () => clientHeight,
+    });
+    Object.defineProperty(historyList, 'scrollHeight', {
+      configurable: true,
+      get: () => scrollHeight,
+    });
+    historyList.getBoundingClientRect = () =>
+      ({
+        width: 320,
+        height: clientHeight,
+        top: 0,
+        right: 320,
+        bottom: clientHeight,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => '',
+      }) as DOMRect;
+
+    historyBody.appendChild(historyPager);
+    historyBody.appendChild(historyList);
+    historyPanel.appendChild(historyHeader);
+    historyPanel.appendChild(historyBody);
+    document.body.appendChild(historyPanel);
+
+    app['measureHistoryPageSize']();
+
+    expect(app.historyPageSize()).toBe(8);
+    expect(app.pagedHistory()).toHaveLength(8);
+    expect(app.historyPageCount()).toBe(4);
+
+    panelHeight = 470;
+    bodyHeight = 420;
+    clientHeight = 340;
+    app['measureHistoryPageSize']();
+
+    expect(app.historyPageSize()).toBe(4);
+    expect(app.pagedHistory()).toHaveLength(4);
+    expect(app.historyPageCount()).toBe(8);
   });
 
   it('should send smaller sticky heights after notes are removed', async () => {

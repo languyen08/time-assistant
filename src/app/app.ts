@@ -1,5 +1,14 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
 import { ChartConfiguration } from 'chart.js';
@@ -36,13 +45,16 @@ import { TaskActionButtonsComponent } from './shared/components/task-action-butt
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
-export class App implements OnInit, OnDestroy {
+export class App implements OnInit, OnDestroy, AfterViewInit {
   private readonly stickyQueueNoteEstimatedHeight = 94;
   private readonly stickyWindowVerticalPadding = 16;
   private readonly stickyResizeThresholdPx = 2;
   private readonly stickyColorResizeSuppressMs = 250;
-  private readonly historyPageSize = 5;
+  private readonly defaultHistoryPageSize = 5;
   private readonly pendingPageSize = 4;
+  private historyMeasureFrameOne: number | undefined;
+  private historyMeasureFrameTwo: number | undefined;
+  private historyResizeObserver: ResizeObserver | undefined;
   private stickyResizeFrameOne: number | undefined;
   private stickyResizeFrameTwo: number | undefined;
   private stickyResizeObserver: ResizeObserver | undefined;
@@ -71,6 +83,7 @@ export class App implements OnInit, OnDestroy {
   readonly csvOpen = signal(false);
   readonly historyOpen = signal(true);
   readonly historyPage = signal(0);
+  readonly historyPageSize = signal(this.defaultHistoryPageSize);
   readonly pendingPage = signal(0);
   readonly stickyQueueTrim = signal(0);
   readonly extensionMinutes = signal(10);
@@ -107,12 +120,13 @@ export class App implements OnInit, OnDestroy {
     Math.min(this.pendingPage(), this.pendingPageCount() - 1),
   );
   readonly historyPageCount = computed(() =>
-    Math.max(1, Math.ceil(this.historyService.events().length / this.historyPageSize)),
+    Math.max(1, Math.ceil(this.historyService.events().length / this.historyPageSize())),
   );
   readonly pagedHistory = computed(() => {
     const page = this.currentHistoryPage();
-    const start = page * this.historyPageSize;
-    return this.historyService.events().slice(start, start + this.historyPageSize);
+    const pageSize = this.historyPageSize();
+    const start = page * pageSize;
+    return this.historyService.events().slice(start, start + pageSize);
   });
   readonly pagedPendingTasks = computed(() => {
     const page = this.currentPendingPage();
@@ -244,6 +258,20 @@ export class App implements OnInit, OnDestroy {
 
   constructor() {
     effect(() => {
+      const historyOpen = this.historyOpen();
+      this.historyService.events().length;
+      this.currentHistoryPage();
+
+      if (!historyOpen) {
+        this.teardownHistoryResizeObserver();
+        this.cancelHistoryMeasurementFrames();
+        return;
+      }
+
+      this.scheduleHistoryPageSizeMeasurement();
+    });
+
+    effect(() => {
       const stickyMode = this.isStickyMode();
       document.body.classList.toggle('sticky-mode', stickyMode);
       document.documentElement.classList.toggle('sticky-mode', stickyMode);
@@ -353,9 +381,15 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  ngAfterViewInit(): void {
+    this.scheduleHistoryPageSizeMeasurement();
+  }
+
   ngOnDestroy(): void {
     document.documentElement.classList.remove('sticky-mode');
     document.body.classList.remove('sticky-mode');
+    this.teardownHistoryResizeObserver();
+    this.cancelHistoryMeasurementFrames();
     this.teardownStickyResizeObserver();
     this.timerService.stop();
     this.reminderScheduler.stop();
@@ -801,6 +835,119 @@ export class App implements OnInit, OnDestroy {
     return document.querySelector<HTMLElement>('[data-sticky-note-measure-root]');
   }
 
+  private historyPanelBody(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('[data-history-body]');
+  }
+
+  private historyPanel(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('[data-history-panel]');
+  }
+
+  private historyHeader(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('[data-history-header]');
+  }
+
+  private historyList(): HTMLOListElement | null {
+    return document.querySelector<HTMLOListElement>('[data-history-list]');
+  }
+
+  private historyPager(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('[data-history-pager]');
+  }
+
+  private scheduleHistoryPageSizeMeasurement(): void {
+    this.cancelHistoryMeasurementFrames();
+    this.historyMeasureFrameOne = requestAnimationFrame(() => {
+      this.historyMeasureFrameOne = undefined;
+      this.historyMeasureFrameTwo = requestAnimationFrame(() => {
+        this.historyMeasureFrameTwo = undefined;
+        this.setupHistoryResizeObserver();
+        this.measureHistoryPageSize();
+      });
+    });
+  }
+
+  private measureHistoryPageSize(): void {
+    const historyPanel = this.historyPanel();
+    const historyBody = this.historyPanelBody();
+    const historyList = this.historyList();
+    if (!historyPanel || !historyBody || !historyList) {
+      return;
+    }
+
+    const renderedItems = Array.from(historyList.querySelectorAll('li'));
+    if (renderedItems.length === 0) {
+      return;
+    }
+
+    const historyHeader = this.historyHeader();
+    const historyPager = this.historyPager();
+    const panelHeight = Math.floor(
+      historyPanel.getBoundingClientRect().height || historyPanel.clientHeight,
+    );
+    const headerHeight = historyHeader
+      ? Math.ceil(historyHeader.getBoundingClientRect().height || historyHeader.clientHeight)
+      : 0;
+    const bodyStyles = getComputedStyle(historyBody);
+    const rowGap = parseFloat(bodyStyles.rowGap || bodyStyles.gap || '0') || 0;
+    const bodyPadding =
+      (parseFloat(bodyStyles.paddingTop || '0') || 0) +
+      (parseFloat(bodyStyles.paddingBottom || '0') || 0);
+    const pagerHeight = historyPager
+      ? Math.ceil(historyPager.getBoundingClientRect().height || historyPager.clientHeight)
+      : 0;
+    const listHeight = Math.floor(
+      historyList.clientHeight || historyList.getBoundingClientRect().height,
+    );
+    const availableHeight =
+      Math.max(0, panelHeight - headerHeight - bodyPadding - pagerHeight - rowGap) || listHeight;
+    const contentHeight = renderedItems.reduce(
+      (total, item) =>
+        total +
+        Math.ceil(item.getBoundingClientRect().height || item.scrollHeight || item.clientHeight),
+      0,
+    );
+    if (availableHeight <= 0 || contentHeight <= 0) {
+      return;
+    }
+
+    const averageItemHeight = contentHeight / renderedItems.length;
+    const nextPageSize = Math.max(
+      1,
+      Math.min(
+        this.historyService.events().length,
+        Math.floor(availableHeight / averageItemHeight),
+      ),
+    );
+    if (nextPageSize !== this.historyPageSize()) {
+      this.historyPageSize.set(nextPageSize);
+      this.scheduleHistoryPageSizeMeasurement();
+    }
+  }
+
+  private setupHistoryResizeObserver(): void {
+    if (this.historyResizeObserver || !this.historyOpen()) {
+      return;
+    }
+
+    const historyBody = this.historyPanelBody();
+    const historyPanel = this.historyPanel();
+    if (!historyBody || !historyPanel) {
+      return;
+    }
+
+    this.historyResizeObserver = new ResizeObserver(() => {
+      this.scheduleHistoryPageSizeMeasurement();
+    });
+    this.historyResizeObserver.observe(historyBody);
+    this.historyResizeObserver.observe(historyPanel);
+  }
+
+  private teardownHistoryResizeObserver(): void {
+    this.historyResizeObserver?.disconnect();
+    this.historyResizeObserver = undefined;
+  }
+
   private stickyReminderHeight(): number {
     const reminderPanel = document.querySelector<HTMLElement>('.friendly-reminder');
     if (!reminderPanel) {
@@ -898,6 +1045,18 @@ export class App implements OnInit, OnDestroy {
     if (this.stickyResizeFrameTwo !== undefined) {
       cancelAnimationFrame(this.stickyResizeFrameTwo);
       this.stickyResizeFrameTwo = undefined;
+    }
+  }
+
+  private cancelHistoryMeasurementFrames(): void {
+    if (this.historyMeasureFrameOne !== undefined) {
+      cancelAnimationFrame(this.historyMeasureFrameOne);
+      this.historyMeasureFrameOne = undefined;
+    }
+
+    if (this.historyMeasureFrameTwo !== undefined) {
+      cancelAnimationFrame(this.historyMeasureFrameTwo);
+      this.historyMeasureFrameTwo = undefined;
     }
   }
 
