@@ -165,8 +165,10 @@ function createMainWindow() {
 
 function resolveGuidePath() {
   const candidates = [
-    path.join(__dirname, '..', 'user-guide.html'),
-    path.join(process.resourcesPath, 'user-guide.html'),
+    path.join(__dirname, '..', 'public', 'user-guide.html'),
+    path.join(__dirname, '..', 'dist', 'friendly-task-reminder', 'browser', 'user-guide.html'),
+    path.join(process.resourcesPath, 'public', 'user-guide.html'),
+    path.join(process.resourcesPath, 'dist', 'friendly-task-reminder', 'browser', 'user-guide.html'),
   ];
 
   return candidates.find((candidate) => {
@@ -200,6 +202,7 @@ function openGuideWindow() {
     title: 'Time Assistant Guide',
     backgroundColor: '#f7efe0',
     autoHideMenuBar: true,
+    frame: false,
     ...(appIconPath ? { icon: appIconPath } : {}),
     webPreferences: {
       contextIsolation: true,

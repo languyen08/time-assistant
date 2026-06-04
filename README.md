@@ -1,13 +1,31 @@
-# Friendly Task Reminder
+# Time Assistant
 
-Local-first Windows desktop productivity app for calm task transition reminders.
+Local-first Windows desktop task reminder app built with Angular and Electron.
 
-## Required Tooling
+Time Assistant helps you queue tasks, focus on one active task, receive gentle reminder prompts, take breaks between sessions, and review your recent work history without needing an account, backend, or cloud sync.
+
+## Current Scope
+
+- Windows-first desktop experience packaged with Electron
+- Local IndexedDB storage for tasks, settings, and history
+- One active task at a time with start, pause, resume, extend, and complete actions
+- Repeated reminder prompts with configurable attempt count and repeat interval
+- Break flow that can start after completion and resume into the next queued task
+- Sticky-note companion window with theme/color and always-on-top settings
+- History timeline plus summary charts for completed tasks, focus time, categories, and reminders
+- CSV task import plus CSV export for tasks and history
+
+## Tech Stack
 
 - Node.js `26.2.0`
 - npm `11.16.0`
+- Angular `21.2.15`
+- Electron `42.3.0`
+- Chart.js `4.5.1`
+- ng2-charts `8.0.0`
+- Papa Parse `5.5.3`
 
-The repo includes `.node-version`, `.nvmrc`, `.npmrc`, and `packageManager` metadata so contributors use the pinned runtime and exact package versions.
+The repo pins runtime and package manager versions through `.node-version`, `.nvmrc`, `.npmrc`, and `packageManager`.
 
 ## Setup
 
@@ -19,26 +37,61 @@ PowerShell may block `npm.ps1` on some Windows machines. Use `npm.cmd` if that h
 
 ## Development
 
-Run the Windows desktop app:
+Run the desktop app:
 
 ```powershell
 npm.cmd start
 ```
 
-Preview the Angular web UI in a browser:
+Preview the Angular UI in a browser:
 
 ```powershell
 npm.cmd run web
 ```
 
-Run the Electron shell against an existing Angular build:
+Run Electron against a fresh Angular build:
 
 ```powershell
 npm.cmd run build
 npm.cmd run electron
 ```
 
-`npm.cmd start` and `npm.cmd run electron` both launch the Electron desktop shell. `npm.cmd run web` is only for browser preview and uses the browser's own IndexedDB data.
+`npm.cmd start` and `npm.cmd run electron` both launch Electron. `npm.cmd run web` is only a browser preview and uses a separate IndexedDB profile from the desktop app.
+
+## Useful Scripts
+
+```powershell
+npm.cmd test
+npm.cmd run e2e:break-conflict
+npm.cmd run format
+npm.cmd run format:check
+npm.cmd run lint
+npm.cmd run electron:smoke
+npm.cmd run package:dir
+npm.cmd run package:win
+npm.cmd run package:installer
+```
+
+`npm.cmd run package:win` builds a portable [Time Assistant.exe](</c:/Where I improve myself/time assistant/release/Time Assistant.exe>) that you can launch immediately. `npm.cmd run package:dir` builds the unpacked app folder, and `npm.cmd run package:installer` creates the Windows installer.
+
+Guide asset helpers:
+
+```powershell
+npm.cmd run guide:screens
+npm.cmd run guide:preview
+npm.cmd run guide:refresh
+```
+
+The guide preview scripts use [public/user-guide.html](/c:/Where%20I%20improve%20myself/time%20assistant/public/user-guide.html) and write image artifacts into `artifacts/`.
+
+## Data and CSV Behavior
+
+The app stores all data locally in IndexedDB. Core workflows work offline and do not require login, calendar integration, or cloud services.
+
+- Task CSV import validates required columns and reminder values before saving.
+- Task CSV export includes reminder/timer state fields useful for moving local data between machines.
+- History CSV export includes event type, timestamp, summary, and metadata JSON.
+- CSV date/time output can use ISO timestamps or a spreadsheet-friendly local `yyyy-MM-dd HH:mm` format.
 
 ## Quality Gates
 
@@ -50,25 +103,9 @@ npm.cmd run build
 npm.cmd run electron:smoke
 ```
 
-## Local Data and Export
+## Known Limitations
 
-The app stores tasks, settings, and history locally in IndexedDB. Core task reminders work without login, backend, calendar connection, or cloud sync.
-
-CSV export includes stable headers for tasks and history. The CSV date/time format setting controls whether exports use ISO timestamps or a spreadsheet-friendly local `yyyy-MM-dd HH:mm` format.
-
-## Troubleshooting
-
-- If PowerShell blocks `npm.ps1`, use `npm.cmd`.
-- If Electron and browser preview show different data, that is expected: each runtime has its own local IndexedDB storage.
-
-## Scope
-
-Current MVP scope is local-first desktop use with manual CSV export. Calendar integration, general cloud sync, required accounts, background sync, and mobile push are outside the MVP.
-
-## Known Limitations and Deferred Features
-
-- Data is local to each runtime profile. Electron and browser preview do not share IndexedDB automatically.
-- CSV import/export is the only sync path in MVP. No real-time or automatic cloud sync.
-- Calendar integration is deferred. Google Calendar and `.ics` workflows are not active in current MVP.
-- Voice input is deferred. Task entry is manual text input.
-- E2E workflow coverage is still pending for create/start/complete, add-time, pause/resume, break flow, and theme switching.
+- Data is local to each runtime profile. Electron and browser preview do not automatically share IndexedDB data.
+- Sync is still manual. There is no cloud sync or real-time multi-device storage.
+- CSV import currently covers tasks only. History is export-only.
+- Calendar integration, required accounts, and mobile push notifications are outside the current MVP.

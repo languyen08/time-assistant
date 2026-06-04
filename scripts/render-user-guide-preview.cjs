@@ -4,7 +4,7 @@ const { chromium } = require('@playwright/test');
 
 const ROOT = process.cwd();
 const ARTIFACTS_DIR = path.join(ROOT, 'artifacts');
-const GUIDE_FILE = path.join(ROOT, 'user-guide.html');
+const GUIDE_FILE = path.join(ROOT, 'public', 'user-guide.html');
 const OUTPUT_FILE = path.join(ARTIFACTS_DIR, 'user-guide-preview.png');
 
 async function launchBrowser() {

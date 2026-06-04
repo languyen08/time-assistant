@@ -23,7 +23,9 @@
     "lint": "prettier --check .",
     "electron": "node scripts/run-electron.cjs",
     "electron:smoke": "ng build && node scripts/run-electron.cjs --smoke-test",
-    "package:dir": "electron-builder --dir"
+    "package:dir": "npm run build && electron-builder --dir",
+    "package:win": "npm run build && electron-builder --win portable",
+    "package:installer": "npm run build && electron-builder --win nsis"
   },
   "private": true,
   "packageManager": "npm@11.16.0",
@@ -69,7 +71,6 @@
       "build-resources/app-icon.ico",
       "src/assets/icons/app-icon.png",
       "src/assets/icons/app-icon-notification.png",
-      "user-guide.html",
       "package.json"
     ],
     "directories": {
@@ -78,7 +79,11 @@
     },
     "win": {
       "icon": "src/assets/icons/app-icon.png",
-      "target": "nsis"
+      "signAndEditExecutable": false,
+      "target": "portable"
+    },
+    "portable": {
+      "artifactName": "${productName}.exe"
     }
   }
 }
