@@ -45,9 +45,6 @@ __screenshots__/
 .DS_Store
 Thumbs.db
 
-# Docs
-.docs
-
 # Release
 /release
 

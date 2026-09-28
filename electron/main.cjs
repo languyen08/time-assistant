@@ -3,6 +3,7 @@ const os = require('node:os');
 const fs = require('node:fs/promises');
 const fsSync = require('node:fs');
 const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, screen } = require('electron');
+const { createStartupLoginController } = require('./startup-login.cjs');
 
 const APP_NAME = 'Time Assistant';
 const APP_ID = 'local.assistant-time.time-assistant';
@@ -15,6 +16,11 @@ if (isSmokeTest) {
   app.setPath('userData', path.join(os.tmpdir(), `friendly-task-reminder-smoke-${process.pid}`));
   app.disableHardwareAcceleration();
 }
+
+const startupLogin = createStartupLoginController({
+  electronApp: app,
+  smokeTest: isSmokeTest,
+});
 
 const STICKY_NOTE_COLORS = {
   yellow: '#f7efb0',
@@ -376,6 +382,12 @@ ipcMain.handle('assistant-time:minimize-sticky-window', () => {
   stickyWindow.minimize();
   return true;
 });
+
+ipcMain.handle('assistant-time:get-start-at-login', () => startupLogin.getStartAtLogin());
+
+ipcMain.handle('assistant-time:set-start-at-login', (_event, enabled) =>
+  startupLogin.setStartAtLogin(enabled),
+);
 
 ipcMain.handle('assistant-time:close-app', () => {
   app.quit();

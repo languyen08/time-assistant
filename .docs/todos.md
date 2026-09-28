@@ -19,7 +19,7 @@ Goal: create a stable project foundation with pinned versions.
 
 ### Milestone 0.2 — Electron Desktop Shell
 
-- [x] Add Electron `42.3.0`.
+- [x] Add Electron `44.4.5`.
 - [x] Replace Electron Forge with Electron Builder as the sole packaging tool; remove Forge configuration and dependencies.
 - [x] Add Electron Builder `26.8.1`.
 - [x] Add Electron main process entry.
@@ -47,7 +47,7 @@ Goal: working local MVP with task CRUD, one active task, timer, and basic remind
 
 - [x] Create main app layout.
 - [x] Create navigation structure.
-- [ ] Add light, dark, and system theme shell.
+- [x] Intentionally remove light, dark, and system theme selection from MVP scope.
 - [x] Add empty states for task list and active task.
 - [x] Add shared button, card, input, and modal components if useful.
 
@@ -157,10 +157,10 @@ Goal: make the app pleasant, visible, and useful in daily work.
 
 ### Milestone 2.5 — Theme and Visual Polish
 
-- [ ] Implement light theme.
-- [ ] Implement dark theme.
-- [ ] Implement system theme.
-- [ ] Persist theme setting.
+- [x] Intentionally remove light theme selection from MVP scope.
+- [x] Intentionally remove dark theme selection from MVP scope.
+- [x] Intentionally remove system theme selection from MVP scope.
+- [x] Intentionally remove theme persistence from MVP scope.
 - [x] Apply subtle skeuomorphic design.
 - [x] Improve empty states and microcopy.
 - [ ] Verify accessible contrast.
@@ -171,7 +171,7 @@ Goal: make the app pleasant, visible, and useful in daily work.
 - [x] Sticky-note mode is usable.
 - [x] Pause/resume works correctly.
 - [x] Break flow works correctly.
-- [ ] Theme behavior works.
+- [x] Theme selection is intentionally outside the MVP; preserve the existing visual design.
 - [x] No Phase 3 work has started.
 - [x] Human review completed before Phase 3.
 
@@ -258,6 +258,7 @@ Goal: add optional convenience features and polish after the core app is stable.
 - [x] Configure notification sound.
 - [x] Configure sticky-note behavior.
 - [x] Configure CSV date/time format.
+- [x] Configure Start app with Windows using the native Windows login item.
 - [x] Add reset-to-default settings action.
 
 ### Milestone 4.4 — Accessibility and UX Polish
@@ -301,7 +302,7 @@ Goal: add optional convenience features and polish after the core app is stable.
 - [ ] E2E test add more time.
 - [ ] E2E test pause/resume.
 - [x] E2E test break-before-next-task conflict behavior in the current Playwright scenario.
-- [ ] E2E test theme switching after theme support exists or is retained as MVP scope.
+- [x] Remove theme-switching E2E coverage from MVP scope with the theme product decision.
 
 ## Documentation
 
@@ -317,9 +318,15 @@ Goal: add optional convenience features and polish after the core app is stable.
 
 - [x] Reconcile the five canonical docs with the audited current local source state.
 - [x] Reconcile the packaging migration: retain Electron Builder as the sole packaging tool, remove Electron Forge, and accept ADR-012.
-- [ ] Implement light/dark/system themes and persistence, or explicitly remove theme support from the MVP through a product decision and doc update.
+- [x] Remove light/dark/system theme support and persistence from MVP scope through an explicit product decision and documentation update.
+- [x] Add Start app with Windows setting.
+  - [x] Add a compact Startup card after Sticky note and before the action buttons.
+  - [x] Read actual Windows login-item state.
+  - [x] Enable and disable startup through Electron main.
+  - [x] Resolve the original Electron Builder portable executable path.
+  - [x] Add focused renderer and Electron-main tests.
 - [ ] Complete accessibility verification, including keyboard navigation, contrast, and reduced-motion behavior.
-- [ ] Add the missing Playwright coverage for add-more-time and pause/resume; add theme E2E coverage only if theme support remains in scope.
+- [ ] Add the missing Playwright coverage for add-more-time and pause/resume.
 - [ ] Decide whether to introduce semantic linting or rename the current Prettier-only `lint` command.
 - [ ] Establish reliable multi-window reminder ownership/synchronization and eliminate the potential duplicate-processing race.
 - [ ] Decide whether live break sessions must persist across renderer reload/exit; document and test the chosen behavior.

@@ -17,7 +17,7 @@ Verified for this repo. Do not use `latest`, `^`, or `~` in package files.
 | Frontend | Angular | 21.2.15 |
 | Angular CLI | `@angular/cli` | 21.2.13 |
 | Language | TypeScript | 5.9.3 |
-| Desktop shell | Electron | 42.3.0 |
+| Desktop shell | Electron | 44.4.5 |
 | Electron Builder | `electron-builder` | 26.8.1 |
 | Charts | Chart.js | 4.5.1 |
 | Angular charts wrapper | ng2-charts | 8.0.0 |
@@ -43,7 +43,8 @@ Electron main
   |- main, sticky-note, and user-guide windows
   |- native desktop notifications
   |- open/save file dialogs
-  `- sticky-window controls
+  |- sticky-window controls
+  `- Windows startup login-item control
 ```
 
 Electron main does not currently own timer or reminder scheduling.
@@ -90,7 +91,7 @@ Current IPC surface:
 - Renderer keeps `contextIsolation: true` and `nodeIntegration: false`.
 - Main, sticky, and user-guide renderers are sandboxed.
 - File system access is limited to explicit open/save dialog flows.
-- Exposed operations cover closing/focusing windows, sticky-window state and size, notifications, the user guide, and CSV-oriented text file dialogs.
+- Exposed operations cover closing/focusing windows, sticky-window state and size, notifications, the user guide, CSV-oriented text file dialogs, and get/set access to the Windows startup login item.
 
 ## Frontend
 
@@ -135,7 +136,7 @@ Frontend responsibilities:
 
 ## Desktop Shell
 
-Use Electron `42.3.0`.
+Use Electron `44.4.5`.
 
 Electron responsibilities:
 
@@ -144,6 +145,7 @@ Electron responsibilities:
 - Provide file picker and save dialog for CSV import/export.
 - Support sticky-note window.
 - Support always-on-top for sticky-note mode.
+- Own native Windows startup-at-login behavior.
 - Provide local filesystem access only where needed.
 - Keep native commands minimal.
 
@@ -285,7 +287,20 @@ type AppSettings = {
 
 Settings should be loaded at startup and cached by `SettingsService`.
 
-Theme selection and persistence are target behavior but are not fields in the current settings model. Privacy/local-data controls are also not implemented.
+Light, dark, and system theme selection and persistence are intentionally outside the MVP. Privacy/local-data controls are also not implemented.
+
+Windows startup state is runtime OS state, not an `AppSettings` field and not IndexedDB data. The flow is:
+
+```txt
+Settings UI
+  -> narrow preload IPC
+  -> Electron main
+  -> packaged executable resolver
+  -> Electron login-item API
+  -> Windows Startup Apps
+```
+
+Windows is authoritative. Reads and writes use the same executable identity. Packaged portable builds prefer Electron Builder's `PORTABLE_EXECUTABLE_FILE` so the login item points to the original portable executable rather than the temporary extracted Electron process. Normal packaged builds use `process.execPath`. Development and automated smoke execution never register a startup item.
 
 ## Calendar Integration
 

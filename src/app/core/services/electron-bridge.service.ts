@@ -22,6 +22,10 @@ export class ElectronBridgeService {
     return window.assistantTime?.closeMainWindow?.() ?? Promise.resolve(false);
   }
 
+  getStartAtLogin(): Promise<boolean> {
+    return window.assistantTime?.getStartAtLogin?.() ?? Promise.resolve(false);
+  }
+
   minimizeStickyWindow(): Promise<boolean> {
     return window.assistantTime?.minimizeStickyWindow() ?? Promise.resolve(false);
   }
@@ -58,6 +62,10 @@ export class ElectronBridgeService {
 
   resizeStickyWindow(height: number, reason: StickyResizeReason): Promise<boolean> {
     return window.assistantTime?.resizeStickyWindow({ height, reason }) ?? Promise.resolve(false);
+  }
+
+  setStartAtLogin(enabled: boolean): Promise<boolean> {
+    return window.assistantTime?.setStartAtLogin?.(enabled) ?? Promise.resolve(false);
   }
 
   setStickyWindow(

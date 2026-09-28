@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('assistantTime', {
   closeApp: () => ipcRenderer.invoke('assistant-time:close-app'),
   closeMainWindow: () => ipcRenderer.invoke('assistant-time:close-main-window'),
   focusMainWindow: () => ipcRenderer.invoke('assistant-time:focus-main-window'),
+  getStartAtLogin: () => ipcRenderer.invoke('assistant-time:get-start-at-login'),
   minimizeStickyWindow: () => ipcRenderer.invoke('assistant-time:minimize-sticky-window'),
   notify: (payload) => ipcRenderer.invoke('assistant-time:notify', payload),
   openUserGuide: () => ipcRenderer.invoke('assistant-time:open-user-guide'),
@@ -14,5 +15,6 @@ contextBridge.exposeInMainWorld('assistantTime', {
   resizeStickyWindow: (payload) =>
     ipcRenderer.invoke('assistant-time:resize-sticky-window', payload),
   saveTextFile: (payload) => ipcRenderer.invoke('assistant-time:save-text-file', payload),
+  setStartAtLogin: (enabled) => ipcRenderer.invoke('assistant-time:set-start-at-login', enabled),
   setStickyWindow: (options) => ipcRenderer.invoke('assistant-time:set-sticky-window', options),
 });

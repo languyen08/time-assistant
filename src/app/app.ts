@@ -79,6 +79,8 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly importStatus = signal('');
   readonly importErrors = signal<string[]>([]);
   readonly settingsStatus = signal('');
+  readonly startAtLoginEnabled = signal(false);
+  readonly startAtLoginBusy = signal(true);
   readonly settingsOpen = signal(false);
   readonly csvOpen = signal(false);
   readonly historyOpen = signal(true);
@@ -365,6 +367,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
         this.historyService.load(),
         this.taskService.load(),
       ]);
+      await this.loadStartAtLogin();
       if (this.isStickyMode() && this.electron.isElectron) {
         await this.settingsService.update({ stickyNoteEnabled: true });
       }
@@ -533,6 +536,38 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       csvDateTimeFormat: (event.target as HTMLSelectElement).value,
     });
     this.settingsStatus.set('CSV date/time format updated.');
+  }
+
+  async setStartAtLogin(event: Event): Promise<void> {
+    const checkbox = event.target as HTMLInputElement;
+    const requestedState = checkbox.checked;
+    this.startAtLoginBusy.set(true);
+
+    try {
+      const actualState = await this.electron.setStartAtLogin(requestedState);
+      this.startAtLoginEnabled.set(actualState);
+      checkbox.checked = actualState;
+      this.settingsStatus.set(
+        actualState === requestedState
+          ? actualState
+            ? 'Time Assistant will start when you sign in to Windows.'
+            : 'Time Assistant will no longer start with Windows.'
+          : 'Windows startup could not be changed. The actual Windows setting was restored.',
+      );
+    } catch {
+      try {
+        const actualState = await this.electron.getStartAtLogin();
+        this.startAtLoginEnabled.set(actualState);
+        checkbox.checked = actualState;
+      } catch {
+        // Keep the last confirmed value when Windows cannot be queried either.
+      }
+      this.settingsStatus.set(
+        'Windows startup could not be changed. The actual Windows setting was restored.',
+      );
+    } finally {
+      this.startAtLoginBusy.set(false);
+    }
   }
 
   openSettings(): void {
@@ -851,6 +886,17 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       settings.stickyNoteAlwaysOnTop,
       settings.stickyNoteColor,
     );
+  }
+
+  private async loadStartAtLogin(): Promise<void> {
+    this.startAtLoginBusy.set(true);
+    try {
+      this.startAtLoginEnabled.set(await this.electron.getStartAtLogin());
+    } catch {
+      this.settingsStatus.set('Windows startup status could not be read.');
+    } finally {
+      this.startAtLoginBusy.set(false);
+    }
   }
 
   private scheduleStickyResize(reason: StickyResizeReason): void {

@@ -127,7 +127,7 @@ Context:
 The app needs desktop notifications, local storage, CSV file dialogs, sound playback, tray behavior, and sticky-note-like always-on-top windows. Angular provides the UI but cannot behave like a native desktop app by itself.
 
 Decision:
-Use Electron `42.3.0` as the desktop shell. Angular remains the frontend UI. Electron owns native desktop behavior through main process code, BrowserWindow configuration, preload scripts, and safe IPC.
+Use Electron `44.4.5` as the desktop shell. Angular remains the frontend UI. Electron owns native desktop behavior through main process code, BrowserWindow configuration, preload scripts, and safe IPC.
 
 Consequences:
 - The app runs as a real Windows desktop executable instead of a browser-only web app.
@@ -140,6 +140,7 @@ Consequences:
 Current implementation note:
 - Main, sticky-note, and user-guide BrowserWindows are implemented.
 - Desktop notifications, sticky-window controls, and explicit text-file dialogs are implemented through narrow preload/IPC APIs.
+- Windows startup-at-login configuration is implemented through narrow preload/IPC APIs; Windows login-item state is authoritative and portable builds resolve the original portable executable path.
 - No tray or independent Electron main-process reminder scheduler is implemented.
 - Timer/reminder scheduling currently starts inside each Angular renderer, creating unresolved multi-window ownership risk.
 ---

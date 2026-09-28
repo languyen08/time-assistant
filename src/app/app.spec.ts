@@ -24,6 +24,24 @@ function pendingTask(id: string, name: string, order: number, overrides: Partial
   };
 }
 
+function createAssistantTimeApi(
+  overrides: Partial<NonNullable<Window['assistantTime']>> = {},
+): NonNullable<Window['assistantTime']> {
+  return {
+    platform: 'win32',
+    closeApp: vi.fn().mockResolvedValue(true),
+    focusMainWindow: vi.fn().mockResolvedValue(true),
+    minimizeStickyWindow: vi.fn().mockResolvedValue(true),
+    notify: vi.fn().mockResolvedValue(true),
+    openTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
+    setReminderOverlayState: vi.fn().mockResolvedValue(true),
+    saveTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
+    resizeStickyWindow: vi.fn().mockResolvedValue(true),
+    setStickyWindow: vi.fn().mockResolvedValue(true),
+    ...overrides,
+  };
+}
+
 describe('App', () => {
   const originalAssistantTime = window.assistantTime;
   const originalAvailHeight = window.screen.availHeight;
@@ -141,6 +159,101 @@ describe('App', () => {
     closeButton!.click();
 
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should show the confirmed Windows startup state in the Startup card', async () => {
+    const getStartAtLogin = vi.fn().mockResolvedValue(true);
+    window.assistantTime = createAssistantTimeApi({ getStartAtLogin });
+
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await app['loadStartAtLogin']();
+    app.openSettings();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const startupCard = host.querySelector<HTMLElement>('[data-testid="settings-startup-card"]');
+    const checkbox = startupCard?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const stickyCard = host.querySelector<HTMLElement>('.settings-card-sticky');
+    const actions = host.querySelector<HTMLElement>('[data-testid="settings-actions"]');
+
+    expect(getStartAtLogin).toHaveBeenCalled();
+    expect(checkbox?.checked).toBe(true);
+    expect(startupCard?.textContent).toContain('Start app with Windows');
+    expect(startupCard?.textContent).toContain(
+      'Automatically open Time Assistant when you sign in to Windows.',
+    );
+    expect(stickyCard?.compareDocumentPosition(startupCard!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(startupCard?.compareDocumentPosition(actions!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('should enable and disable Windows startup through the preload API', async () => {
+    const setStartAtLogin = vi.fn(async (enabled: boolean) => enabled);
+    window.assistantTime = createAssistantTimeApi({
+      getStartAtLogin: vi.fn().mockResolvedValue(false),
+      setStartAtLogin,
+    });
+
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await app['loadStartAtLogin']();
+    app.openSettings();
+    fixture.detectChanges();
+
+    const checkbox = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      '[data-testid="settings-startup-card"] input[type="checkbox"]',
+    )!;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(setStartAtLogin).toHaveBeenNthCalledWith(1, true);
+    expect(app.startAtLoginEnabled()).toBe(true);
+
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(setStartAtLogin).toHaveBeenNthCalledWith(2, false);
+    expect(app.startAtLoginEnabled()).toBe(false);
+  });
+
+  it('should re-read and restore the actual Windows state when a startup update fails', async () => {
+    const getStartAtLogin = vi.fn().mockResolvedValue(true);
+    window.assistantTime = createAssistantTimeApi({
+      getStartAtLogin,
+      setStartAtLogin: vi.fn().mockRejectedValue(new Error('Windows rejected the update.')),
+    });
+
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await app['loadStartAtLogin']();
+    app.openSettings();
+    fixture.detectChanges();
+
+    const checkbox = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      '[data-testid="settings-startup-card"] input[type="checkbox"]',
+    )!;
+    const readsBeforeUpdate = getStartAtLogin.mock.calls.length;
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(getStartAtLogin).toHaveBeenCalledTimes(readsBeforeUpdate + 1);
+    expect(app.startAtLoginEnabled()).toBe(true);
+    expect(checkbox.checked).toBe(true);
+    expect(app.settingsStatus()).toContain('actual Windows setting was restored');
   });
 
   it('should size history pages from the available history list height', () => {

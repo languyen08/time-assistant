@@ -5,6 +5,7 @@ export interface AssistantTimeApi {
   closeApp: () => Promise<boolean>;
   closeMainWindow?: () => Promise<boolean>;
   focusMainWindow: () => Promise<boolean>;
+  getStartAtLogin?: () => Promise<boolean>;
   minimizeStickyWindow: () => Promise<boolean>;
   notify: (payload: { title: string; body: string }) => Promise<boolean>;
   openUserGuide?: () => Promise<boolean>;
@@ -19,6 +20,7 @@ export interface AssistantTimeApi {
     filters?: FileDialogFilter[];
   }) => Promise<FileSaveResult>;
   resizeStickyWindow: (payload: { height: number; reason: StickyResizeReason }) => Promise<boolean>;
+  setStartAtLogin?: (enabled: boolean) => Promise<boolean>;
   setStickyWindow: (options: {
     enabled: boolean;
     alwaysOnTop: boolean;

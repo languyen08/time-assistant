@@ -16,7 +16,7 @@ Local-first Windows desktop productivity app for friendly task transition remind
 - TypeScript `5.9.3`
 - Node.js `26.2.0`
 - npm `11.16.0`
-- Electron `42.3.0`
+- Electron `44.4.5`
 - Electron Builder `26.8.1`
 - Chart.js `4.5.1`
 - ng2-charts `8.0.0`
@@ -58,6 +58,8 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Keep renderer sandboxing enabled where currently configured.
 - Do not expose broad filesystem or shell APIs to Angular.
 - Current BrowserWindow types are main, sticky-note, and user-guide windows.
+- Electron main owns Windows startup-at-login configuration through narrow preload/IPC methods.
+- Windows login-item state is authoritative; do not persist a duplicate startup boolean in IndexedDB.
 - There is no tray or independent main-process reminder scheduler.
 - Each Angular renderer currently starts its own timer/reminder scheduler. Only task changes are synchronized with `BroadcastChannel`; treat reminder ownership and other cross-window state as unresolved technical debt.
 
@@ -87,7 +89,7 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Use tactile cards, soft shadows, sticky-note-like surfaces, and clear controls.
 - Do not make the UI cluttered or cartoonish.
 - Reminder UI must be friendly, visible, and non-annoying.
-- Light, dark, and system themes remain target behavior but are not currently implemented.
+- Preserve the existing visual design. Light, dark, and system theme selection and persistence are intentionally outside the MVP.
 
 ## Testing Expectations
 - Add unit tests for services that contain business logic.
