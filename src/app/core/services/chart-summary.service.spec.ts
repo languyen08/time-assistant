@@ -15,6 +15,7 @@ describe('ChartSummaryService', () => {
         reminderAt: '2026-05-30T10:00:00.000Z',
         reminderCount: 3,
         reminderIntervalMinutes: 5,
+        allowConcurrentStart: false,
         order: 0,
         status: 'completed',
         createdAt: '2026-05-30T08:00:00.000Z',

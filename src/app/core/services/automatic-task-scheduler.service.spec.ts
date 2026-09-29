@@ -14,6 +14,7 @@ function task(id: string, order: number, overrides: Partial<Task> = {}): Task {
     reminderAt: '2026-05-30T10:00:00.000Z',
     reminderCount: 3,
     reminderIntervalMinutes: 5,
+    allowConcurrentStart: false,
     order,
     status: 'pending',
     createdAt: '2026-05-30T09:00:00.000Z',
@@ -50,8 +51,8 @@ describe('AutomaticTaskSchedulerService', () => {
 
     const taskService = {
       pendingTasks: computed(() => tasks().filter((item) => item.status === 'pending')),
-      currentTask: computed(() =>
-        tasks().find((item) => item.status === 'active' || item.status === 'paused'),
+      currentTasks: computed(() =>
+        tasks().filter((item) => item.status === 'active' || item.status === 'paused'),
       ),
       startAutomatically,
       deferAutomaticStart,
@@ -123,7 +124,7 @@ describe('AutomaticTaskSchedulerService', () => {
     'does not start or defer while a break is %s',
     async () => {
       blocked.set(true);
-      tasks.set([task('due', 0)]);
+      tasks.set([task('due', 0, { allowConcurrentStart: true })]);
 
       await service.check(now);
 
@@ -168,5 +169,67 @@ describe('AutomaticTaskSchedulerService', () => {
 
     expect(startAutomatically).toHaveBeenCalledTimes(1);
     expect(startAutomatically).toHaveBeenCalledWith('first', now);
+    expect(deferAutomaticStart).toHaveBeenCalledWith('second', now);
+  });
+
+  it.each(['active', 'paused'] as const)(
+    'starts a due concurrent task while an %s task exists',
+    async (status) => {
+      tasks.set([
+        task('blocker', 0, { status }),
+        task('concurrent', 1, { allowConcurrentStart: true }),
+      ]);
+
+      await service.check(now);
+
+      expect(startAutomatically).toHaveBeenCalledWith('concurrent', now);
+      expect(deferAutomaticStart).not.toHaveBeenCalled();
+    },
+  );
+
+  it('starts a non-concurrent task and then a concurrent task in queue order', async () => {
+    tasks.set([task('first', 0), task('second', 1, { allowConcurrentStart: true })]);
+
+    await service.check(now);
+
+    expect(startAutomatically.mock.calls.map(([taskId]) => taskId)).toEqual(['first', 'second']);
+    expect(deferAutomaticStart).not.toHaveBeenCalled();
+  });
+
+  it('starts a concurrent task then defers a later non-concurrent task', async () => {
+    tasks.set([task('first', 0, { allowConcurrentStart: true }), task('second', 1)]);
+
+    await service.check(now);
+
+    expect(startAutomatically).toHaveBeenCalledTimes(1);
+    expect(startAutomatically).toHaveBeenCalledWith('first', now);
+    expect(deferAutomaticStart).toHaveBeenCalledWith('second', now);
+  });
+
+  it('starts several overdue concurrent tasks in deterministic queue order', async () => {
+    tasks.set([
+      task('blocker', 0, { status: 'active' }),
+      task('third', 3, { allowConcurrentStart: true }),
+      task('second', 2, { allowConcurrentStart: true }),
+    ]);
+
+    await service.check(now);
+
+    expect(startAutomatically.mock.calls.map(([taskId]) => taskId)).toEqual(['second', 'third']);
+  });
+
+  it('ignores a future retry for an overdue task that now allows concurrency', async () => {
+    tasks.set([
+      task('blocker', 0, { status: 'active' }),
+      task('concurrent', 1, {
+        allowConcurrentStart: true,
+        nextAutoStartAt: '2026-05-30T11:00:00.000Z',
+      }),
+    ]);
+
+    await service.check(now);
+
+    expect(startAutomatically).toHaveBeenCalledWith('concurrent', now);
+    expect(deferAutomaticStart).not.toHaveBeenCalled();
   });
 });

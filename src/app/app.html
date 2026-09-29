@@ -1460,11 +1460,12 @@
         </header>
 
         <div class="sticky-notes-stack">
-          @if (currentTask(); as task) {
-            <article
-              class="sticky-task-card sticky-focus-card"
-              [class.paused-note]="task.status === 'paused'"
-            >
+          @if (stickyVisibleCurrentTasks().length > 0) {
+            @for (task of stickyVisibleCurrentTasks(); track task.id) {
+              <article
+                class="sticky-task-card sticky-focus-card"
+                [class.paused-note]="task.status === 'paused'"
+              >
               <div class="sticky-task-copy">
                 <p class="task-label">{{ stickyTaskStateLabel(task) }}</p>
                 <h2>{{ task.name }}</h2>
@@ -1483,12 +1484,13 @@
                 [paused]="task.status === 'paused'"
                 [sticky]="true"
                 [extensionMinutes]="extensionMinutes()"
-                (pause)="pauseTask()"
-                (resume)="resumeTask()"
-                (addTime)="addReminderTime()"
-                (complete)="completeActiveTask()"
+                (pause)="pauseTask(task.id)"
+                (resume)="resumeTask(task.id)"
+                (addTime)="addReminderTime(task.id)"
+                (complete)="completeTask(task.id)"
               />
-            </article>
+              </article>
+            }
           } @else {
             <article class="sticky-task-card sticky-focus-card empty">
               <div class="sticky-task-copy">
@@ -1631,7 +1633,7 @@
                 >
                   In focus
                 </p>
-                @if (!currentTask()) {
+                @if (currentTasks().length === 0) {
                   <h2
                     style="
                       margin: 0;
@@ -1662,24 +1664,27 @@
               </span>
             </div>
 
-            @if (currentTask(); as task) {
-              <div
-                class="active-note"
-                [class.paused-note]="task.status === 'paused'"
-                style="
-                  margin-top: 16px;
-                  padding: 0;
-                  border: none;
-                  background: transparent;
-                  box-shadow: none;
-                  color: #3b3421;
-                "
-              >
+            @if (currentTasks().length > 0) {
+              <div class="current-task-stack">
+                @for (task of currentTasks(); track task.id) {
+                  <div
+                    class="active-note"
+                    [class.paused-note]="task.status === 'paused'"
+                    style="
+                      margin-top: 16px;
+                      padding: 0;
+                      border: none;
+                      background: transparent;
+                      box-shadow: none;
+                      color: #3b3421;
+                    "
+                  >
                 <div class="current-task-active-note">
                   <div class="current-task-active-copy">
                     <h2 class="current-task-active-title">
                       {{ task.name }}
                     </h2>
+                    <span class="current-task-status">{{ stickyTaskStateLabel(task) }}</span>
                     @if (task.note) {
                       <p class="current-task-active-note-text">
                         {{ task.note }}
@@ -1740,7 +1745,7 @@
                       <button
                         type="button"
                         class="secondary-button current-task-active-button current-task-active-button--secondary"
-                        (click)="resumeTask()"
+                        (click)="resumeTask(task.id)"
                       >
                         <span class="current-task-active-button-icon" aria-hidden="true">
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -1755,7 +1760,7 @@
                       <button
                         type="button"
                         class="secondary-button current-task-active-button current-task-active-button--secondary"
-                        (click)="pauseTask()"
+                        (click)="pauseTask(task.id)"
                       >
                         <span class="current-task-active-button-icon" aria-hidden="true">
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -1769,7 +1774,7 @@
                     <button
                       type="button"
                       class="primary-button current-task-active-button current-task-active-button--primary"
-                      (click)="completeActiveTask()"
+                      (click)="completeTask(task.id)"
                     >
                       <span class="current-task-active-button-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
@@ -1784,8 +1789,17 @@
                       </span>
                       <span>Complete task</span>
                     </button>
+                    <button
+                      type="button"
+                      class="danger-button current-task-delete-button"
+                      (click)="deleteTask(task.id)"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
+                  </div>
+                }
               </div>
             } @else {
               <div
@@ -1937,6 +1951,9 @@
                         <span class="task-meta" style="color: #7a6a95; font-size: 0.82rem">
                           Start time: {{ task.reminderAt | date: 'short' }}
                         </span>
+                        @if (task.allowConcurrentStart) {
+                          <span class="concurrent-badge">Concurrent start allowed</span>
+                        }
                         @if (task.nextAutoStartAt && task.nextAutoStartAt !== task.reminderAt) {
                           <span class="task-meta" style="color: #7a6a95; font-size: 0.82rem">
                             Next auto-start attempt: {{ task.nextAutoStartAt | date: 'short' }}
@@ -2007,7 +2024,7 @@
                         <button
                           type="button"
                           class="danger-button"
-                          (click)="taskService.delete(task.id)"
+                          (click)="deleteTask(task.id)"
                           style="
                             border-color: rgba(190, 143, 181, 0.26);
                             border-radius: 12px;
@@ -2205,6 +2222,14 @@
                     Start time is required.
                   </small>
                 }
+              </label>
+
+              <label class="concurrent-start-control">
+                <input type="checkbox" formControlName="allowConcurrentStart" />
+                <span class="concurrent-start-copy">
+                  <strong>Allow concurrent start</strong>
+                  <small>Start this task even if another task is already active.</small>
+                </span>
               </label>
 
               <div
@@ -3899,8 +3924,10 @@
 
           <div class="break-complete-copy">
             <h2 id="break-complete-title">Break complete</h2>
-            @if (currentTask(); as focusedTask) {
-              <p class="break-complete-task">"{{ focusedTask.name }}" is now in focus.</p>
+            @if (currentTasks().length === 1) {
+              <p class="break-complete-task">"{{ currentTasks()[0].name }}" is now in focus.</p>
+            } @else if (currentTasks().length > 1) {
+              <p class="break-complete-task">{{ currentTasks().length }} tasks are now in focus.</p>
             } @else if (nextTaskCandidate()) {
               <p class="break-complete-task">
                 The next task will start automatically when it is due.
@@ -4016,7 +4043,7 @@
           <button
             type="button"
             class="primary-button settings-action-button reminder-button reminder-button-primary"
-            (click)="addReminderTime()"
+            (click)="addReminderTime(reminder.taskId)"
           >
             <span class="reminder-button-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
@@ -4033,7 +4060,7 @@
           <button
             type="button"
             class="secondary-button settings-action-button settings-open-sticky reminder-button reminder-button-secondary reminder-button-pause"
-            (click)="pauseTask()"
+            (click)="pauseTask(reminder.taskId)"
           >
             <span class="reminder-button-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
@@ -4050,7 +4077,7 @@
           <button
             type="button"
             class="secondary-button settings-action-button settings-open-sticky reminder-button reminder-button-secondary reminder-button-success"
-            (click)="completeActiveTask()"
+            (click)="completeTask(reminder.taskId)"
           >
             <span class="reminder-button-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="28" height="28" fill="none">

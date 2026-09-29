@@ -11,6 +11,7 @@ describe('CsvService', () => {
     reminderAt: '2026-05-30T10:00:00.000Z',
     reminderCount: 3,
     reminderIntervalMinutes: 5,
+    allowConcurrentStart: true,
     order: 0,
     status: 'pending',
     createdAt: '2026-05-30T09:00:00.000Z',
@@ -23,7 +24,7 @@ describe('CsvService', () => {
     const csv = service.exportTasks([task]);
 
     expect(csv.split('\r\n')[0]).toBe(
-      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown',
+      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown',
     );
     expect(csv).toContain('Study Angular');
   });
@@ -43,6 +44,43 @@ describe('CsvService', () => {
     expect(result.importedCount).toBe(1);
     expect(result.tasks[0].id).not.toBe(task.id);
     expect(result.tasks[0].name).toBe(task.name);
+    expect(result.tasks[0].allowConcurrentStart).toBe(true);
+  });
+
+  it('imports true and false concurrency values', () => {
+    const trueTask = task;
+    const falseTask = { ...task, id: 'task_2', allowConcurrentStart: false };
+
+    const result = service.importTasks(service.exportTasks([trueTask, falseTask]), []);
+
+    expect(result.errors).toEqual([]);
+    expect(result.tasks.map((item) => item.allowConcurrentStart)).toEqual([true, false]);
+  });
+
+  it('imports old task CSV without the optional concurrency column as false', () => {
+    const result = service.importTasks(
+      [
+        'name,reminderAt,reminderCount,reminderIntervalMinutes',
+        'Old task,2026-05-30T10:00:00.000Z,3,5',
+      ].join('\n'),
+      [],
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(result.tasks[0].allowConcurrentStart).toBe(false);
+  });
+
+  it('rejects an invalid non-empty concurrency value', () => {
+    const result = service.importTasks(
+      [
+        'name,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart',
+        'Bad task,2026-05-30T10:00:00.000Z,3,5,yes',
+      ].join('\n'),
+      [],
+    );
+
+    expect(result.importedCount).toBe(0);
+    expect(result.errors).toContain('Row 2: allowConcurrentStart must be true or false.');
   });
 
   it('reports row-level validation errors', () => {

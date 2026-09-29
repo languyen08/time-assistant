@@ -12,6 +12,7 @@ const TASK_HEADERS = [
   'reminderAt',
   'reminderCount',
   'reminderIntervalMinutes',
+  'allowConcurrentStart',
   'status',
   'order',
   'createdAt',
@@ -58,6 +59,7 @@ export class CsvService {
       reminderAt: this.formatDateTime(task.reminderAt, dateTimeFormat),
       reminderCount: String(task.reminderCount),
       reminderIntervalMinutes: String(task.reminderIntervalMinutes),
+      allowConcurrentStart: String(task.allowConcurrentStart),
       status: task.status,
       order: String(task.order),
       createdAt: this.formatDateTime(task.createdAt, dateTimeFormat),
@@ -145,6 +147,7 @@ export class CsvService {
         reminderAt: new Date(this.text(row['reminderAt'])).toISOString(),
         reminderCount: this.integer(row['reminderCount']),
         reminderIntervalMinutes: this.integer(row['reminderIntervalMinutes']),
+        allowConcurrentStart: this.boolean(row['allowConcurrentStart']) ?? false,
         order: baseOrder + importedTasks.length,
         status,
         createdAt: this.optionalIso(row['createdAt']) ?? now,
@@ -176,6 +179,7 @@ export class CsvService {
     const reminderCount = this.integer(row['reminderCount']);
     const reminderInterval = this.integer(row['reminderIntervalMinutes']);
     const statusText = this.text(row['status']);
+    const concurrentStartText = this.text(row['allowConcurrentStart']).toLowerCase();
 
     if (!name) {
       errors.push(`Row ${rowNumber}: Task name is required.`);
@@ -197,6 +201,10 @@ export class CsvService {
       errors.push(`Row ${rowNumber}: status must be pending, active, paused, or completed.`);
     }
 
+    if (concurrentStartText && concurrentStartText !== 'true' && concurrentStartText !== 'false') {
+      errors.push(`Row ${rowNumber}: allowConcurrentStart must be true or false.`);
+    }
+
     return errors;
   }
 
@@ -216,6 +224,15 @@ export class CsvService {
   private optionalInteger(value: string | undefined): number | undefined {
     const parsed = this.integer(value);
     return Number.isInteger(parsed) ? parsed : undefined;
+  }
+
+  private boolean(value: string | undefined): boolean | undefined {
+    const normalized = this.text(value).toLowerCase();
+    if (!normalized) {
+      return undefined;
+    }
+
+    return normalized === 'true';
   }
 
   private optionalIso(value: string | undefined): string | undefined {

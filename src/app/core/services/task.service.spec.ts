@@ -14,6 +14,7 @@ function activeTask(overrides: Partial<Task> = {}): Task {
     reminderAt: '2026-05-30T10:30:00.000Z',
     reminderCount: 3,
     reminderIntervalMinutes: 5,
+    allowConcurrentStart: false,
     order: 0,
     status: 'active',
     createdAt: '2026-05-30T10:00:00.000Z',
@@ -35,6 +36,7 @@ function pendingTask(overrides: Partial<Task> = {}): Task {
     reminderAt: '2026-05-30T10:00:00.000Z',
     reminderCount: 3,
     reminderIntervalMinutes: 5,
+    allowConcurrentStart: false,
     order: 1,
     status: 'pending',
     createdAt: '2026-05-30T09:00:00.000Z',
@@ -78,7 +80,7 @@ describe('TaskService pause/resume', () => {
   });
 
   it('pauses an active task and freezes remaining reminder seconds', async () => {
-    await service.pauseActive(new Date('2026-05-30T10:10:00.000Z'));
+    await service.pause('task_1', new Date('2026-05-30T10:10:00.000Z'));
 
     expect(service.currentTask()?.status).toBe('paused');
     expect(service.currentTask()?.pausedRemainingSeconds).toBe(1200);
@@ -86,8 +88,8 @@ describe('TaskService pause/resume', () => {
   });
 
   it('resumes a paused task and shifts the next reminder by remaining seconds', async () => {
-    await service.pauseActive(new Date('2026-05-30T10:10:00.000Z'));
-    await service.resumeActive(new Date('2026-05-30T10:20:00.000Z'));
+    await service.pause('task_1', new Date('2026-05-30T10:10:00.000Z'));
+    await service.resume('task_1', new Date('2026-05-30T10:20:00.000Z'));
 
     expect(service.currentTask()?.status).toBe('active');
     expect(service.currentTask()?.totalPausedSeconds).toBe(600);
@@ -96,16 +98,16 @@ describe('TaskService pause/resume', () => {
   });
 
   it('extends the existing active reminder instead of overwriting it', async () => {
-    await service.addTimeToActive(1, new Date('2026-05-30T10:10:00.000Z'));
-    await service.addTimeToActive(1, new Date('2026-05-30T10:10:10.000Z'));
+    await service.addTime('task_1', 1, new Date('2026-05-30T10:10:00.000Z'));
+    await service.addTime('task_1', 1, new Date('2026-05-30T10:10:10.000Z'));
 
     expect(service.currentTask()?.nextReminderAt).toBe('2026-05-30T10:32:00.000Z');
     expect(service.currentTask()?.reminderAt).toBe('2026-05-30T10:30:00.000Z');
   });
 
   it('extends paused reminder seconds instead of replacing them', async () => {
-    await service.pauseActive(new Date('2026-05-30T10:10:00.000Z'));
-    await service.addTimeToActive(1, new Date('2026-05-30T10:11:00.000Z'));
+    await service.pause('task_1', new Date('2026-05-30T10:10:00.000Z'));
+    await service.addTime('task_1', 1, new Date('2026-05-30T10:11:00.000Z'));
 
     expect(service.currentTask()?.status).toBe('paused');
     expect(service.currentTask()?.pausedRemainingSeconds).toBe(1260);
@@ -137,7 +139,9 @@ describe('TaskService automatic scheduling', () => {
           useValue: {
             list: vi.fn(async () => savedTasks),
             save,
-            delete: vi.fn(),
+            delete: vi.fn(async (taskId: string) => {
+              savedTasks = savedTasks.filter((task) => task.id !== taskId);
+            }),
           },
         },
         { provide: HistoryService, useValue: { record } },
@@ -198,6 +202,7 @@ describe('TaskService automatic scheduling', () => {
       reminderAt: '2026-05-30T11:00:00.000Z',
       reminderCount: 3,
       reminderIntervalMinutes: 5,
+      allowConcurrentStart: false,
     });
 
     expect(service.pendingTasks()[0].reminderAt).toBe('2026-05-30T11:00:00.000Z');
@@ -268,4 +273,105 @@ describe('TaskService automatic scheduling', () => {
       expect(service.pendingTasks()[0].status).toBe('pending');
     },
   );
+
+  it('normalizes old tasks and preserves deterministic active/current collection order', async () => {
+    await configure([
+      activeTask({ id: 'active-2', order: 2 }),
+      pendingTask({ id: 'paused-1', order: 1, status: 'paused', allowConcurrentStart: undefined }),
+      activeTask({ id: 'active-0', order: 0 }),
+    ] as Task[]);
+
+    expect(service.activeTasks().map((task) => task.id)).toEqual(['active-0', 'active-2']);
+    expect(service.currentTasks().map((task) => task.id)).toEqual([
+      'active-0',
+      'paused-1',
+      'active-2',
+    ]);
+    expect(service.currentTasks()[1].allowConcurrentStart).toBe(false);
+  });
+
+  it.each(['active', 'paused'] as const)(
+    'allows a concurrent task to start manually while another task is %s',
+    async (status) => {
+      await configure([activeTask({ status }), pendingTask({ allowConcurrentStart: true })]);
+
+      await service.start('task_2');
+
+      expect(service.currentTasks().map((task) => task.id)).toEqual(['task_1', 'task_2']);
+      expect(service.activeTasks().some((task) => task.id === 'task_2')).toBe(true);
+    },
+  );
+
+  it('blocks a non-concurrent manual start while another current task exists', async () => {
+    await configure([activeTask(), pendingTask()]);
+
+    await service.start('task_2');
+
+    expect(service.pendingTasks().map((task) => task.id)).toEqual(['task_2']);
+    expect(service.errorMessage()).toBe('Complete the active task before starting another.');
+  });
+
+  it('allows an automatic concurrent start but blocks a non-concurrent one', async () => {
+    await configure([
+      activeTask(),
+      pendingTask({ id: 'concurrent', allowConcurrentStart: true }),
+      pendingTask({ id: 'blocked', order: 2 }),
+    ]);
+
+    const startTime = new Date('2026-05-30T10:05:00.000Z');
+    expect(await service.startAutomatically('concurrent', startTime)).toBe(true);
+    expect(await service.startAutomatically('blocked', startTime)).toBe(false);
+    expect(service.activeTasks().map((task) => task.id)).toEqual(['task_1', 'concurrent']);
+    expect(service.pendingTasks().map((task) => task.id)).toEqual(['blocked']);
+  });
+
+  it('targets pause, resume, add time, completion, and deletion by task id', async () => {
+    await configure([
+      activeTask({ id: 'task-a', order: 0 }),
+      activeTask({
+        id: 'task-b',
+        order: 1,
+        nextReminderAt: '2026-05-30T10:30:00.000Z',
+      }),
+    ]);
+
+    await service.pause('task-b', new Date('2026-05-30T10:10:00.000Z'));
+    expect(service.currentTasks().find((task) => task.id === 'task-a')?.status).toBe('active');
+    expect(service.currentTasks().find((task) => task.id === 'task-b')?.status).toBe('paused');
+
+    await service.addTime('task-b', 1, new Date('2026-05-30T10:11:00.000Z'));
+    expect(
+      service.currentTasks().find((task) => task.id === 'task-b')?.pausedRemainingSeconds,
+    ).toBe(1260);
+    expect(service.currentTasks().find((task) => task.id === 'task-a')?.nextReminderAt).toBe(
+      '2026-05-30T10:30:00.000Z',
+    );
+
+    await service.resume('task-b', new Date('2026-05-30T10:20:00.000Z'));
+    expect(service.activeTasks().map((task) => task.id)).toEqual(['task-a', 'task-b']);
+
+    await service.complete('task-b');
+    expect(service.currentTasks().map((task) => task.id)).toEqual(['task-a']);
+    expect(service.completedTasks().map((task) => task.id)).toEqual(['task-b']);
+
+    await service.delete('task-a');
+    expect(service.tasks().map((task) => task.id)).toEqual(['task-b']);
+  });
+
+  it('clears a stale retry when a pending task is edited to allow concurrency', async () => {
+    await configure([pendingTask({ nextAutoStartAt: '2026-05-30T11:00:00.000Z' })]);
+
+    await service.update('task_2', {
+      name: 'Scheduled work',
+      note: '',
+      category: '',
+      reminderAt: '2026-05-30T10:00:00.000Z',
+      reminderCount: 3,
+      reminderIntervalMinutes: 5,
+      allowConcurrentStart: true,
+    });
+
+    expect(service.pendingTasks()[0].allowConcurrentStart).toBe(true);
+    expect(service.pendingTasks()[0].nextAutoStartAt).toBeUndefined();
+  });
 });

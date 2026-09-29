@@ -80,6 +80,15 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Scheduler retains a confirmed running break's session ID and absolute end time for the Electron
   process lifetime. Closing the originating BrowserWindow releases only its source, not the
   running-break block. This does not persist or restore BreakSession UI across process exit.
+- Tasks default to `allowConcurrentStart: false`. The incoming task's flag alone decides whether
+  it may bypass existing active/paused tasks; break prompt/running state still blocks every
+  automatic start.
+- Multiple active/paused tasks may coexist. Business logic uses ordered `activeTasks` and
+  `currentTasks` collections, and every mutation targets an explicit task ID.
+- Completing one of several current tasks does not open a Break prompt. The prompt is published
+  before completing the final current task; deleting a current task never opens Break.
+- Visible renderers scan all active tasks in order but serialize reminder overlays one at a time.
+  The Main/Sticky duplicate reminder-owner race remains unresolved technical debt.
 
 ## Coding Rules
 - Use Angular standalone components where appropriate.

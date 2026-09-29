@@ -114,8 +114,8 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly stickyVisibleNotes = computed(() =>
     Math.min(5, Math.max(1, this.settingsService.settings().stickyVisibleNotes)),
   );
-  readonly activeTask = this.taskService.activeTask;
-  readonly currentTask = this.taskService.currentTask;
+  readonly activeTasks = this.taskService.activeTasks;
+  readonly currentTasks = this.taskService.currentTasks;
   readonly pendingTasks = this.taskService.pendingTasks;
   readonly completedTasks = this.taskService.completedTasks;
   readonly nextTaskCandidate = this.taskService.nextTaskCandidate;
@@ -241,10 +241,18 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     'blue',
     'gray',
   ];
+  readonly stickyVisibleCurrentTasks = computed(() =>
+    this.currentTasks().slice(0, this.stickyVisibleNotes()),
+  );
   readonly stickyVisibleQueueTasks = computed(() =>
     this.pendingTasks().slice(
       0,
-      Math.max(0, this.stickyVisibleNotes() - 1 - this.stickyQueueTrim()),
+      Math.max(
+        0,
+        this.stickyVisibleNotes() -
+          this.stickyVisibleCurrentTasks().length -
+          this.stickyQueueTrim(),
+      ),
     ),
   );
   readonly breakConflictTask = computed(() => {
@@ -269,6 +277,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     reminderAt: [toDatetimeLocalValue(addMinutes(new Date(), 30)), Validators.required],
     reminderCount: [3, [Validators.required, Validators.min(1), Validators.max(20)]],
     reminderIntervalMinutes: [5, [Validators.required, Validators.min(1), Validators.max(240)]],
+    allowConcurrentStart: [false],
     category: ['', Validators.maxLength(80)],
     note: ['', Validators.maxLength(400)],
   });
@@ -336,12 +345,13 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
-      const activeTask = this.currentTask();
-      activeTask?.id;
-      activeTask?.status;
-      activeTask?.name;
-      activeTask?.category;
-      activeTask?.note;
+      for (const task of this.currentTasks()) {
+        task.id;
+        task.status;
+        task.name;
+        task.category;
+        task.note;
+      }
       this.nextTaskCandidate()?.id;
       this.scheduleStickyResize('active-task-change');
     });
@@ -474,6 +484,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       reminderAt: toDatetimeLocalValue(new Date(task.reminderAt)),
       reminderCount: task.reminderCount,
       reminderIntervalMinutes: task.reminderIntervalMinutes,
+      allowConcurrentStart: task.allowConcurrentStart,
       category: task.category,
       note: task.note,
     });
@@ -486,6 +497,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       reminderAt: toDatetimeLocalValue(addMinutes(new Date(), 30)),
       reminderCount: this.settingsService.settings().defaultReminderCount,
       reminderIntervalMinutes: this.settingsService.settings().defaultReminderRepeatMinutes,
+      allowConcurrentStart: false,
       category: '',
       note: '',
     });
@@ -502,29 +514,39 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     await this.beginTask(taskId);
   }
 
-  async completeActiveTask(): Promise<void> {
-    const task = this.currentTask();
+  async completeTask(taskId: string): Promise<void> {
+    const task = this.currentTasks().find((candidate) => candidate.id === taskId);
     if (!task) {
       return;
     }
 
     const defaultBreakMinutes = this.settingsService.settings().defaultBreakMinutes;
-    this.breakService.prompt(defaultBreakMinutes);
-    const completed = await this.taskService.completeActive();
+    const shouldPromptBreak = this.currentTasks().length === 1;
+    if (shouldPromptBreak) {
+      this.breakService.prompt(defaultBreakMinutes);
+    }
+
+    const completed = await this.taskService.complete(taskId);
     if (!completed) {
-      this.breakService.reset();
+      if (shouldPromptBreak) {
+        this.breakService.reset();
+      }
       return;
     }
 
-    this.reminderScheduler.dismiss();
-    this.breakMinutes.set(defaultBreakMinutes);
+    this.dismissReminderFor(taskId);
+    if (shouldPromptBreak) {
+      this.breakMinutes.set(defaultBreakMinutes);
+    }
   }
 
-  async addReminderTime(): Promise<void> {
+  async addReminderTime(taskId: string): Promise<void> {
     const now = new Date();
     this.timerService.now.set(now);
-    await this.taskService.addTimeToActive(this.extensionMinutes(), now);
-    this.reminderScheduler.dismiss();
+    const changed = await this.taskService.addTime(taskId, this.extensionMinutes(), now);
+    if (changed) {
+      this.dismissReminderFor(taskId);
+    }
   }
 
   setExtensionMinutes(event: Event): void {
@@ -532,13 +554,22 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     this.extensionMinutes.set(Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 10);
   }
 
-  async pauseTask(): Promise<void> {
-    await this.taskService.pauseActive();
-    this.reminderScheduler.dismiss();
+  async pauseTask(taskId: string): Promise<void> {
+    const changed = await this.taskService.pause(taskId);
+    if (changed) {
+      this.dismissReminderFor(taskId);
+    }
   }
 
-  async resumeTask(): Promise<void> {
-    await this.taskService.resumeActive();
+  async resumeTask(taskId: string): Promise<void> {
+    await this.taskService.resume(taskId);
+  }
+
+  async deleteTask(taskId: string): Promise<void> {
+    const deleted = await this.taskService.delete(taskId);
+    if (deleted) {
+      this.dismissReminderFor(taskId);
+    }
   }
 
   clearGlobalError(): void {
@@ -923,8 +954,8 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   stickyTaskPositionLabel(index: number): string {
-    const total = this.pendingTasks().length + (this.currentTask() ? 1 : 0);
-    const offset = this.currentTask() ? 2 : 1;
+    const total = this.pendingTasks().length + this.currentTasks().length;
+    const offset = this.currentTasks().length + 1;
     return `Task ${index + offset} of ${Math.max(total, index + offset)}`;
   }
 
@@ -945,7 +976,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   private async beginTask(taskId: string): Promise<void> {
     await this.taskService.start(taskId);
-    if (this.currentTask()?.id !== taskId) {
+    if (!this.currentTasks().some((task) => task.id === taskId)) {
       return;
     }
 
@@ -1161,7 +1192,10 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     const overflow = Math.max(0, height - maxAllowedHeight);
     const desiredTrim =
       overflow === 0 ? 0 : Math.ceil(overflow / this.stickyQueueNoteEstimatedHeight);
-    const maxQueueCards = Math.max(0, this.stickyVisibleNotes() - 1);
+    const maxQueueCards = Math.max(
+      0,
+      this.stickyVisibleNotes() - this.stickyVisibleCurrentTasks().length,
+    );
     const boundedTrim = Math.min(maxQueueCards, desiredTrim);
     if (boundedTrim !== this.stickyQueueTrim()) {
       this.stickyQueueTrim.set(boundedTrim);
@@ -1295,6 +1329,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       reminderAt: fromDatetimeLocalValue(value.reminderAt),
       reminderCount: Number(value.reminderCount),
       reminderIntervalMinutes: Number(value.reminderIntervalMinutes),
+      allowConcurrentStart: value.allowConcurrentStart,
       category: value.category,
       note: value.note,
     };
@@ -1304,6 +1339,12 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     name: 'name' | 'reminderAt' | 'reminderCount' | 'reminderIntervalMinutes',
   ): AbstractControl {
     return this.taskForm.controls[name];
+  }
+
+  private dismissReminderFor(taskId: string): void {
+    if (this.reminderScheduler.activeReminder()?.taskId === taskId) {
+      this.reminderScheduler.dismiss();
+    }
   }
 
   private withInsightsPalette(

@@ -6,7 +6,9 @@
 
 Build a local-first Windows desktop application that helps the user manage tasks, study sessions, breaks, and transitions in a calm, friendly way.
 
-The app should make it easy to see the current task, receive visible but non-annoying reminders, pause/resume work, extend time when needed, complete a task, take a break, and move to the next task.
+The app should make it easy to see current tasks, receive visible but non-annoying reminders,
+pause/resume work, extend time when needed, complete a specific task, take a break after the final
+current task, and move to the next task.
 
 ## Target Platform
 
@@ -33,16 +35,16 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 2. The task starts automatically when its Start time arrives. The user may choose **Start now** to
    begin it early.
 
-3. App shows the active task in the main window and optional sticky-note mode.
+3. App shows all active/paused tasks in the main window and optional sticky-note mode.
 
 4. When reminder time arrives, app shows a friendly visible notification with sound.
 
 5. User chooses one action:
-   - **I know, give me more time**: enter extra time and continue current task.
-   - **Pause task**: temporarily stop the task because the user is away.
-   - **Task completed**: finish current task and prepare the next task.
+   - **I know, give me more time**: enter extra time for the reminder's task.
+   - **Pause task**: temporarily stop the reminder's task because the user is away.
+   - **Task completed**: finish the reminder's task and preserve any other current tasks.
 
-6. After task completion, the app asks:
+6. After the final active/paused task is completed, the app asks:
    - "Do you want a break before the next task?"
    - Default break duration: 10 minutes.
    - User can change duration or skip the break.
@@ -58,8 +60,9 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 ### Task Management
 
 - Create, edit, delete, and reorder tasks.
-- Start one active task at a time.
-- Complete active task.
+- Tasks default to non-concurrent starts; optionally allow an incoming task to start while other
+  tasks are active or paused.
+- Complete, pause, resume, extend, or delete a specific current task without affecting others.
 - Move to next task after completion.
 - Support task notes and categories if simple to implement.
 
@@ -87,7 +90,7 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 ### Sticky Notes Mode
 
 - Provide a compact always-on-top window similar to Windows sticky notes.
-- Show current task, remaining time, and quick actions.
+- Show current tasks, remaining time, and task-specific quick actions before queued tasks.
 - Quick actions:
   - pause
   - resume
@@ -119,12 +122,15 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
   starting overdue work immediately if that blocker disappears early.
 - Coordinate renderer-local break state through BroadcastChannel; prompt and running states block
   without advancing retry time.
-- Keep Main and Sticky as presentation/action clients. Concurrent tasks and deadlines remain
-  deferred. Existing reminder scheduling remains in the visible renderers for now.
+- Process due tasks in queue order. A task with **Allow concurrent start** may bypass any
+  active/paused blocker, while a non-concurrent task is deferred in 30-minute increments.
+- Break prompt/running state blocks every automatic start without advancing retry state.
+- Keep Main and Sticky as presentation/action clients. Deadline work remains deferred. Existing
+  reminder scheduling remains in the visible renderers and serializes one overlay at a time.
 
 ### Pause / Resume
 
-- User can pause the current task when going away.
+- User can pause any current task when going away.
 - Timer and reminder countdown stop while paused.
 - User can resume when back.
 - History records pause and resume events.
@@ -132,7 +138,8 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 ### Break Before Next Task
 
-- After completing a task, ask whether the user wants a break.
+- After completing the final active/paused task, ask whether the user wants a break. Completing one
+  of several current tasks does not prompt, and deletion never prompts.
 - Default break duration: 10 minutes.
 - User can change the duration.
 - Break screen should be calm and lightweight.
@@ -303,6 +310,6 @@ The MVP is successful when the user can:
 - pause/resume
 - complete the task
 - choose a break before next task
-- view current task in sticky-note mode
+- view current tasks in sticky-note mode
 - export task/history CSV
 - review basic history and charts

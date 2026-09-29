@@ -30,16 +30,26 @@ export class ReminderSchedulerService {
 
   async check(now = this.timer.now()): Promise<void> {
     try {
-      const task = this.taskService.activeTask();
-      if (!task || this.activeReminder()) {
+      if (this.activeReminder()) {
         return;
       }
 
-      if (task.reminderAttemptsShown >= task.reminderCount || !isDue(task.nextReminderAt, now)) {
+      const task = this.taskService
+        .activeTasks()
+        .find(
+          (candidate) =>
+            candidate.status === 'active' &&
+            candidate.reminderAttemptsShown < candidate.reminderCount &&
+            isDue(candidate.nextReminderAt, now),
+        );
+      if (!task) {
         return;
       }
 
-      const updated = await this.taskService.markReminderShown(task);
+      const updated = await this.taskService.markReminderShown(task.id, now);
+      if (!updated) {
+        return;
+      }
       this.activeReminder.set({
         taskId: updated.id,
         taskName: updated.name,

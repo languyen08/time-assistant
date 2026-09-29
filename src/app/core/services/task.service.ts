@@ -14,10 +14,12 @@ export class TaskService {
 
   readonly tasks = signal<Task[]>([]);
   readonly errorMessage = signal('');
-  readonly activeTask = computed(() => this.tasks().find((task) => task.status === 'active'));
-  readonly currentTask = computed(() =>
-    this.tasks().find((task) => task.status === 'active' || task.status === 'paused'),
+  readonly activeTasks = computed(() => this.tasks().filter((task) => task.status === 'active'));
+  readonly currentTasks = computed(() =>
+    this.tasks().filter((task) => task.status === 'active' || task.status === 'paused'),
   );
+  readonly activeTask = computed(() => this.activeTasks()[0]);
+  readonly currentTask = computed(() => this.currentTasks()[0]);
   readonly pendingTasks = computed(() => this.tasks().filter((task) => task.status === 'pending'));
   readonly completedTasks = computed(() =>
     this.tasks().filter((task) => task.status === 'completed'),
@@ -40,7 +42,11 @@ export class TaskService {
   async load(): Promise<void> {
     try {
       const tasks = await this.repository.list();
-      this.tasks.set(tasks.map((task) => this.normalizeTask(task)));
+      this.tasks.set(
+        tasks
+          .map((task) => this.normalizeTask(task))
+          .sort((first, second) => first.order - second.order),
+      );
     } catch (error) {
       this.captureError(error, 'Tasks could not be loaded from local storage.');
     }
@@ -83,11 +89,11 @@ export class TaskService {
   async update(taskId: string, draft: TaskDraft): Promise<boolean> {
     const current = this.findTask(taskId);
     if (!current || current.status === 'completed') {
-      this.errorMessage.set('Only pending or active tasks can be edited.');
+      this.errorMessage.set('Only pending, active, or paused tasks can be edited.');
       return false;
     }
 
-    const validation = this.validator.validate(draft);
+    const validation = this.validator.validate(draft, new Date(), current.reminderAt);
     if (!validation.valid) {
       this.errorMessage.set(validation.errors[0]);
       return false;
@@ -98,7 +104,9 @@ export class TaskService {
       ...this.cleanDraft(draft),
       updatedAt: nowIso(),
       nextAutoStartAt:
-        current.status === 'pending' && draft.reminderAt !== current.reminderAt
+        current.status === 'pending' &&
+        (draft.reminderAt !== current.reminderAt ||
+          (!current.allowConcurrentStart && draft.allowConcurrentStart))
           ? undefined
           : current.nextAutoStartAt,
       nextReminderAt: current.status === 'active' ? draft.reminderAt : current.nextReminderAt,
@@ -115,25 +123,28 @@ export class TaskService {
     }
   }
 
-  async delete(taskId: string): Promise<void> {
+  async delete(taskId: string): Promise<boolean> {
     const task = this.findTask(taskId);
     if (!task) {
-      return;
-    }
-
-    if (task.status === 'active' || task.status === 'paused') {
-      this.errorMessage.set('Complete the active task before deleting it.');
-      return;
+      return false;
     }
 
     try {
       await this.repository.delete(taskId);
       this.tasks.update((tasks) => tasks.filter((item) => item.id !== taskId));
       this.broadcastChange();
-      await this.history.record('task_deleted', `Deleted "${task.name}".`, task.id);
     } catch (error) {
       this.captureError(error, 'Task could not be deleted.');
+      return false;
     }
+
+    try {
+      await this.history.record('task_deleted', `Deleted "${task.name}".`, task.id);
+      this.errorMessage.set('');
+    } catch (error) {
+      this.captureError(error, 'The task was deleted, but its history could not be saved.');
+    }
+    return true;
   }
 
   async importTasks(importedTasks: Task[]): Promise<void> {
@@ -175,14 +186,14 @@ export class TaskService {
   }
 
   async start(taskId: string): Promise<void> {
-    if (this.currentTask()) {
-      this.errorMessage.set('Complete the active task before starting another.');
-      return;
-    }
-
     const task = this.findTask(taskId);
     if (!task || task.status !== 'pending') {
       this.errorMessage.set('Only pending tasks can be started.');
+      return;
+    }
+
+    if (!task.allowConcurrentStart && this.currentTasks().length > 0) {
+      this.errorMessage.set('Complete the active task before starting another.');
       return;
     }
 
@@ -210,12 +221,12 @@ export class TaskService {
   }
 
   async startAutomatically(taskId: string, now: Date): Promise<boolean> {
-    if (this.currentTask()) {
+    const task = this.findTask(taskId);
+    if (!task || task.status !== 'pending') {
       return false;
     }
 
-    const task = this.findTask(taskId);
-    if (!task || task.status !== 'pending') {
+    if (!task.allowConcurrentStart && this.currentTasks().length > 0) {
       return false;
     }
 
@@ -285,9 +296,9 @@ export class TaskService {
     }
   }
 
-  async completeActive(): Promise<boolean> {
-    const task = this.currentTask();
-    if (!task) {
+  async complete(taskId: string): Promise<boolean> {
+    const task = this.findTask(taskId);
+    if (!task || (task.status !== 'active' && task.status !== 'paused')) {
       return false;
     }
 
@@ -318,11 +329,16 @@ export class TaskService {
     return true;
   }
 
-  async addTimeToActive(minutes: number, now = new Date()): Promise<void> {
-    const task = this.currentTask();
-    if (!task || !Number.isInteger(minutes) || minutes < 1) {
+  async addTime(taskId: string, minutes: number, now = new Date()): Promise<boolean> {
+    const task = this.findTask(taskId);
+    if (
+      !task ||
+      (task.status !== 'active' && task.status !== 'paused') ||
+      !Number.isInteger(minutes) ||
+      minutes < 1
+    ) {
       this.errorMessage.set('Extra time must be at least 1 minute.');
-      return;
+      return false;
     }
 
     const nextReminderAt =
@@ -359,20 +375,23 @@ export class TaskService {
         },
       );
       this.errorMessage.set('');
+      return true;
     } catch (error) {
       this.captureError(error, 'Extra time could not be applied.');
+      return false;
     }
   }
 
-  async markReminderShown(task: Task): Promise<Task> {
-    if (task.status !== 'active') {
-      return task;
+  async markReminderShown(taskId: string, now = new Date()): Promise<Task | undefined> {
+    const task = this.findTask(taskId);
+    if (!task || task.status !== 'active') {
+      return undefined;
     }
 
     const attemptsShown = task.reminderAttemptsShown + 1;
     const nextReminderAt =
       attemptsShown < task.reminderCount
-        ? new Date(Date.now() + task.reminderIntervalMinutes * 60_000).toISOString()
+        ? new Date(now.getTime() + task.reminderIntervalMinutes * 60_000).toISOString()
         : undefined;
     const updated: Task = {
       ...task,
@@ -395,14 +414,14 @@ export class TaskService {
       return updated;
     } catch (error) {
       this.captureError(error, 'Reminder state could not be updated.');
-      return task;
+      return undefined;
     }
   }
 
-  async pauseActive(now = new Date()): Promise<void> {
-    const task = this.activeTask();
-    if (!task) {
-      return;
+  async pause(taskId: string, now = new Date()): Promise<boolean> {
+    const task = this.findTask(taskId);
+    if (!task || task.status !== 'active') {
+      return false;
     }
 
     const pausedAt = now.toISOString();
@@ -418,15 +437,17 @@ export class TaskService {
       await this.saveAndReplace(updated);
       await this.history.record('task_paused', `Paused "${updated.name}".`, updated.id);
       this.errorMessage.set('');
+      return true;
     } catch (error) {
       this.captureError(error, 'Task could not be paused.');
+      return false;
     }
   }
 
-  async resumeActive(now = new Date()): Promise<void> {
-    const task = this.currentTask();
+  async resume(taskId: string, now = new Date()): Promise<boolean> {
+    const task = this.findTask(taskId);
     if (!task || task.status !== 'paused') {
-      return;
+      return false;
     }
 
     const resumedAt = now.toISOString();
@@ -446,8 +467,10 @@ export class TaskService {
       await this.saveAndReplace(updated);
       await this.history.record('task_resumed', `Resumed "${updated.name}".`, updated.id);
       this.errorMessage.set('');
+      return true;
     } catch (error) {
       this.captureError(error, 'Task could not be resumed.');
+      return false;
     }
   }
 
@@ -481,12 +504,14 @@ export class TaskService {
       reminderAt: draft.reminderAt,
       reminderCount: draft.reminderCount,
       reminderIntervalMinutes: draft.reminderIntervalMinutes,
+      allowConcurrentStart: draft.allowConcurrentStart,
     };
   }
 
   private normalizeTask(task: Task): Task {
     return {
       ...task,
+      allowConcurrentStart: task.allowConcurrentStart ?? false,
       totalPausedSeconds: task.totalPausedSeconds ?? 0,
       reminderAttemptsShown: task.reminderAttemptsShown ?? 0,
     };

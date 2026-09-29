@@ -293,5 +293,36 @@ Phase 2.2 implementation note:
 - Scheduler retains a running session's ID and absolute end time after its source closes, until
   expiry or an explicit terminal transition. This is process-memory coordination, not general
   BreakSession persistence.
-- Concurrent tasks and deadlines remain unimplemented, and reminder scheduling remains owned by
-  the visible renderers.
+- Concurrent tasks were not implemented by Phase 2.2 and are added by ADR-014 below. Deadlines
+  remain unimplemented, and reminder scheduling remains owned by the visible renderers.
+
+---
+
+## ADR-014: Per-Task Concurrent Start and Multiple Current Tasks
+
+Status: Accepted
+
+Context:
+The original task service, Main/Sticky interfaces, and reminder actions assumed one active or
+paused task. The product now requires selected incoming tasks to run concurrently while retaining
+the existing deterministic queue, automatic retry, reminder, and break behavior.
+
+Decision:
+- Add user-owned `allowConcurrentStart`, defaulting and normalizing to `false` without an IndexedDB
+  version change.
+- Expose ordered `activeTasks` and `currentTasks` collections from `TaskService` and require an
+  explicit task ID for lifecycle mutations.
+- Decide start eligibility from the incoming task's flag. Concurrent incoming tasks may bypass
+  active/paused blockers; non-concurrent incoming tasks may not.
+- Keep Break global: prompt/running state blocks every automatic start, including concurrent tasks.
+- Scan all active tasks in deterministic order for reminders while showing only one reminder
+  overlay at a time and targeting its task ID.
+- Prompt for Break only when completing the last active/paused task. Deletion never prompts.
+
+Consequences:
+- Multiple active/paused records may coexist and Main/Sticky must render task-specific cards.
+- Singular mutation APIs are no longer valid business interfaces.
+- Several overdue concurrent tasks may start during one Scheduler evaluation in queue order.
+- Old IndexedDB records and old CSV files remain compatible through `false` normalization/defaults.
+- Reminder overlay serialization works within each renderer, but the duplicate reminder-owner race
+  between Main and Sticky remains separate unresolved technical debt.

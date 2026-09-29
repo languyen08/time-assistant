@@ -24,12 +24,7 @@
 
       body {
         margin: 0;
-        font-family:
-          "Segoe UI",
-          Tahoma,
-          Geneva,
-          Verdana,
-          sans-serif;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         color: var(--ink);
         background:
           radial-gradient(circle at top left, rgba(252, 226, 168, 0.55), transparent 28%),
@@ -269,7 +264,7 @@
         border-radius: 999px;
         background: var(--accent-soft);
         color: #6a4310;
-        font-family: Consolas, "Courier New", monospace;
+        font-family: Consolas, 'Courier New', monospace;
         font-size: 0.92em;
       }
 
@@ -338,7 +333,7 @@
       <main>
         <section class="hero">
           <p class="eyebrow">Time Assistant Guide</p>
-          <h1>Plan calmly. Focus on one task. Move cleanly to the next one.</h1>
+          <h1>Plan calmly. Focus clearly. Move cleanly between tasks.</h1>
           <p class="lead">
             Time Assistant is a local-first desktop app for task transitions. It keeps your
             reminders, break flow, history, and settings on your machine without requiring an
@@ -371,15 +366,13 @@
             </ol>
             <p class="download-link">
               Repository:
-              <a href="https://github.com/languyen08/time-assistant"
-                >languyen08/time-assistant</a
-              >
+              <a href="https://github.com/languyen08/time-assistant">languyen08/time-assistant</a>
             </p>
           </div>
           <div class="hero-grid">
             <div class="mini-card">
-              <strong>Single active task</strong>
-              <span>Queue work for automatic Start times, or begin one early with Start now.</span>
+              <strong>Flexible focus</strong>
+              <span>Queue work by Start time, or allow selected tasks to run concurrently.</span>
             </div>
             <div class="mini-card">
               <strong>Gentle reminders</strong>
@@ -392,124 +385,150 @@
           </div>
         </section>
 
-      <section class="card">
-        <h2>Daily flow</h2>
-        <div class="grid">
-          <article class="step-card">
-            <h2>1. Add a task</h2>
-            <p>
-              Enter a task name, pick the Start time, and set how many reminder attempts should
-              be allowed with what repeat interval.
-            </p>
-            <ul>
-              <li><code>name</code> is required.</li>
-              <li><code>reminderCount</code> must stay between 1 and 20.</li>
-              <li><code>reminderIntervalMinutes</code> must stay between 1 and 240.</li>
-            </ul>
-          </article>
-          <article class="step-card">
-            <h2>2. Start the current task</h2>
-            <p>
-              Starting a task makes it the active task. The timer and reminder scheduler track only
-              that active item.
-            </p>
-            <ul>
-              <li>Pause if you need to stop temporarily.</li>
-              <li>Resume later without losing the task.</li>
-              <li>Complete when the session is done.</li>
-            </ul>
-          </article>
-          <article class="step-card">
-            <h2>3. Respond to reminders</h2>
-            <p>
-              When a reminder appears, choose the next action instead of just closing a popup.
-            </p>
-            <ul>
-              <li>Add more minutes if you need extra focus time.</li>
-              <li>Pause the task if you are switching context.</li>
-              <li>Complete the task if it is finished.</li>
-              <li>Dismiss for now if you want to keep working.</li>
-            </ul>
-          </article>
-          <article class="step-card">
-            <h2>4. Take a break</h2>
-            <p>
-              After completing a task, the app can prompt you to start a break. When the break
-              ends, it can offer the next queued task.
-            </p>
-            <ul>
-              <li>The default break duration comes from Settings.</li>
-              <li>You can skip a break or stop it early.</li>
-              <li>Break actions are recorded in History.</li>
-            </ul>
-          </article>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Views and settings</h2>
-        <div class="grid">
-          <article class="step-card">
-            <h2>Sticky note window</h2>
-            <p>
-              Turn on sticky mode to keep a compact companion window visible while you work in
-              other apps.
-            </p>
-            <ul>
-              <li>Choose the sticky note color.</li>
-              <li>Control how many queued notes stay visible.</li>
-              <li>Keep the sticky note always on top if needed.</li>
-            </ul>
-          </article>
-          <article class="step-card">
-            <h2>History and charts</h2>
-            <p>
-              The history panel logs important actions. Summary charts help you review completed
-              tasks, focus minutes, category breakdown, and reminder behavior.
-            </p>
-          </article>
-          <article class="step-card">
-            <h2>Notifications and sounds</h2>
-            <p>
-              Desktop reminders can play a sound and also show an in-app prompt when the app is
-              open.
-            </p>
-          </article>
-          <article class="step-card">
-            <h2>Theme and defaults</h2>
-            <p>
-              Settings let you choose light, dark, or system theme, plus default reminder and
-              break values for new tasks.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>CSV import and export</h2>
-        <p>
-          Time Assistant keeps data local, so CSV is the manual path for moving task data or
-          reviewing history outside the app.
-        </p>
-        <div class="tips">
-          <div class="tip">
-            <strong>Task import</strong>
-            <p>
-              Import a CSV with at least <code>name</code>, <code>reminderAt</code>,
-              <code>reminderCount</code>, and <code>reminderIntervalMinutes</code>.
-            </p>
+        <section class="card">
+          <h2>Daily flow</h2>
+          <div class="grid">
+            <article class="step-card">
+              <h2>1. Add a task</h2>
+              <p>
+                Enter a task name, pick the Start time, and set how many reminder attempts should be
+                allowed with what repeat interval.
+              </p>
+              <ul>
+                <li><code>name</code> is required.</li>
+                <li><code>reminderCount</code> must stay between 1 and 20.</li>
+                <li><code>reminderIntervalMinutes</code> must stay between 1 and 240.</li>
+                <li>
+                  <strong>Allow concurrent start</strong> is off by default. Turn it on only when
+                  this task may start while another task is active or paused.
+                </li>
+              </ul>
+            </article>
+            <article class="step-card">
+              <h2>2. Start focused work</h2>
+              <p>
+                A non-concurrent task is blocked by any active or paused task. A task with
+                <strong>Allow concurrent start</strong> may use Start now or start automatically
+                beside existing current tasks. The setting on already-running tasks does not decide
+                this.
+              </p>
+              <ul>
+                <li>Main and Sticky show current tasks in deterministic order.</li>
+                <li>
+                  Pause, resume, add time, complete, and delete actions target their own task.
+                </li>
+                <li>A running or pending Break blocks every automatic start.</li>
+              </ul>
+            </article>
+            <article class="step-card">
+              <h2>3. Respond to reminders</h2>
+              <p>
+                When a reminder appears, choose the next action instead of just closing a popup.
+              </p>
+              <ul>
+                <li>Add more minutes if you need extra focus time.</li>
+                <li>Pause the task if you are switching context.</li>
+                <li>Complete the task if it is finished.</li>
+                <li>Dismiss for now if you want to keep working.</li>
+                <li>
+                  Only one reminder overlay appears at a time; the next due task follows later.
+                </li>
+              </ul>
+            </article>
+            <article class="step-card">
+              <h2>4. Take a break</h2>
+              <p>
+                Completing one of several active/paused tasks leaves the others running and does not
+                prompt for a break. Completing the final current task opens the Break prompt before
+                that task is removed. Deleting a task never opens Break.
+              </p>
+              <ul>
+                <li>The default break duration comes from Settings.</li>
+                <li>You can skip a break or stop it early.</li>
+                <li>Break actions are recorded in History.</li>
+              </ul>
+            </article>
           </div>
-          <div class="tip">
-            <strong>Task export</strong>
-            <p>Export includes task status, reminder state, timestamps, and pause totals.</p>
-          </div>
-          <div class="tip">
-            <strong>History export</strong>
-            <p>Export includes event type, timestamp, summary text, and metadata JSON.</p>
-          </div>
-        </div>
-      </section>
+        </section>
 
+        <section class="card">
+          <h2>Views and settings</h2>
+          <div class="grid">
+            <article class="step-card">
+              <h2>Sticky note window</h2>
+              <p>
+                Turn on sticky mode to keep a compact companion window visible while you work in
+                other apps.
+              </p>
+              <ul>
+                <li>Choose the sticky note color.</li>
+                <li>Control how many queued notes stay visible.</li>
+                <li>Current tasks use the available note slots before pending queue tasks.</li>
+                <li>Keep the sticky note always on top if needed.</li>
+              </ul>
+            </article>
+            <article class="step-card">
+              <h2>History and charts</h2>
+              <p>
+                The history panel logs important actions. Summary charts help you review completed
+                tasks, focus minutes, category breakdown, and reminder behavior.
+              </p>
+            </article>
+            <article class="step-card">
+              <h2>Notifications and sounds</h2>
+              <p>
+                Desktop reminders can play a sound and also show an in-app prompt when the app is
+                open.
+              </p>
+            </article>
+            <article class="step-card">
+              <h2>Defaults</h2>
+              <p>
+                Settings provide default reminder and break values, notification sound controls,
+                Sticky behavior, CSV formatting, and Windows startup behavior.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>CSV import and export</h2>
+          <p>
+            Time Assistant keeps data local, so CSV is the manual path for moving task data or
+            reviewing history outside the app.
+          </p>
+          <div class="tips">
+            <div class="tip">
+              <strong>Task import</strong>
+              <p>
+                Import a CSV with at least <code>name</code>, <code>reminderAt</code>,
+                <code>reminderCount</code>, and <code>reminderIntervalMinutes</code>.
+              </p>
+            </div>
+            <div class="tip">
+              <strong>Task export</strong>
+              <p>
+                Export includes <code>allowConcurrentStart</code>, task status, reminder state,
+                timestamps, and pause totals. Older imports without that optional column remain
+                valid and default it to <code>false</code>.
+              </p>
+            </div>
+            <div class="tip">
+              <strong>History export</strong>
+              <p>Export includes event type, timestamp, summary text, and metadata JSON.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Current limitation</h2>
+          <p>
+            Main and Sticky each still own their visible reminder scheduler. Each renderer correctly
+            serializes reminders across multiple active tasks, but opening both windows can still
+            produce a duplicate reminder-owner race. This ownership issue remains planned technical
+            debt.
+          </p>
+        </section>
       </main>
     </div>
   </body>

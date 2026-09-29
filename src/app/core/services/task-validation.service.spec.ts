@@ -10,6 +10,7 @@ function draft(overrides: Partial<TaskDraft> = {}): TaskDraft {
     reminderAt: '2026-05-30T10:30:00.000Z',
     reminderCount: 3,
     reminderIntervalMinutes: 5,
+    allowConcurrentStart: false,
     ...overrides,
   };
 }
@@ -39,5 +40,12 @@ describe('TaskValidationService', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('Start time must be in the future.');
+  });
+
+  it('allows an unchanged overdue Start time while editing other task fields', () => {
+    const reminderAt = '2026-05-30T09:59:00.000Z';
+    const result = service.validate(draft({ reminderAt }), now, reminderAt);
+
+    expect(result.valid).toBe(true);
   });
 });

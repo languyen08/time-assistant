@@ -8,7 +8,7 @@ export interface TaskValidationResult {
 
 @Injectable({ providedIn: 'root' })
 export class TaskValidationService {
-  validate(draft: TaskDraft, now = new Date()): TaskValidationResult {
+  validate(draft: TaskDraft, now = new Date(), existingReminderAt?: string): TaskValidationResult {
     const errors: string[] = [];
 
     if (!draft.name.trim()) {
@@ -18,7 +18,7 @@ export class TaskValidationService {
     const reminderDate = new Date(draft.reminderAt);
     if (Number.isNaN(reminderDate.getTime())) {
       errors.push('Start time must be a valid date and time.');
-    } else if (reminderDate.getTime() <= now.getTime()) {
+    } else if (reminderDate.getTime() <= now.getTime() && draft.reminderAt !== existingReminderAt) {
       errors.push('Start time must be in the future.');
     }
 

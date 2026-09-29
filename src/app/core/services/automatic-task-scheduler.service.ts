@@ -51,20 +51,21 @@ export class AutomaticTaskSchedulerService {
         (first, second) => first.order - second.order,
       );
 
-      if (!this.taskService.currentTask()) {
-        const overdueTask = pendingTasks.find(
-          (task) => new Date(task.reminderAt).getTime() <= now.getTime(),
-        );
-        if (overdueTask) {
-          await this.taskService.startAutomatically(overdueTask.id, now);
-        }
-        return;
-      }
-
       for (const task of pendingTasks) {
         if (this.breakCoordination.blocked()) {
           return;
         }
+
+        const originalStartIsDue = new Date(task.reminderAt).getTime() <= now.getTime();
+        if (!originalStartIsDue) {
+          continue;
+        }
+
+        if (task.allowConcurrentStart || this.taskService.currentTasks().length === 0) {
+          await this.taskService.startAutomatically(task.id, now);
+          continue;
+        }
+
         const effectiveAttempt = task.nextAutoStartAt ?? task.reminderAt;
         if (new Date(effectiveAttempt).getTime() <= now.getTime()) {
           await this.taskService.deferAutomaticStart(task.id, now);

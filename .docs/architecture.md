@@ -137,7 +137,7 @@ src/app/
 
 Frontend responsibilities:
 
-- Render task list, active task, forms, reminders, settings, and charts.
+- Render task lists, active/paused task cards, forms, reminders, settings, and charts.
 - Keep UI state predictable and simple.
 - Use Angular services for business logic.
 - Avoid global state libraries unless complexity clearly requires them.
@@ -214,7 +214,8 @@ Persisted state:
 
 - Task records include active/paused timing fields, next-reminder state, reminder attempt count,
   the user-authored scheduled Start time in `reminderAt`, and optional internal automatic retry
-  state in `nextAutoStartAt`.
+  state in `nextAutoStartAt`. User-owned `allowConcurrentStart` defaults/normalizes to `false`
+  without an IndexedDB version bump.
 - Settings and history events are stored in their own stores.
 
 Runtime-only or conceptual state:
@@ -243,8 +244,8 @@ Reminder flow:
 
 ```txt
 Task started
-  -> TimerService tracks active task
-  -> ReminderService schedules reminder
+  -> TimerService calculates timing for each active/paused task from one shared clock
+  -> ReminderService scans active tasks in deterministic order
   -> Reminder time reached
   -> NotificationService shows desktop notification
   -> App shows friendly in-app overlay if open
@@ -269,9 +270,12 @@ Notification design:
 Current implementation:
 
 - Main and Sticky initialize their own `TimerService` and `ReminderSchedulerService`.
-- The hidden Scheduler renderer is the sole owner of `AutomaticTaskSchedulerService`. It starts one
-  due task by queue order, or advances due retries by 30-minute increments while an active/paused
-  task blocks them.
+- The hidden Scheduler renderer is the sole owner of `AutomaticTaskSchedulerService`. It processes
+  pending tasks in queue order. An incoming concurrent task may start beside current tasks; an
+  incoming non-concurrent task starts only when `currentTasks` is empty or advances a due retry by
+  30-minute increments.
+- `TaskService` exposes ordered `activeTasks` and `currentTasks` collections. Lifecycle mutations
+  require task IDs so one current task cannot accidentally mutate another.
 - Task mutations broadcast `tasks-changed` through `BroadcastChannel`, causing other renderers to reload tasks from IndexedDB.
 - Main and Sticky publish their renderer-local break state with unique source IDs over
   `friendly-task-reminder-break`; Scheduler blocks while any live source reports `prompt` or
@@ -289,12 +293,14 @@ Known limitation / technical debt:
 - Main and sticky renderers can observe the same due reminder and independently process it. This creates a potential duplicate reminder/history/notification race.
 - Existing reminder ownership remains unresolved technical debt and is not migrated into the
   Scheduler by ADR-013.
+- Within each renderer, active tasks are scanned in deterministic order and only one reminder
+  overlay is shown at a time; overlay actions target its `taskId`.
 
 ## Break Flow
 
 ```txt
-Task completed
-  -> Break prompt is published before the active task is removed from storage
+Final current task completed
+  -> Break prompt is published before that task is removed from storage
   -> Task and history event are saved
   -> App asks whether to take a break while Scheduler remains blocked
   -> Default break duration is loaded from settings
@@ -302,6 +308,9 @@ Task completed
   -> Break session is logged
   -> After break, Scheduler reevaluates overdue tasks and the modal is informational
 ```
+
+Completing one of several active/paused tasks does not prompt because other current work remains.
+Deleting an active or paused task removes only that task and never opens Break.
 
 Default break duration: 10 minutes.
 

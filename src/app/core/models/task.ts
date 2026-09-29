@@ -8,6 +8,7 @@ export interface Task {
   reminderAt: string;
   reminderCount: number;
   reminderIntervalMinutes: number;
+  allowConcurrentStart: boolean;
   order: number;
   status: TaskStatus;
   createdAt: string;
@@ -29,4 +30,5 @@ export interface TaskDraft {
   reminderAt: string;
   reminderCount: number;
   reminderIntervalMinutes: number;
+  allowConcurrentStart: boolean;
 }

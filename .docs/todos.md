@@ -341,7 +341,7 @@ Goal: add optional convenience features and polish after the core app is stable.
   - [x] Automatically start tasks at their scheduled Start time.
   - [x] Coordinate break prompt/running state across visible renderers and reevaluate when breaks
     unblock scheduling.
-  - [ ] Support per-task concurrent start / multiple active tasks.
+  - [x] Support per-task concurrent start / multiple active tasks.
   - [x] Reschedule blocked automatic starts in repeated 30-minute increments.
   - [ ] Finish-by/deadline + custom message.
 - [ ] Complete accessibility verification, including keyboard navigation, contrast, and reduced-motion behavior.

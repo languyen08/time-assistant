@@ -14,6 +14,7 @@ function pendingTask(id: string, name: string, order: number, overrides: Partial
     reminderAt: '2026-05-30T10:30:00.000Z',
     reminderCount: 3,
     reminderIntervalMinutes: 5,
+    allowConcurrentStart: false,
     order,
     status: 'pending',
     createdAt: '2026-05-30T10:00:00.000Z',
@@ -224,17 +225,185 @@ describe('App', () => {
       }),
       pendingTask('task-2', 'Next task', 1),
     ]);
-    const completeActive = vi
-      .spyOn(app.taskService, 'completeActive')
-      .mockImplementation(async () => {
-        expect(app.breakService.state()).toBe('prompt');
-        return true;
-      });
+    const complete = vi.spyOn(app.taskService, 'complete').mockImplementation(async () => {
+      expect(app.breakService.state()).toBe('prompt');
+      return true;
+    });
 
-    await app.completeActiveTask();
+    await app.completeTask('task-1');
 
-    expect(completeActive).toHaveBeenCalledOnce();
+    expect(complete).toHaveBeenCalledWith('task-1');
     expect(app.breakService.state()).toBe('prompt');
+  });
+
+  it('should complete one of multiple current tasks without prompting or dismissing another reminder', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.taskService.tasks.set([
+      pendingTask('task-a', 'Task A', 0, {
+        status: 'active',
+        activeStartedAt: '2026-05-30T10:00:00.000Z',
+      }),
+      pendingTask('task-b', 'Task B', 1, {
+        status: 'active',
+        activeStartedAt: '2026-05-30T10:00:00.000Z',
+      }),
+    ]);
+    app.reminderScheduler.activeReminder.set({
+      taskId: 'task-b',
+      taskName: 'Task B',
+      attemptNumber: 1,
+      maxAttempts: 3,
+      shownAt: '2026-05-30T10:30:00.000Z',
+      message: 'A friendly reminder.',
+    });
+    const prompt = vi.spyOn(app.breakService, 'prompt');
+    vi.spyOn(app.taskService, 'complete').mockImplementation(async (taskId) => {
+      app.taskService.tasks.update((tasks) =>
+        tasks.map((task) => (task.id === taskId ? { ...task, status: 'completed' } : task)),
+      );
+      return true;
+    });
+
+    await app.completeTask('task-a');
+
+    expect(prompt).not.toHaveBeenCalled();
+    expect(app.currentTasks().map((task) => task.id)).toEqual(['task-b']);
+    expect(app.reminderScheduler.activeReminder()?.taskId).toBe('task-b');
+  });
+
+  it('should prompt before completing the final current task and roll back on failure', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.taskService.tasks.set([
+      pendingTask('task-b', 'Task B', 0, {
+        status: 'paused',
+        activeStartedAt: '2026-05-30T10:00:00.000Z',
+        pausedAt: '2026-05-30T10:15:00.000Z',
+      }),
+    ]);
+    const complete = vi.spyOn(app.taskService, 'complete').mockImplementation(async () => {
+      expect(app.breakService.state()).toBe('prompt');
+      return false;
+    });
+
+    await app.completeTask('task-b');
+
+    expect(complete).toHaveBeenCalledWith('task-b');
+    expect(app.breakService.state()).toBe('idle');
+  });
+
+  it('should not prompt when completing an active task while a paused task remains', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.taskService.tasks.set([
+      pendingTask('task-a', 'Task A', 0, { status: 'active' }),
+      pendingTask('task-b', 'Task B', 1, {
+        status: 'paused',
+        pausedAt: '2026-05-30T10:10:00.000Z',
+      }),
+    ]);
+    const prompt = vi.spyOn(app.breakService, 'prompt');
+    vi.spyOn(app.taskService, 'complete').mockImplementation(async (taskId) => {
+      app.taskService.tasks.update((tasks) =>
+        tasks.map((task) => (task.id === taskId ? { ...task, status: 'completed' } : task)),
+      );
+      return true;
+    });
+
+    await app.completeTask('task-a');
+
+    expect(prompt).not.toHaveBeenCalled();
+    expect(app.currentTasks().map((task) => task.id)).toEqual(['task-b']);
+  });
+
+  it('should not prompt for a break when deleting the final current task', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.taskService.tasks.set([
+      pendingTask('task-a', 'Task A', 0, {
+        status: 'active',
+        activeStartedAt: '2026-05-30T10:00:00.000Z',
+      }),
+    ]);
+    const prompt = vi.spyOn(app.breakService, 'prompt');
+    vi.spyOn(app.taskService, 'delete').mockImplementation(async (taskId) => {
+      app.taskService.tasks.update((tasks) => tasks.filter((task) => task.id !== taskId));
+      return true;
+    });
+
+    await app.deleteTask('task-a');
+
+    expect(prompt).not.toHaveBeenCalled();
+    expect(app.currentTasks()).toEqual([]);
+  });
+
+  it('should render every current task in the Main In Focus panel', async () => {
+    vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.loading.set(false);
+    app.taskService.tasks.set([
+      pendingTask('task-a', 'Task A', 0, {
+        status: 'active',
+        activeStartedAt: '2026-05-30T10:00:00.000Z',
+      }),
+      pendingTask('task-b', 'Task B', 1, {
+        status: 'paused',
+        activeStartedAt: '2026-05-30T10:00:00.000Z',
+        pausedAt: '2026-05-30T10:10:00.000Z',
+      }),
+    ]);
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const cards = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      '.current-task-active-note',
+    );
+    expect(cards).toHaveLength(2);
+    expect(cards[0].textContent).toContain('Task A');
+    expect(cards[1].textContent).toContain('Task B');
+  });
+
+  it('should prioritize current Sticky cards within the visible-note limit and target the second card', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.windowMode.set('sticky');
+    app.loading.set(false);
+    app.settingsService.settings.update((settings) => ({
+      ...settings,
+      stickyVisibleNotes: 3,
+    }));
+    app.taskService.tasks.set([
+      pendingTask('task-a', 'Task A', 0, { status: 'active' }),
+      pendingTask('task-b', 'Task B', 1, { status: 'active' }),
+      pendingTask('pending-a', 'Pending A', 2),
+      pendingTask('pending-b', 'Pending B', 3),
+    ]);
+    const pauseTask = vi.spyOn(app, 'pauseTask').mockResolvedValue();
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const currentCards = host.querySelectorAll<HTMLElement>('.sticky-focus-card:not(.empty)');
+    expect(currentCards).toHaveLength(2);
+    expect(host.querySelectorAll('.sticky-queue-card')).toHaveLength(1);
+
+    currentCards[1].querySelector<HTMLButtonElement>('button')?.click();
+    expect(pauseTask).toHaveBeenCalledWith('task-b');
+
+    app.taskService.tasks.update((tasks) => [
+      ...tasks.slice(0, 2),
+      pendingTask('task-c', 'Task C', 2, { status: 'paused' }),
+      pendingTask('pending-a', 'Pending A', 3),
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.querySelectorAll('.sticky-focus-card:not(.empty)')).toHaveLength(3);
+    expect(host.querySelectorAll('.sticky-queue-card')).toHaveLength(0);
   });
 
   it('should make break completion informational instead of a manual start gate', async () => {
@@ -252,6 +421,24 @@ describe('App', () => {
     expect(modal?.textContent).toContain('The next task will start automatically when it is due.');
     expect(modal?.textContent).toContain('Close');
     expect(modal?.textContent).not.toContain('Start next task');
+  });
+
+  it('should summarize multiple current tasks when a break completes', async () => {
+    vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.loading.set(false);
+    app.taskService.tasks.set([
+      pendingTask('task-a', 'Task A', 0, { status: 'active' }),
+      pendingTask('task-b', 'Task B', 1, { status: 'paused' }),
+    ]);
+    app.breakService.session.update((session) => ({ ...session, state: 'complete' }));
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const modal = (fixture.nativeElement as HTMLElement).querySelector('.break-complete-modal');
+    expect(modal?.textContent).toContain('2 tasks are now in focus.');
   });
 
   it('should open a confirmation modal and clear history from the header action', async () => {
@@ -894,7 +1081,7 @@ describe('App', () => {
 
     const addReminderTimeSpy = vi.spyOn(app, 'addReminderTime').mockResolvedValue();
     const pauseTaskSpy = vi.spyOn(app, 'pauseTask').mockResolvedValue();
-    const completeActiveTaskSpy = vi.spyOn(app, 'completeActiveTask').mockResolvedValue();
+    const completeTaskSpy = vi.spyOn(app, 'completeTask').mockResolvedValue();
     const dismissSpy = vi.spyOn(app.reminderScheduler, 'dismiss');
 
     app.reminderScheduler.activeReminder.set({
@@ -937,9 +1124,9 @@ describe('App', () => {
     host.querySelector<HTMLButtonElement>('.friendly-reminder .reminder-sheet-close')?.click();
     await fixture.whenStable();
 
-    expect(addReminderTimeSpy).toHaveBeenCalledTimes(1);
-    expect(pauseTaskSpy).toHaveBeenCalledTimes(1);
-    expect(completeActiveTaskSpy).toHaveBeenCalledTimes(1);
+    expect(addReminderTimeSpy).toHaveBeenCalledWith('task-1');
+    expect(pauseTaskSpy).toHaveBeenCalledWith('task-1');
+    expect(completeTaskSpy).toHaveBeenCalledWith('task-1');
     expect(dismissSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -1014,16 +1201,24 @@ describe('App', () => {
     try {
       const fixture = TestBed.createComponent(App);
       const app = fixture.componentInstance;
-      const addTimeSpy = vi.spyOn(app.taskService, 'addTimeToActive').mockResolvedValue();
+      const addTimeSpy = vi.spyOn(app.taskService, 'addTime').mockResolvedValue(true);
       const dismissSpy = vi.spyOn(app.reminderScheduler, 'dismiss');
 
       app.timerService.now.set(new Date('2026-05-30T10:09:58.500Z'));
       app.extensionMinutes.set(1);
+      app.reminderScheduler.activeReminder.set({
+        taskId: 'task-1',
+        taskName: 'Task 1',
+        attemptNumber: 1,
+        maxAttempts: 3,
+        shownAt: '2026-05-30T10:09:59.000Z',
+        message: 'A friendly reminder.',
+      });
 
-      await app.addReminderTime();
+      await app.addReminderTime('task-1');
 
       const clickTime = new Date('2026-05-30T10:10:00.000Z');
-      expect(addTimeSpy).toHaveBeenCalledWith(1, clickTime);
+      expect(addTimeSpy).toHaveBeenCalledWith('task-1', 1, clickTime);
       expect(app.timerService.now().toISOString()).toBe(clickTime.toISOString());
       expect(dismissSpy).toHaveBeenCalledTimes(1);
     } finally {
@@ -1086,7 +1281,7 @@ describe('App', () => {
 
     expect(startSpy).not.toHaveBeenCalled();
     expect(app.breakService.state()).toBe('running');
-    expect(app.currentTask()).toBeUndefined();
+    expect(app.currentTasks()).toEqual([]);
     expect(app.breakConflictTask()).toBeUndefined();
     expect(app.breakNextTaskCandidate()?.id).toBe('task-2');
 
@@ -1144,7 +1339,7 @@ describe('App', () => {
     expect(stopEarlySpy).toHaveBeenCalledOnce();
     expect(startSpy).toHaveBeenCalledWith('task-2');
     expect(app.breakService.state()).toBe('idle');
-    expect(app.currentTask()?.id).toBe('task-2');
+    expect(app.currentTasks()[0]?.id).toBe('task-2');
     expect(app.deferredBreakTaskId()).toBeUndefined();
   });
 
@@ -1239,6 +1434,7 @@ describe('App', () => {
       reminderAt: '2026-05-30T10:30:00.000Z',
       reminderCount: 3,
       reminderIntervalMinutes: 5,
+      allowConcurrentStart: false,
       order: index,
       status: 'pending',
       createdAt: '2026-05-30T10:00:00.000Z',
