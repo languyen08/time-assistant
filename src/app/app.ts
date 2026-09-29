@@ -58,6 +58,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   private stickyResizeFrameOne: number | undefined;
   private stickyResizeFrameTwo: number | undefined;
   private stickyResizeObserver: ResizeObserver | undefined;
+  private removeMainWindowMaximizedListener: (() => void) | undefined;
   private lastStickyMeasuredHeight = 0;
   private suppressStickyResizeUntil = 0;
   private lastStickyReminderVisible = false;
@@ -97,6 +98,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly isStickyMode = signal(
     new URLSearchParams(window.location.search).get('window') === 'sticky',
   );
+  readonly isMainWindowMaximized = signal(false);
   readonly stickyNoteColor = computed(() => this.settingsService.settings().stickyNoteColor);
   readonly stickyVisibleNotes = computed(() =>
     Math.min(5, Math.max(1, this.settingsService.settings().stickyVisibleNotes)),
@@ -362,6 +364,13 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   async ngOnInit(): Promise<void> {
     try {
+      if (!this.isStickyMode() && this.electron.isElectron) {
+        this.removeMainWindowMaximizedListener = this.electron.onMainWindowMaximizedChanged(
+          (maximized) => this.isMainWindowMaximized.set(maximized),
+        );
+        this.isMainWindowMaximized.set(await this.electron.getMainWindowMaximized());
+      }
+
       await Promise.all([
         this.settingsService.load(),
         this.historyService.load(),
@@ -399,6 +408,8 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     this.timerService.stop();
     this.reminderScheduler.stop();
     this.cancelStickyResizeFrames();
+    this.removeMainWindowMaximizedListener?.();
+    this.removeMainWindowMaximizedListener = undefined;
   }
 
   async saveTask(): Promise<void> {
@@ -718,6 +729,27 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     await this.electron.closeMainWindow();
   }
 
+  async toggleMainWindowMaximized(): Promise<void> {
+    if (!this.electron.isElectron) {
+      return;
+    }
+
+    this.isMainWindowMaximized.set(await this.electron.toggleMainWindowMaximized());
+  }
+
+  onMainTitleBarDoubleClick(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (target.closest('button, a, input, select, textarea, [role="button"]')) {
+      return;
+    }
+
+    void this.toggleMainWindowMaximized();
+  }
+
   async minimizeStickyWindow(): Promise<void> {
     await this.electron.minimizeStickyWindow();
   }
@@ -729,7 +761,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   async closeStickyWindow(): Promise<void> {
     if (this.electron.isElectron) {
-      await this.electron.closeApp();
+      await this.electron.hideStickyWindow();
       return;
     }
 
@@ -1014,7 +1046,11 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private setupHistoryResizeObserver(): void {
-    if (this.historyResizeObserver || !this.historyOpen()) {
+    if (
+      this.historyResizeObserver ||
+      !this.historyOpen() ||
+      typeof ResizeObserver === 'undefined'
+    ) {
       return;
     }
 
@@ -1098,7 +1134,11 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private setupStickyResizeObserver(): void {
-    if (!this.isStickyMode() || this.stickyResizeObserver) {
+    if (
+      !this.isStickyMode() ||
+      this.stickyResizeObserver ||
+      typeof ResizeObserver === 'undefined'
+    ) {
       return;
     }
 

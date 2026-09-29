@@ -14,12 +14,12 @@ export class ElectronBridgeService {
     return Boolean(window.assistantTime);
   }
 
-  closeApp(): Promise<boolean> {
-    return window.assistantTime?.closeApp() ?? Promise.resolve(false);
-  }
-
   closeMainWindow(): Promise<boolean> {
     return window.assistantTime?.closeMainWindow?.() ?? Promise.resolve(false);
+  }
+
+  getMainWindowMaximized(): Promise<boolean> {
+    return window.assistantTime?.getMainWindowMaximized?.() ?? Promise.resolve(false);
   }
 
   getStartAtLogin(): Promise<boolean> {
@@ -28,6 +28,10 @@ export class ElectronBridgeService {
 
   minimizeStickyWindow(): Promise<boolean> {
     return window.assistantTime?.minimizeStickyWindow() ?? Promise.resolve(false);
+  }
+
+  hideStickyWindow(): Promise<boolean> {
+    return window.assistantTime?.hideStickyWindow?.() ?? Promise.resolve(false);
   }
 
   notify(title: string, body: string): Promise<boolean> {
@@ -81,5 +85,13 @@ export class ElectronBridgeService {
 
   focusMainWindow(): Promise<boolean> {
     return window.assistantTime?.focusMainWindow() ?? Promise.resolve(false);
+  }
+
+  toggleMainWindowMaximized(): Promise<boolean> {
+    return window.assistantTime?.toggleMainWindowMaximized?.() ?? Promise.resolve(false);
+  }
+
+  onMainWindowMaximizedChanged(callback: (maximized: boolean) => void): () => void {
+    return window.assistantTime?.onMainWindowMaximizedChanged?.(callback) ?? (() => undefined);
   }
 }

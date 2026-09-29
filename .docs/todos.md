@@ -325,6 +325,23 @@ Goal: add optional convenience features and polish after the core app is stable.
   - [x] Enable and disable startup through Electron main.
   - [x] Resolve the original Electron Builder portable executable path.
   - [x] Add focused renderer and Electron-main tests.
+- [x] Complete Phase 1 of the desktop-window foundation product change.
+  - [x] Add native main-window Maximize/Restore with Electron-authoritative state and title-bar
+    double-click behavior.
+  - [x] Add a native Windows Tray with Open Time Assistant, Show Sticky Note, and explicit Quit
+    actions.
+  - [x] Keep Main and Sticky lifecycles independent: Main X closes Main, Sticky X hides Sticky,
+    Tray click restores Sticky, and Tray Quit performs complete shutdown.
+  - [x] Make Sticky Note X temporarily hide the sticky window without changing
+    `stickyNoteEnabled`.
+  - [x] Preserve deterministic smoke-test shutdown and Windows startup-at-login behavior.
+- [ ] Phase 2 — Automatic and concurrent task lifecycle.
+  - [ ] Automatically start tasks at their scheduled reminder time.
+  - [ ] Support a per-task concurrent-start option and multiple active tasks.
+  - [ ] Reschedule blocked automatic starts in repeated 30-minute increments.
+  - [ ] Add finish-by/deadline data and a custom deadline message/notification flow.
+  - [ ] Establish one reliable scheduler owner across multiple renderers before enabling
+    automatic scheduling.
 - [ ] Complete accessibility verification, including keyboard navigation, contrast, and reduced-motion behavior.
 - [ ] Add the missing Playwright coverage for add-more-time and pause/resume.
 - [ ] Decide whether to introduce semantic linting or rename the current Prettier-only `lint` command.

@@ -139,9 +139,15 @@ Consequences:
 
 Current implementation note:
 - Main, sticky-note, and user-guide BrowserWindows are implemented.
+- A native Tray owns background availability and explicit Quit; it can open the main window or
+  show an existing hidden Sticky Note.
+- Sticky Note X hides its BrowserWindow without changing the persisted enabled preference.
+- Main application X closes only Main and leaves Sticky Note, Tray, and the process unchanged.
+- Tray icon click restores/focuses Sticky Note only; Open Time Assistant explicitly opens Main.
+- Tray Quit destroys every application window and the Tray before quitting completely.
 - Desktop notifications, sticky-window controls, and explicit text-file dialogs are implemented through narrow preload/IPC APIs.
 - Windows startup-at-login configuration is implemented through narrow preload/IPC APIs; Windows login-item state is authoritative and portable builds resolve the original portable executable path.
-- No tray or independent Electron main-process reminder scheduler is implemented.
+- No independent Electron main-process reminder scheduler is implemented.
 - Timer/reminder scheduling currently starts inside each Angular renderer, creating unresolved multi-window ownership risk.
 ---
 

@@ -18,7 +18,7 @@ The app should make it easy to see the current task, receive visible but non-ann
 - Storage: local-first IndexedDB for the MVP.
 - Sync: manual CSV import/export for MVP.
 
-Angular is the UI framework. Electron packages the Angular UI as a real Windows desktop app with native windows, notifications, file dialogs, and sticky-note mode. The current implementation has no tray or independent background reminder scheduler. The MVP should not be implemented as a browser-only web app.
+Angular is the UI framework. Electron packages the Angular UI as a real Windows desktop app with native windows, notifications, file dialogs, sticky-note mode, and a Windows system tray. The current implementation has no independent background reminder scheduler. The MVP should not be implemented as a browser-only web app.
 
 ## Core User Flow
 
@@ -90,6 +90,18 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
   - complete
   - open full app
 - Keep it readable, calm, and visually friendly.
+- Closing the Sticky Note with its X temporarily hides it without disabling the sticky-note
+  preference; the tray can show it again.
+
+### Desktop Window Foundation
+
+- Preserve the existing page scrolling and three-column workspace layout, with Insights spanning
+  the full width below the top workspace row.
+- Support native Windows Maximize and Restore from the custom main title bar and by
+  double-clicking a non-interactive title-bar area.
+- Keep Time Assistant available through a Windows system tray while the Sticky Note is
+  temporarily hidden. Sticky Note X hides only Sticky, Main application X closes only Main,
+  Tray icon click restores Sticky only, and Tray Quit is the explicit full shutdown action.
 
 ### Pause / Resume
 

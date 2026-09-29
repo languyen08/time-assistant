@@ -37,10 +37,12 @@ Angular renderer(s)
   `- BroadcastChannel for task-change synchronization only
 
 Electron preload
-  `- narrow window.assistantTime IPC bridge
+  `- narrow window.assistantTime IPC bridge and main-window state event
 
 Electron main
   |- main, sticky-note, and user-guide windows
+  |- BrowserWindow maximize/restore and hide/show lifecycle
+  |- native Tray lifecycle and context menu
   |- native desktop notifications
   |- open/save file dialogs
   |- sticky-window controls
@@ -71,7 +73,8 @@ Why Electron fits this MVP:
 
 - Mature support for desktop windows and multiple `BrowserWindow` instances.
 - Simple always-on-top sticky-note window.
-- Allows tray and background behavior as a future capability, but neither is implemented now.
+- Provides an implemented native Tray so the process can remain available while windows are
+  hidden or closed.
 - Straightforward desktop notifications and sound playback.
 - Easy CSV file import/export through native file dialogs.
 - Allows Angular to stay focused on UI while Electron handles desktop behavior.
@@ -91,7 +94,9 @@ Current IPC surface:
 - Renderer keeps `contextIsolation: true` and `nodeIntegration: false`.
 - Main, sticky, and user-guide renderers are sandboxed.
 - File system access is limited to explicit open/save dialog flows.
-- Exposed operations cover closing/focusing windows, sticky-window state and size, notifications, the user guide, CSV-oriented text file dialogs, and get/set access to the Windows startup login item.
+- Exposed operations cover closing/focusing windows, main-window maximize state and toggling,
+  hiding and configuring the sticky window, sticky-window size, notifications, the user guide,
+  CSV-oriented text file dialogs, and get/set access to the Windows startup login item.
 
 ## Frontend
 
@@ -145,6 +150,7 @@ Electron responsibilities:
 - Provide file picker and save dialog for CSV import/export.
 - Support sticky-note window.
 - Support always-on-top for sticky-note mode.
+- Own the native Tray, window show/hide/close behavior, and main-window maximize state.
 - Own native Windows startup-at-login behavior.
 - Provide local filesystem access only where needed.
 - Keep native commands minimal.
@@ -157,9 +163,17 @@ Current windows:
 
 Current background behavior:
 
-- No tray is implemented.
+- Electron main creates and retains a native Tray with Open Time Assistant, Show Sticky Note,
+  and Quit actions.
+- Sticky Note X hides the existing sticky BrowserWindow. Disabling Sticky Note in Settings
+  remains the separate persistent action and destroys/closes that window.
+- Main application X closes only that BrowserWindow; Sticky Note, Tray, and process state remain
+  unchanged. Tray icon click restores/focuses Sticky Note only, while the explicit Open Time
+  Assistant menu action opens/focuses Main without duplicating it. Tray Quit is the sole normal
+  full shutdown path: it destroys all application windows and the Tray, then calls `app.quit()`.
+- Main-window Maximize/Restore flows through narrow preload IPC. Electron sends maximize and
+  unmaximize state changes back to the main renderer so Angular does not infer native state.
 - No independent main-process timer or reminder scheduler is implemented.
-- Closing all windows exits the app on Windows.
 
 ## Local Storage
 

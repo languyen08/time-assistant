@@ -2,8 +2,27 @@ const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs/promises');
 const fsSync = require('node:fs');
-const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, screen } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  Notification,
+  Tray,
+  dialog,
+  ipcMain,
+  screen,
+} = require('electron');
 const { createStartupLoginController } = require('./startup-login.cjs');
+const {
+  closeMainWindow,
+  getMainWindowMaximized,
+  hideStickyWindow,
+  isUsableWindow,
+  openMainWindow,
+  quitApplication,
+  showStickyWindow,
+  toggleMainWindowMaximized,
+} = require('./window-lifecycle.cjs');
 
 const APP_NAME = 'Time Assistant';
 const APP_ID = 'local.assistant-time.time-assistant';
@@ -46,7 +65,9 @@ const STICKY_RESIZE_REASONS = new Set([
 let mainWindow;
 let stickyWindow;
 let guideWindow;
+let tray;
 let stickyAlwaysOnTopPreference = true;
+let isQuitting = false;
 
 function resolveAppIconPath() {
   const candidates =
@@ -131,6 +152,89 @@ function ownerWindow() {
   return undefined;
 }
 
+function sendMainWindowMaximizedState() {
+  if (!isUsableWindow(mainWindow) || mainWindow.webContents.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(
+    'assistant-time:main-window-maximized-changed',
+    mainWindow.isMaximized(),
+  );
+}
+
+function openTimeAssistant() {
+  return openMainWindow({
+    getMainWindow: () => mainWindow,
+    createMainWindow,
+  });
+}
+
+function quitTimeAssistant() {
+  if (isQuitting) {
+    return true;
+  }
+
+  isQuitting = true;
+  return quitApplication({
+    electronApp: app,
+    getWindows: () => [mainWindow, stickyWindow, guideWindow],
+    getTray: () => tray,
+  });
+}
+
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed()) {
+    return;
+  }
+
+  const template = [
+    {
+      label: 'Open Time Assistant',
+      click: openTimeAssistant,
+    },
+    {
+      label: 'Show Sticky Note',
+      click: () => {
+        showStickyWindow(() => stickyWindow);
+        updateTrayMenu();
+      },
+    },
+  ];
+
+  template.push(
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: quitTimeAssistant,
+    },
+  );
+
+  tray.setContextMenu(Menu.buildFromTemplate(template));
+}
+
+function createTray() {
+  if (tray && !tray.isDestroyed()) {
+    return tray;
+  }
+
+  if (!appIconPath) {
+    throw new Error('The Time Assistant tray icon could not be found.');
+  }
+
+  tray = new Tray(appIconPath);
+  tray.setToolTip(APP_NAME);
+  tray.on('click', () => {
+    showStickyWindow(() => stickyWindow);
+    updateTrayMenu();
+  });
+  tray.on('destroyed', () => {
+    tray = undefined;
+  });
+  updateTrayMenu();
+  return tray;
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1120,
@@ -158,11 +262,12 @@ function createMainWindow() {
   mainWindow.on('closed', () => {
     mainWindow = undefined;
   });
+  mainWindow.on('maximize', sendMainWindowMaximizedState);
+  mainWindow.on('unmaximize', sendMainWindowMaximizedState);
 
   if (isSmokeTest) {
     mainWindow.webContents.once('did-finish-load', () => {
-      mainWindow.close();
-      app.quit();
+      quitTimeAssistant();
     });
   }
 
@@ -174,7 +279,13 @@ function resolveGuidePath() {
     path.join(__dirname, '..', 'docs', 'user-guide.html'),
     path.join(__dirname, '..', 'dist', 'friendly-task-reminder', 'browser', 'user-guide.html'),
     path.join(process.resourcesPath, 'docs', 'user-guide.html'),
-    path.join(process.resourcesPath, 'dist', 'friendly-task-reminder', 'browser', 'user-guide.html'),
+    path.join(
+      process.resourcesPath,
+      'dist',
+      'friendly-task-reminder',
+      'browser',
+      'user-guide.html',
+    ),
   ];
 
   return candidates.find((candidate) => {
@@ -255,6 +366,7 @@ function createStickyWindow(alwaysOnTop, color) {
     stickyWindow.setBackgroundColor(stickyColorValue(color));
     stickyWindow.setIgnoreMouseEvents(false);
     stickyWindow.show();
+    updateTrayMenu();
     return stickyWindow;
   }
 
@@ -284,7 +396,10 @@ function createStickyWindow(alwaysOnTop, color) {
 
   stickyWindow.on('closed', () => {
     stickyWindow = undefined;
+    updateTrayMenu();
   });
+  stickyWindow.on('hide', updateTrayMenu);
+  stickyWindow.on('show', updateTrayMenu);
   loadRenderer(stickyWindow, 'sticky');
   if (appIconPath) {
     stickyWindow.setIcon(appIconPath);
@@ -292,8 +407,7 @@ function createStickyWindow(alwaysOnTop, color) {
 
   if (isSmokeTest) {
     stickyWindow.webContents.once('did-finish-load', () => {
-      stickyWindow.close();
-      app.quit();
+      quitTimeAssistant();
     });
   }
 
@@ -383,36 +497,32 @@ ipcMain.handle('assistant-time:minimize-sticky-window', () => {
   return true;
 });
 
+ipcMain.handle('assistant-time:hide-sticky-window', () => {
+  const hidden = hideStickyWindow(() => stickyWindow);
+  updateTrayMenu();
+  return hidden;
+});
+
+ipcMain.handle('assistant-time:get-main-window-maximized', () =>
+  getMainWindowMaximized(() => mainWindow),
+);
+
+ipcMain.handle('assistant-time:toggle-main-window-maximized', () =>
+  toggleMainWindowMaximized(() => mainWindow),
+);
+
 ipcMain.handle('assistant-time:get-start-at-login', () => startupLogin.getStartAtLogin());
 
 ipcMain.handle('assistant-time:set-start-at-login', (_event, enabled) =>
   startupLogin.setStartAtLogin(enabled),
 );
 
-ipcMain.handle('assistant-time:close-app', () => {
-  app.quit();
-  return true;
-});
-
 ipcMain.handle('assistant-time:open-user-guide', () => openGuideWindow());
 
-ipcMain.handle('assistant-time:close-main-window', () => {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return false;
-  }
-
-  mainWindow.close();
-  return true;
-});
+ipcMain.handle('assistant-time:close-main-window', () => closeMainWindow(() => mainWindow));
 
 ipcMain.handle('assistant-time:focus-main-window', () => {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    createMainWindow();
-  }
-
-  mainWindow.show();
-  mainWindow.focus();
-  return true;
+  return openTimeAssistant();
 });
 
 ipcMain.handle('assistant-time:notify', (_event, payload) => {
@@ -501,17 +611,16 @@ ipcMain.handle('assistant-time:open-text-file', async () => {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  createTray();
   createStickyWindow(true, 'yellow');
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createStickyWindow(true, 'yellow');
-    }
+    openTimeAssistant();
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+  if (isSmokeTest) {
+    quitTimeAssistant();
   }
 });

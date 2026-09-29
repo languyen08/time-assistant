@@ -60,7 +60,14 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Current BrowserWindow types are main, sticky-note, and user-guide windows.
 - Electron main owns Windows startup-at-login configuration through narrow preload/IPC methods.
 - Windows login-item state is authoritative; do not persist a duplicate startup boolean in IndexedDB.
-- There is no tray or independent main-process reminder scheduler.
+- Electron main owns the native Tray and BrowserWindow lifecycle. The Tray keeps the process
+  available while the Sticky Note is temporarily hidden.
+- Main application X closes only the Main window. Sticky Note and Tray continue independently.
+- Tray icon click restores/focuses Sticky Note only. Tray Open Time Assistant opens/focuses Main.
+- Tray Quit destroys all windows and the Tray, then quits the process.
+- Sticky Note X temporarily hides its BrowserWindow without changing the persisted
+  `stickyNoteEnabled` setting.
+- There is no independent main-process reminder scheduler.
 - Each Angular renderer currently starts its own timer/reminder scheduler. Only task changes are synchronized with `BroadcastChannel`; treat reminder ownership and other cross-window state as unresolved technical debt.
 
 ## Coding Rules

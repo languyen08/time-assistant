@@ -2,10 +2,11 @@ import { StickyNoteColor } from './app-settings';
 
 export interface AssistantTimeApi {
   platform: string;
-  closeApp: () => Promise<boolean>;
   closeMainWindow?: () => Promise<boolean>;
   focusMainWindow: () => Promise<boolean>;
+  getMainWindowMaximized?: () => Promise<boolean>;
   getStartAtLogin?: () => Promise<boolean>;
+  hideStickyWindow?: () => Promise<boolean>;
   minimizeStickyWindow: () => Promise<boolean>;
   notify: (payload: { title: string; body: string }) => Promise<boolean>;
   openUserGuide?: () => Promise<boolean>;
@@ -26,6 +27,8 @@ export interface AssistantTimeApi {
     alwaysOnTop: boolean;
     color: StickyNoteColor;
   }) => Promise<boolean>;
+  toggleMainWindowMaximized?: () => Promise<boolean>;
+  onMainWindowMaximizedChanged?: (callback: (maximized: boolean) => void) => () => void;
 }
 
 export interface FileDialogFilter {

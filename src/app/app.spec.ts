@@ -29,8 +29,10 @@ function createAssistantTimeApi(
 ): NonNullable<Window['assistantTime']> {
   return {
     platform: 'win32',
-    closeApp: vi.fn().mockResolvedValue(true),
+    closeMainWindow: vi.fn().mockResolvedValue(true),
+    hideStickyWindow: vi.fn().mockResolvedValue(true),
     focusMainWindow: vi.fn().mockResolvedValue(true),
+    getMainWindowMaximized: vi.fn().mockResolvedValue(false),
     minimizeStickyWindow: vi.fn().mockResolvedValue(true),
     notify: vi.fn().mockResolvedValue(true),
     openTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
@@ -127,38 +129,100 @@ describe('App', () => {
     expect(app.historyClearModalOpen()).toBe(false);
   });
 
-  it('should render a close button beside settings in Electron mode and wire it', async () => {
-    const closeMainWindow = vi.fn().mockResolvedValue(true);
-    window.assistantTime = {
-      platform: 'win32',
-      closeApp: vi.fn().mockResolvedValue(true),
-      closeMainWindow,
-      focusMainWindow: vi.fn().mockResolvedValue(true),
-      minimizeStickyWindow: vi.fn().mockResolvedValue(true),
-      notify: vi.fn().mockResolvedValue(true),
-      openTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
-      setReminderOverlayState: vi.fn().mockResolvedValue(true),
-      saveTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
-      resizeStickyWindow: vi.fn().mockResolvedValue(true),
-      setStickyWindow: vi.fn().mockResolvedValue(true),
-    };
+  it('should render maximize between Settings and Close and call the narrow bridge', async () => {
+    const toggleMainWindowMaximized = vi.fn().mockResolvedValue(true);
+    window.assistantTime = createAssistantTimeApi({ toggleMainWindowMaximized });
 
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
-    const closeSpy = vi.spyOn(app, 'closeMainWindow').mockResolvedValue();
     app.loading.set(true);
-
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(
+      host.querySelectorAll<HTMLButtonElement>('.topbar .nav-tabs button'),
+    );
+    const maximizeButton = host.querySelector<HTMLButtonElement>(
+      '[data-testid="main-window-maximize-toggle"]',
+    );
     const closeButton = host.querySelector<HTMLButtonElement>(
       '.topbar .nav-tabs button[aria-label="Close main window"]',
     );
 
-    expect(closeButton).not.toBeNull();
-    closeButton!.click();
+    expect(buttons[0]?.textContent?.trim()).toBe('CSV');
+    expect(buttons[1]?.textContent?.trim()).toBe('Settings');
+    expect(buttons[2]).toBe(maximizeButton);
+    expect(buttons[3]).toBe(closeButton);
+    expect(maximizeButton?.getAttribute('aria-label')).toBe('Maximize window');
 
-    expect(closeSpy).toHaveBeenCalledTimes(1);
+    maximizeButton!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(toggleMainWindowMaximized).toHaveBeenCalledOnce();
+    expect(maximizeButton?.getAttribute('aria-label')).toBe('Restore window');
+  });
+
+  it('should use the narrow close-main-only bridge from the main X', async () => {
+    const closeMainWindow = vi.fn().mockResolvedValue(true);
+    window.assistantTime = createAssistantTimeApi({ closeMainWindow });
+    const fixture = TestBed.createComponent(App);
+    fixture.componentInstance.loading.set(true);
+    fixture.detectChanges();
+
+    const closeButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.topbar .nav-tabs button[aria-label="Close main window"]',
+    );
+    closeButton?.click();
+    await fixture.whenStable();
+
+    expect(closeMainWindow).toHaveBeenCalledOnce();
+  });
+
+  it('should follow maximize state changes reported by Electron', async () => {
+    let maximizeListener: ((maximized: boolean) => void) | undefined;
+    const removeListener = vi.fn();
+    window.assistantTime = createAssistantTimeApi({
+      onMainWindowMaximizedChanged: vi.fn((callback) => {
+        maximizeListener = callback;
+        return removeListener;
+      }),
+    });
+
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    maximizeListener?.(true);
+    fixture.detectChanges();
+
+    const maximizeButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '[data-testid="main-window-maximize-toggle"]',
+    );
+    expect(maximizeButton?.getAttribute('aria-label')).toBe('Restore window');
+
+    fixture.destroy();
+    expect(removeListener).toHaveBeenCalledOnce();
+  });
+
+  it('should toggle on title-bar double click but ignore interactive controls', () => {
+    window.assistantTime = createAssistantTimeApi();
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const toggleSpy = vi.spyOn(app, 'toggleMainWindowMaximized').mockResolvedValue();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    host
+      .querySelector<HTMLElement>('.topbar')
+      ?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    host
+      .querySelector<HTMLButtonElement>('.topbar .nav-tabs button')
+      ?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+
+    expect(toggleSpy).toHaveBeenCalledTimes(1);
   });
 
   it('should show the confirmed Windows startup state in the Startup card', async () => {
@@ -421,7 +485,7 @@ describe('App', () => {
     const resizeStickyWindow = vi.fn().mockResolvedValue(true);
     window.assistantTime = {
       platform: 'win32',
-      closeApp: vi.fn().mockResolvedValue(true),
+      hideStickyWindow: vi.fn().mockResolvedValue(true),
       focusMainWindow: vi.fn().mockResolvedValue(true),
       minimizeStickyWindow: vi.fn().mockResolvedValue(true),
       notify: vi.fn().mockResolvedValue(true),
@@ -487,7 +551,7 @@ describe('App', () => {
     const resizeStickyWindow = vi.fn().mockResolvedValue(true);
     window.assistantTime = {
       platform: 'win32',
-      closeApp: vi.fn().mockResolvedValue(true),
+      hideStickyWindow: vi.fn().mockResolvedValue(true),
       focusMainWindow: vi.fn().mockResolvedValue(true),
       minimizeStickyWindow: vi.fn().mockResolvedValue(true),
       notify: vi.fn().mockResolvedValue(true),
@@ -558,7 +622,7 @@ describe('App', () => {
     const setStickyWindow = vi.fn().mockResolvedValue(true);
     window.assistantTime = {
       platform: 'win32',
-      closeApp: vi.fn().mockResolvedValue(true),
+      hideStickyWindow: vi.fn().mockResolvedValue(true),
       focusMainWindow: vi.fn().mockResolvedValue(true),
       minimizeStickyWindow: vi.fn().mockResolvedValue(true),
       notify: vi.fn().mockResolvedValue(true),
@@ -590,7 +654,7 @@ describe('App', () => {
     const setReminderOverlayState = vi.fn().mockResolvedValue(true);
     window.assistantTime = {
       platform: 'win32',
-      closeApp: vi.fn().mockResolvedValue(true),
+      hideStickyWindow: vi.fn().mockResolvedValue(true),
       focusMainWindow: vi.fn().mockResolvedValue(true),
       minimizeStickyWindow: vi.fn().mockResolvedValue(true),
       notify: vi.fn().mockResolvedValue(true),
@@ -624,7 +688,7 @@ describe('App', () => {
     const setReminderOverlayState = vi.fn().mockResolvedValue(true);
     window.assistantTime = {
       platform: 'win32',
-      closeApp: vi.fn().mockResolvedValue(true),
+      hideStickyWindow: vi.fn().mockResolvedValue(true),
       focusMainWindow: vi.fn().mockResolvedValue(true),
       minimizeStickyWindow: vi.fn().mockResolvedValue(true),
       notify: vi.fn().mockResolvedValue(true),
@@ -727,6 +791,23 @@ describe('App', () => {
     guideButton!.click();
 
     expect(guideSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should hide Sticky Note without changing its enabled setting', async () => {
+    const hideStickyWindow = vi.fn().mockResolvedValue(true);
+    window.assistantTime = createAssistantTimeApi({ hideStickyWindow });
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.settingsService.settings.update((settings) => ({
+      ...settings,
+      stickyNoteEnabled: true,
+    }));
+
+    expect(app.settingsService.settings().stickyNoteEnabled).toBe(true);
+    await app.closeStickyWindow();
+
+    expect(hideStickyWindow).toHaveBeenCalledOnce();
+    expect(app.settingsService.settings().stickyNoteEnabled).toBe(true);
   });
 
   it('should keep the full app reminder actions unchanged', async () => {
@@ -903,7 +984,7 @@ describe('App', () => {
     const resizeStickyWindow = vi.fn().mockResolvedValue(true);
     window.assistantTime = {
       platform: 'win32',
-      closeApp: vi.fn().mockResolvedValue(true),
+      hideStickyWindow: vi.fn().mockResolvedValue(true),
       focusMainWindow: vi.fn().mockResolvedValue(true),
       minimizeStickyWindow: vi.fn().mockResolvedValue(true),
       notify: vi.fn().mockResolvedValue(true),
