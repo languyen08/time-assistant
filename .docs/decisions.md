@@ -280,5 +280,18 @@ Consequences:
 - The application retains one additional hidden renderer/process.
 - Main and Sticky still each own the existing reminder scheduler, so the duplicate reminder race
   remains technical debt.
-- This ADR establishes ownership only; automatic starts, retries, concurrent tasks, and deadlines
-  are not implemented.
+- The ADR originally established ownership only; the Phase 2.2 implementation below adds automatic
+  starts and retries without changing that ownership decision.
+
+Phase 2.2 implementation note:
+- The Scheduler now runs `AutomaticTaskSchedulerService` as the sole automatic-start owner.
+- `reminderAt` remains the user-authored scheduled Start time, while optional `nextAutoStartAt`
+  stores system-managed 30-minute retry state.
+- Main and Sticky publish source-qualified break state through
+  `friendly-task-reminder-break`; `prompt` and `running` block automatic starts without advancing
+  retry state.
+- Scheduler retains a running session's ID and absolute end time after its source closes, until
+  expiry or an explicit terminal transition. This is process-memory coordination, not general
+  BreakSession persistence.
+- Concurrent tasks and deadlines remain unimplemented, and reminder scheduling remains owned by
+  the visible renderers.

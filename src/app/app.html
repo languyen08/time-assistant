@@ -1494,7 +1494,10 @@
               <div class="sticky-task-copy">
                 <p class="task-label">In focus</p>
                 <h2>No active task</h2>
-                <p class="sticky-next-empty">Open the full app and start a task when ready.</p>
+                <p class="sticky-next-empty">
+                  Tasks will start automatically when scheduled. Open the full app to create a
+                  task or start one early.
+                </p>
               </div>
             </article>
           }
@@ -1797,7 +1800,8 @@
                 "
               >
                 <p style="color: #65573a; font-size: 1rem; line-height: 1.55">
-                  Open the full app and start a task when ready.
+                  Tasks will start automatically when scheduled. Open the full app to create a
+                  task or start one early.
                 </p>
               </div>
             }
@@ -1905,7 +1909,7 @@
                     Your task tray is empty
                   </h3>
                   <p style="margin-top: auto; color: #6b5b84; line-height: 1.55">
-                    Create a task with a reminder time to begin.
+                    Create a task with a Start time to begin.
                   </p>
                 </div>
               </div>
@@ -1930,9 +1934,14 @@
                         <span class="task-meta" style="color: #7a6a95; font-size: 0.82rem">{{
                           task.category || 'Unsorted'
                         }}</span>
-                        <span class="task-meta" style="color: #7a6a95; font-size: 0.82rem">{{
-                          task.reminderAt | date: 'short'
-                        }}</span>
+                        <span class="task-meta" style="color: #7a6a95; font-size: 0.82rem">
+                          Start time: {{ task.reminderAt | date: 'short' }}
+                        </span>
+                        @if (task.nextAutoStartAt && task.nextAutoStartAt !== task.reminderAt) {
+                          <span class="task-meta" style="color: #7a6a95; font-size: 0.82rem">
+                            Next auto-start attempt: {{ task.nextAutoStartAt | date: 'short' }}
+                          </span>
+                        }
                       </div>
                       <div class="task-actions">
                         <button
@@ -1947,7 +1956,7 @@
                             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
                           "
                         >
-                          Start
+                          Start now
                         </button>
                         <button
                           type="button"
@@ -2171,7 +2180,7 @@
                 [class.field-invalid]="controlInvalid('reminderAt')"
                 style="gap: 8px; color: #556243; font-size: 0.9rem"
               >
-                <span>Reminder time</span>
+                <span>Start time</span>
                 <input
                   type="datetime-local"
                   formControlName="reminderAt"
@@ -2193,7 +2202,7 @@
                 />
                 @if (controlError('reminderAt', 'required')) {
                   <small id="reminder-time-error" class="field-error">
-                    Reminder time is required.
+                    Start time is required.
                   </small>
                 }
               </label>
@@ -3889,39 +3898,25 @@
           </header>
 
           <div class="break-complete-copy">
-            <h2 id="break-complete-title">Ready for the next task?</h2>
-            @if (breakNextTaskCandidate(); as nextTask) {
-              <p class="break-complete-task">{{ nextTask.name }}</p>
-              <button
-                type="button"
-                class="primary-button settings-action-button break-complete-start"
-                (click)="startNextTask()"
-              >
-                <span class="break-complete-start-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
-                    <path
-                      d="m9 7.75 7 4.25-7 4.25V7.75Z"
-                      fill="currentColor"
-                      stroke="currentColor"
-                      stroke-width="1.2"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </span>
-                <span>Start next task</span>
-              </button>
+            <h2 id="break-complete-title">Break complete</h2>
+            @if (currentTask(); as focusedTask) {
+              <p class="break-complete-task">"{{ focusedTask.name }}" is now in focus.</p>
+            } @else if (nextTaskCandidate()) {
+              <p class="break-complete-task">
+                The next task will start automatically when it is due.
+              </p>
             } @else {
               <p class="break-complete-task break-complete-task-empty">
                 No queued task is waiting right now.
               </p>
-              <button
-                type="button"
-                class="secondary-button settings-action-button break-complete-dismiss"
-                (click)="breakService.reset()"
-              >
-                Close
-              </button>
             }
+            <button
+              type="button"
+              class="secondary-button settings-action-button break-complete-dismiss"
+              (click)="breakService.reset()"
+            >
+              Close
+            </button>
           </div>
         </article>
       </section>

@@ -336,16 +336,19 @@ Goal: add optional convenience features and polish after the core app is stable.
     `stickyNoteEnabled`.
   - [x] Preserve deterministic smoke-test shutdown and Windows startup-at-login behavior.
 - [ ] Phase 2 — Automatic and concurrent task lifecycle.
-  - [x] Establish one dedicated hidden Scheduler renderer as the sole owner for future automatic
+  - [x] Establish one dedicated hidden Scheduler renderer as the sole owner for automatic
     task lifecycle scheduling.
-  - [ ] Automatically start tasks at their scheduled reminder time.
+  - [x] Automatically start tasks at their scheduled Start time.
+  - [x] Coordinate break prompt/running state across visible renderers and reevaluate when breaks
+    unblock scheduling.
   - [ ] Support per-task concurrent start / multiple active tasks.
-  - [ ] Repeated +30 minute blocked auto-start.
+  - [x] Reschedule blocked automatic starts in repeated 30-minute increments.
   - [ ] Finish-by/deadline + custom message.
 - [ ] Complete accessibility verification, including keyboard navigation, contrast, and reduced-motion behavior.
 - [ ] Add the missing Playwright coverage for add-more-time and pause/resume.
 - [ ] Decide whether to introduce semantic linting or rename the current Prettier-only `lint` command.
 - [ ] Establish reliable multi-window reminder ownership/synchronization and eliminate the potential duplicate-processing race.
-- [ ] Decide whether live break sessions must persist across renderer reload/exit; document and test the chosen behavior.
+- [ ] Decide whether full live break-session UI must persist across renderer reload/exit. Scheduler
+  already retains only the process-lifetime running-break block required for automatic scheduling.
 - [ ] Record settings changes in history or remove the unused `settings_changed` event type through an explicit product decision.
 - [ ] Decide how ignored `.docs` files are versioned or distributed so canonical documentation changes remain recoverable.

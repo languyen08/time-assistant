@@ -69,8 +69,17 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
   `stickyNoteEnabled` setting.
 - There is no independent main-process reminder scheduler.
 - Each Angular renderer currently starts its own timer/reminder scheduler. Only task changes are synchronized with `BroadcastChannel`; treat reminder ownership and other cross-window state as unresolved technical debt.
-- Only the dedicated Scheduler renderer may own future automatic task lifecycle scheduling. Main
+- Only the dedicated Scheduler renderer may own automatic task lifecycle scheduling. Main
   and Sticky renderers must not independently start automatic-task scheduling loops.
+- The dedicated Scheduler renderer is the sole owner of automatic task starts and blocked retry
+  scheduling. `reminderAt` remains the persisted, user-authored Start time for backward
+  compatibility; `nextAutoStartAt` is optional system-managed retry state.
+- Break `prompt` and `running` states block automatic starts. Main and Sticky publish their local
+  break state with unique source IDs over the `friendly-task-reminder-break` BroadcastChannel so
+  Scheduler can coordinate without persisting live break sessions.
+- Scheduler retains a confirmed running break's session ID and absolute end time for the Electron
+  process lifetime. Closing the originating BrowserWindow releases only its source, not the
+  running-break block. This does not persist or restore BreakSession UI across process exit.
 
 ## Coding Rules
 - Use Angular standalone components where appropriate.

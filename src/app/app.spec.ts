@@ -100,6 +100,11 @@ describe('App', () => {
     const historyLoad = vi.spyOn(app.historyService, 'load').mockResolvedValue();
     const timerStart = vi.spyOn(app.timerService, 'start');
     const reminderStart = vi.spyOn(app.reminderScheduler, 'start');
+    const automaticStart = vi
+      .spyOn(app.automaticTaskScheduler, 'start')
+      .mockImplementation(() => undefined);
+    const schedulerCoordinationStart = vi.spyOn(app.breakCoordination, 'startScheduler');
+    const visibleCoordinationStart = vi.spyOn(app.breakCoordination, 'startVisible');
     const historyMeasurement = vi.spyOn(
       app as unknown as { scheduleHistoryPageSizeMeasurement: () => void },
       'scheduleHistoryPageSizeMeasurement',
@@ -123,6 +128,9 @@ describe('App', () => {
     expect(historyLoad).not.toHaveBeenCalled();
     expect(timerStart).not.toHaveBeenCalled();
     expect(reminderStart).not.toHaveBeenCalled();
+    expect(automaticStart).toHaveBeenCalledOnce();
+    expect(schedulerCoordinationStart).toHaveBeenCalledOnce();
+    expect(visibleCoordinationStart).not.toHaveBeenCalled();
     expect(historyMeasurement).not.toHaveBeenCalled();
     expect(assistantTime.getMainWindowMaximized).not.toHaveBeenCalled();
     expect(assistantTime.getStartAtLogin).not.toHaveBeenCalled();
@@ -130,6 +138,7 @@ describe('App', () => {
     expect(assistantTime.setStickyWindow).not.toHaveBeenCalled();
     expect(assistantTime.setReminderOverlayState).not.toHaveBeenCalled();
     expect(assistantTime.resizeStickyWindow).not.toHaveBeenCalled();
+    fixture.destroy();
   });
 
   it.each(['main', 'sticky'] as const)(
@@ -145,6 +154,8 @@ describe('App', () => {
       const historyLoad = vi.spyOn(app.historyService, 'load').mockResolvedValue();
       const timerStart = vi.spyOn(app.timerService, 'start');
       const reminderStart = vi.spyOn(app.reminderScheduler, 'start');
+      const automaticStart = vi.spyOn(app.automaticTaskScheduler, 'start');
+      const visibleCoordinationStart = vi.spyOn(app.breakCoordination, 'startVisible');
 
       await app.ngOnInit();
 
@@ -154,6 +165,10 @@ describe('App', () => {
       expect(historyLoad).toHaveBeenCalledOnce();
       expect(timerStart).toHaveBeenCalledOnce();
       expect(reminderStart).toHaveBeenCalledOnce();
+      expect(automaticStart).not.toHaveBeenCalled();
+      expect(visibleCoordinationStart).toHaveBeenCalledWith('idle', {
+        sessionId: expect.any(String),
+      });
 
       fixture.destroy();
     },
@@ -164,6 +179,79 @@ describe('App', () => {
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('#app-title')?.textContent).toContain('Time Assistant');
+  });
+
+  it('should present scheduled task language and a deferred retry time', async () => {
+    vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.loading.set(false);
+    app.taskService.tasks.set([
+      pendingTask('task-1', 'Scheduled task', 0, {
+        nextAutoStartAt: '2026-05-30T11:00:00.000Z',
+      }),
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Start time');
+    expect(host.textContent).toContain('Start now');
+    expect(host.textContent).toContain('Next auto-start attempt:');
+  });
+
+  it('should describe automatic starts in the Sticky empty state', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.windowMode.set('sticky');
+    app.loading.set(false);
+    app.taskService.tasks.set([]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Tasks will start automatically when scheduled.',
+    );
+  });
+
+  it('should publish the break prompt before completing the active task', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.taskService.tasks.set([
+      pendingTask('task-1', 'Current task', 0, {
+        status: 'active',
+        activeStartedAt: '2026-05-30T10:00:00.000Z',
+      }),
+      pendingTask('task-2', 'Next task', 1),
+    ]);
+    const completeActive = vi
+      .spyOn(app.taskService, 'completeActive')
+      .mockImplementation(async () => {
+        expect(app.breakService.state()).toBe('prompt');
+        return true;
+      });
+
+    await app.completeActiveTask();
+
+    expect(completeActive).toHaveBeenCalledOnce();
+    expect(app.breakService.state()).toBe('prompt');
+  });
+
+  it('should make break completion informational instead of a manual start gate', async () => {
+    vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.loading.set(false);
+    app.taskService.tasks.set([pendingTask('task-2', 'Next task', 0)]);
+    app.breakService.session.update((session) => ({ ...session, state: 'complete' }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const modal = (fixture.nativeElement as HTMLElement).querySelector('.break-complete-modal');
+    expect(modal?.textContent).toContain('Break complete');
+    expect(modal?.textContent).toContain('The next task will start automatically when it is due.');
+    expect(modal?.textContent).toContain('Close');
+    expect(modal?.textContent).not.toContain('Start next task');
   });
 
   it('should open a confirmation modal and clear history from the header action', async () => {

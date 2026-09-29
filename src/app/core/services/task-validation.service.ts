@@ -17,9 +17,9 @@ export class TaskValidationService {
 
     const reminderDate = new Date(draft.reminderAt);
     if (Number.isNaN(reminderDate.getTime())) {
-      errors.push('Reminder time must be a valid date and time.');
+      errors.push('Start time must be a valid date and time.');
     } else if (reminderDate.getTime() <= now.getTime()) {
-      errors.push('Reminder time must be in the future.');
+      errors.push('Start time must be in the future.');
     }
 
     if (

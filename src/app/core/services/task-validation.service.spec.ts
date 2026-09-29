@@ -34,10 +34,10 @@ describe('TaskValidationService', () => {
     expect(result.errors).toContain('Task name is required.');
   });
 
-  it('requires a future reminder time', () => {
+  it('requires a future Start time', () => {
     const result = service.validate(draft({ reminderAt: '2026-05-30T09:59:00.000Z' }), now);
 
     expect(result.valid).toBe(false);
-    expect(result.errors).toContain('Reminder time must be in the future.');
+    expect(result.errors).toContain('Start time must be in the future.');
   });
 });

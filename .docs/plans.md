@@ -24,13 +24,14 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 1. User creates tasks with:
    - task name
-   - reminder deadline/time
+   - Start time
    - number of reminder attempts
    - repeat interval between reminders
    - optional category/note
    - optional custom reminder messages as target behavior; the current implementation uses a built-in friendly message pool
 
-2. User starts a task.
+2. The task starts automatically when its Start time arrives. The user may choose **Start now** to
+   begin it early.
 
 3. App shows the active task in the main window and optional sticky-note mode.
 
@@ -41,10 +42,14 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
    - **Pause task**: temporarily stop the task because the user is away.
    - **Task completed**: finish current task and prepare the next task.
 
-6. Before starting the next task, the app asks:
+6. After task completion, the app asks:
    - "Do you want a break before the next task?"
    - Default break duration: 10 minutes.
-   - User can change duration, skip break, or start immediately.
+   - User can change duration or skip the break.
+   - A break prompt or running break blocks automatic task starts.
+   - Closing the window that started a running break does not cancel its automatic-scheduling
+     block; Scheduler retains it until its end time or an explicit stop/completion transition.
+   - When the break ends or is skipped, overdue work is reevaluated automatically.
 
 7. App logs every important action for history and charts.
 
@@ -105,13 +110,17 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 ### Automatic Task Lifecycle Architecture Foundation
 
-- Keep one hidden, process-lifetime Scheduler Angular renderer as the sole owner for future
-  automatic task lifecycle scheduling.
+- Keep one hidden, process-lifetime Scheduler Angular renderer as the sole owner for automatic task
+  lifecycle scheduling.
 - Reuse the current local IndexedDB task repository from that renderer without changing storage
   technology or adding a backend.
-- Keep Main and Sticky as presentation/action clients for future automatic scheduling.
-- This foundation does not implement automatic starts, postponement, concurrent tasks, or
-  deadlines. Existing reminder scheduling remains in the visible renderers for now.
+- Automatically start the first due pending task by queue order when no task or break blocks it.
+- Reattempt blocked starts in 30-minute increments while an active or paused task exists, while
+  starting overdue work immediately if that blocker disappears early.
+- Coordinate renderer-local break state through BroadcastChannel; prompt and running states block
+  without advancing retry time.
+- Keep Main and Sticky as presentation/action clients. Concurrent tasks and deadlines remain
+  deferred. Existing reminder scheduling remains in the visible renderers for now.
 
 ### Pause / Resume
 
@@ -127,7 +136,7 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 - Default break duration: 10 minutes.
 - User can change the duration.
 - Break screen should be calm and lightweight.
-- After break ends, ask whether to start the next task.
+- After break ends, acknowledge completion and automatically reevaluate overdue scheduled tasks.
 
 ### Visual Theme
 

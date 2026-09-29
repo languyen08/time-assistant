@@ -17,6 +17,8 @@ import { StickyNoteColor } from './core/models/app-settings';
 import { StickyResizeReason } from './core/models/electron-api';
 import { Task, TaskDraft } from './core/models/task';
 import { BreakService } from './core/services/break.service';
+import { BreakCoordinationService } from './core/services/break-coordination.service';
+import { AutomaticTaskSchedulerService } from './core/services/automatic-task-scheduler.service';
 import { ChartSummaryService } from './core/services/chart-summary.service';
 import { CsvService } from './core/services/csv.service';
 import { ElectronBridgeService } from './core/services/electron-bridge.service';
@@ -76,6 +78,8 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly timerService = inject(TimerService);
   readonly reminderScheduler = inject(ReminderSchedulerService);
   readonly breakService = inject(BreakService);
+  readonly breakCoordination = inject(BreakCoordinationService);
+  readonly automaticTaskScheduler = inject(AutomaticTaskSchedulerService);
   readonly notificationService = inject(NotificationService);
   private readonly chartSummary = inject(ChartSummaryService);
   private readonly csv = inject(CsvService);
@@ -381,8 +385,14 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     try {
       if (this.isSchedulerMode()) {
         await this.taskService.load();
+        this.breakCoordination.startScheduler();
+        this.automaticTaskScheduler.start();
         return;
       }
+
+      this.breakCoordination.startVisible(this.breakService.state(), {
+        sessionId: this.breakService.session().id,
+      });
 
       if (!this.isStickyMode() && this.electron.isElectron) {
         this.removeMainWindowMaximizedListener = this.electron.onMainWindowMaximizedChanged(
@@ -431,6 +441,8 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     this.teardownStickyResizeObserver();
     this.timerService.stop();
     this.reminderScheduler.stop();
+    this.automaticTaskScheduler.stop();
+    this.breakCoordination.stop();
     this.cancelStickyResizeFrames();
     this.removeMainWindowMaximizedListener?.();
     this.removeMainWindowMaximizedListener = undefined;
@@ -492,12 +504,20 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   async completeActiveTask(): Promise<void> {
     const task = this.currentTask();
-    await this.taskService.completeActive();
-    this.reminderScheduler.dismiss();
-    if (task) {
-      this.breakService.prompt(this.settingsService.settings().defaultBreakMinutes);
-      this.breakMinutes.set(this.settingsService.settings().defaultBreakMinutes);
+    if (!task) {
+      return;
     }
+
+    const defaultBreakMinutes = this.settingsService.settings().defaultBreakMinutes;
+    this.breakService.prompt(defaultBreakMinutes);
+    const completed = await this.taskService.completeActive();
+    if (!completed) {
+      this.breakService.reset();
+      return;
+    }
+
+    this.reminderScheduler.dismiss();
+    this.breakMinutes.set(defaultBreakMinutes);
   }
 
   async addReminderTime(): Promise<void> {

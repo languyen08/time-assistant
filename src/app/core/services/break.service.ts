@@ -4,6 +4,7 @@ import { createId, nowIso } from '../utils/date-time.util';
 import { HistoryService } from './history.service';
 import { NotificationService } from './notification.service';
 import { SettingsService } from './settings.service';
+import { BreakCoordinationService } from './break-coordination.service';
 
 export type BreakState = 'idle' | 'prompt' | 'running' | 'complete';
 
@@ -20,6 +21,7 @@ export class BreakService {
   private readonly history = inject(HistoryService);
   private readonly notifications = inject(NotificationService);
   private readonly settings = inject(SettingsService);
+  private readonly coordination = inject(BreakCoordinationService);
   readonly session = signal<BreakSession>({
     id: createId('break'),
     durationMinutes: 10,
@@ -38,18 +40,22 @@ export class BreakService {
       remainingSeconds: defaultMinutes * 60,
       state: 'prompt',
     });
+    this.coordination.publish('prompt', { sessionId: this.session().id });
   }
 
   async start(durationMinutes: number): Promise<void> {
     const safeMinutes = Math.max(1, Math.floor(durationMinutes));
     this.stopTimer();
+    const startedAt = nowIso();
+    const endsAt = new Date(new Date(startedAt).getTime() + safeMinutes * 60_000).toISOString();
     this.session.set({
       id: this.session().id,
-      startedAt: nowIso(),
+      startedAt,
       durationMinutes: safeMinutes,
       remainingSeconds: safeMinutes * 60,
       state: 'running',
     });
+    this.coordination.publish('running', { sessionId: this.session().id, endsAt });
     try {
       await this.history.record(
         'break_started',
@@ -69,6 +75,7 @@ export class BreakService {
   async skip(): Promise<void> {
     this.stopTimer();
     this.session.update((session) => ({ ...session, state: 'idle', remainingSeconds: 0 }));
+    this.coordination.publish('idle', { sessionId: this.session().id });
     try {
       await this.history.record('break_skipped', 'Skipped the break.');
       this.errorMessage.set('');
@@ -80,19 +87,19 @@ export class BreakService {
   async stopEarly(): Promise<void> {
     this.stopTimer();
     this.session.update((session) => ({ ...session, state: 'idle', remainingSeconds: 0 }));
+    this.coordination.publish('idle', { sessionId: this.session().id });
     try {
       await this.history.record('break_skipped', 'Break stopped early.');
       this.errorMessage.set('');
     } catch (error) {
-      this.errorMessage.set(
-        toFriendlyErrorMessage(error, 'Break stop could not be saved.'),
-      );
+      this.errorMessage.set(toFriendlyErrorMessage(error, 'Break stop could not be saved.'));
     }
   }
 
   async complete(): Promise<void> {
     this.stopTimer();
     this.session.update((session) => ({ ...session, state: 'complete', remainingSeconds: 0 }));
+    this.coordination.publish('complete', { sessionId: this.session().id });
     try {
       await this.history.record('break_completed', 'Completed the break.');
       await this.notifications.showBreakComplete(this.settings.settings());
@@ -104,12 +111,14 @@ export class BreakService {
 
   reset(): void {
     this.stopTimer();
+    const completedSessionId = this.session().id;
     this.session.set({
       id: createId('break'),
       durationMinutes: 10,
       remainingSeconds: 600,
       state: 'idle',
     });
+    this.coordination.publish('idle', { sessionId: completedSessionId });
   }
 
   private tick(): void {

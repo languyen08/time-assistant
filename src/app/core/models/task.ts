@@ -17,6 +17,7 @@ export interface Task {
   pausedRemainingSeconds?: number;
   totalPausedSeconds: number;
   completedAt?: string;
+  nextAutoStartAt?: string;
   nextReminderAt?: string;
   reminderAttemptsShown: number;
 }

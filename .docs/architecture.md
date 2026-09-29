@@ -33,10 +33,12 @@ Packaging and release use Electron Builder exclusively; see accepted ADR-012. Th
 Angular renderers
   |- Main: full user interface
   |- Sticky: compact user interface
-  |- Scheduler: hidden, authoritative owner for future automatic task lifecycle scheduling
+  |- Scheduler: hidden, authoritative owner for automatic task lifecycle scheduling
+  |    `- AutomaticTaskSchedulerService -> TaskService -> IndexedDB
   |- TimerService and ReminderSchedulerService in Main and Sticky
   |- repositories -> shared IndexedDB v2 environment
-  `- BroadcastChannel for task-change synchronization only
+  |- task-change BroadcastChannel
+  `- break BroadcastChannel with source-qualified Main/Sticky state
 
 Electron preload
   `- narrow window.assistantTime IPC bridge and main-window state event
@@ -185,7 +187,8 @@ Current background behavior:
   unmaximize state changes back to the main renderer so Angular does not infer native state.
 - No independent main-process timer or reminder scheduler is implemented.
 - Scheduler mode loads task state only. It does not start `TimerService`,
-  `ReminderSchedulerService`, native window synchronization, or UI measurement observers.
+  `ReminderSchedulerService`, native window synchronization, or UI measurement observers. It
+  starts only `AutomaticTaskSchedulerService` and break-state coordination.
 
 ## Local Storage
 
@@ -209,7 +212,9 @@ history
 
 Persisted state:
 
-- Task records include active/paused timing fields, next-reminder state, and reminder attempt count.
+- Task records include active/paused timing fields, next-reminder state, reminder attempt count,
+  the user-authored scheduled Start time in `reminderAt`, and optional internal automatic retry
+  state in `nextAutoStartAt`.
 - Settings and history events are stored in their own stores.
 
 Runtime-only or conceptual state:
@@ -264,10 +269,20 @@ Notification design:
 Current implementation:
 
 - Main and Sticky initialize their own `TimerService` and `ReminderSchedulerService`.
-- The hidden Scheduler renderer is the sole owner reserved for future automatic task lifecycle
-  scheduling, but no automatic-start loop is implemented yet.
+- The hidden Scheduler renderer is the sole owner of `AutomaticTaskSchedulerService`. It starts one
+  due task by queue order, or advances due retries by 30-minute increments while an active/paused
+  task blocks them.
 - Task mutations broadcast `tasks-changed` through `BroadcastChannel`, causing other renderers to reload tasks from IndexedDB.
-- Settings, loaded history, break state, and active reminder-overlay state do not have comprehensive cross-window synchronization.
+- Main and Sticky publish their renderer-local break state with unique source IDs over
+  `friendly-task-reminder-break`; Scheduler blocks while any live source reports `prompt` or
+  `running`, requests state when it starts, and reevaluates when blocking ends. For a confirmed
+  running break, Scheduler also retains the session ID and absolute end time independently of the
+  source so closing Main or Sticky does not unblock scheduling. Prompt remains live-source scoped.
+- Retained running-break state is process-memory coordination only. It expires at its calculated
+  end or clears on an explicit terminal transition; full BreakSession UI restoration and
+  persistence across application exit remain unimplemented.
+- Settings, loaded history, and active reminder-overlay state do not have comprehensive
+  cross-window synchronization.
 
 Known limitation / technical debt:
 
@@ -279,17 +294,20 @@ Known limitation / technical debt:
 
 ```txt
 Task completed
-  -> History event saved
-  -> App asks whether to take a break
+  -> Break prompt is published before the active task is removed from storage
+  -> Task and history event are saved
+  -> App asks whether to take a break while Scheduler remains blocked
   -> Default break duration is loaded from settings
   -> User starts, changes, or skips break
   -> Break session is logged
-  -> After break, ask whether to start next task
+  -> After break, Scheduler reevaluates overdue tasks and the modal is informational
 ```
 
 Default break duration: 10 minutes.
 
-Break history events are persisted, but the live break countdown/session is memory-only and does not survive renderer shutdown or reload.
+Break history events are persisted. Scheduler retains only the minimum running-break block needed
+across visible renderer shutdown: session ID and end time. The full live countdown/session UI is
+still renderer-local and is not restored after renderer reload or application exit.
 
 ## Settings
 

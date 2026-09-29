@@ -3,6 +3,7 @@ export type HistoryEventType =
   | 'task_edited'
   | 'task_deleted'
   | 'task_started'
+  | 'auto_start_deferred'
   | 'reminder_shown'
   | 'extra_time_added'
   | 'task_paused'

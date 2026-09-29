@@ -97,6 +97,10 @@ export class TaskService {
       ...current,
       ...this.cleanDraft(draft),
       updatedAt: nowIso(),
+      nextAutoStartAt:
+        current.status === 'pending' && draft.reminderAt !== current.reminderAt
+          ? undefined
+          : current.nextAutoStartAt,
       nextReminderAt: current.status === 'active' ? draft.reminderAt : current.nextReminderAt,
     };
 
@@ -190,6 +194,7 @@ export class TaskService {
       pausedAt: undefined,
       pausedRemainingSeconds: undefined,
       totalPausedSeconds: 0,
+      nextAutoStartAt: undefined,
       nextReminderAt: task.reminderAt,
       reminderAttemptsShown: 0,
       updatedAt: startedAt,
@@ -204,10 +209,86 @@ export class TaskService {
     }
   }
 
-  async completeActive(): Promise<void> {
+  async startAutomatically(taskId: string, now: Date): Promise<boolean> {
+    if (this.currentTask()) {
+      return false;
+    }
+
+    const task = this.findTask(taskId);
+    if (!task || task.status !== 'pending') {
+      return false;
+    }
+
+    const startedAt = now.toISOString();
+    const updated: Task = {
+      ...task,
+      status: 'active',
+      activeStartedAt: startedAt,
+      pausedAt: undefined,
+      pausedRemainingSeconds: undefined,
+      totalPausedSeconds: 0,
+      nextAutoStartAt: undefined,
+      nextReminderAt: startedAt,
+      reminderAttemptsShown: 0,
+      updatedAt: startedAt,
+    };
+
+    try {
+      await this.saveAndReplace(updated);
+      await this.history.record(
+        'task_started',
+        `Automatically started "${updated.name}".`,
+        updated.id,
+        { source: 'automatic' },
+      );
+      this.errorMessage.set('');
+      return true;
+    } catch (error) {
+      this.captureError(error, 'Task could not be started automatically.');
+      return false;
+    }
+  }
+
+  async deferAutomaticStart(taskId: string, now: Date): Promise<boolean> {
+    const task = this.findTask(taskId);
+    if (!task || task.status !== 'pending') {
+      return false;
+    }
+
+    const effectiveAttempt = new Date(task.nextAutoStartAt ?? task.reminderAt).getTime();
+    if (!Number.isFinite(effectiveAttempt) || effectiveAttempt > now.getTime()) {
+      return false;
+    }
+
+    const increments = Math.floor((now.getTime() - effectiveAttempt) / (30 * 60_000)) + 1;
+    const minutes = increments * 30;
+    const retryAt = new Date(effectiveAttempt + minutes * 60_000).toISOString();
+    const updated: Task = {
+      ...task,
+      nextAutoStartAt: retryAt,
+      updatedAt: now.toISOString(),
+    };
+
+    try {
+      await this.saveAndReplace(updated);
+      await this.history.record(
+        'auto_start_deferred',
+        `Deferred automatic start for "${updated.name}" by ${minutes} minutes.`,
+        updated.id,
+        { minutes, retryAt },
+      );
+      this.errorMessage.set('');
+      return true;
+    } catch (error) {
+      this.captureError(error, 'Automatic start retry could not be saved.');
+      return false;
+    }
+  }
+
+  async completeActive(): Promise<boolean> {
     const task = this.currentTask();
     if (!task) {
-      return;
+      return false;
     }
 
     const completedAt = nowIso();
@@ -223,10 +304,18 @@ export class TaskService {
 
     try {
       await this.saveAndReplace(completed);
-      await this.history.record('task_completed', `Completed "${completed.name}".`, completed.id);
     } catch (error) {
       this.captureError(error, 'Task could not be completed.');
+      return false;
     }
+
+    try {
+      await this.history.record('task_completed', `Completed "${completed.name}".`, completed.id);
+      this.errorMessage.set('');
+    } catch (error) {
+      this.captureError(error, 'The task was completed, but its history could not be saved.');
+    }
+    return true;
   }
 
   async addTimeToActive(minutes: number, now = new Date()): Promise<void> {
@@ -253,7 +342,7 @@ export class TaskService {
     const updated: Task = {
       ...task,
       status: task.status,
-      reminderAt: nextReminderAt ?? task.reminderAt,
+      reminderAt: task.reminderAt,
       nextReminderAt,
       pausedRemainingSeconds,
       updatedAt: nowIso(),
