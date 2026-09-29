@@ -33,6 +33,13 @@ import {
 } from './core/utils/date-time.util';
 import { TaskActionButtonsComponent } from './shared/components/task-action-buttons.component';
 
+export type AppWindowMode = 'main' | 'sticky' | 'scheduler';
+
+export function appWindowMode(search: string): AppWindowMode {
+  const mode = new URLSearchParams(search).get('window');
+  return mode === 'sticky' || mode === 'scheduler' ? mode : 'main';
+}
+
 @Component({
   selector: 'app-root',
   imports: [
@@ -95,9 +102,9 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly breakMinutes = signal(10);
   readonly breakConflictTaskId = signal<string | undefined>(undefined);
   readonly deferredBreakTaskId = signal<string | undefined>(undefined);
-  readonly isStickyMode = signal(
-    new URLSearchParams(window.location.search).get('window') === 'sticky',
-  );
+  readonly windowMode = signal<AppWindowMode>(appWindowMode(window.location.search));
+  readonly isStickyMode = computed(() => this.windowMode() === 'sticky');
+  readonly isSchedulerMode = computed(() => this.windowMode() === 'scheduler');
   readonly isMainWindowMaximized = signal(false);
   readonly stickyNoteColor = computed(() => this.settingsService.settings().stickyNoteColor);
   readonly stickyVisibleNotes = computed(() =>
@@ -264,6 +271,10 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   constructor() {
     effect(() => {
+      if (this.isSchedulerMode()) {
+        return;
+      }
+
       const historyOpen = this.historyOpen();
       this.historyService.events().length;
       this.currentHistoryPage();
@@ -289,6 +300,10 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     });
 
     effect(() => {
+      if (this.isSchedulerMode()) {
+        return;
+      }
+
       const reminder = this.reminderScheduler.activeReminder();
       const settings = this.settingsService.settings();
       if (this.electron.isElectron) {
@@ -364,6 +379,11 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   async ngOnInit(): Promise<void> {
     try {
+      if (this.isSchedulerMode()) {
+        await this.taskService.load();
+        return;
+      }
+
       if (!this.isStickyMode() && this.electron.isElectron) {
         this.removeMainWindowMaximizedListener = this.electron.onMainWindowMaximizedChanged(
           (maximized) => this.isMainWindowMaximized.set(maximized),
@@ -396,6 +416,10 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+    if (this.isSchedulerMode()) {
+      return;
+    }
+
     this.scheduleHistoryPageSizeMeasurement();
   }
 

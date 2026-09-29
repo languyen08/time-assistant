@@ -79,6 +79,7 @@ describe('window lifecycle helpers', () => {
   it('Sticky X hides Sticky without affecting Main, Tray, or app', () => {
     const stickyWindow = createWindow();
     const mainWindow = createWindow();
+    const schedulerWindow = createWindow();
     const electronApp = { quit: vi.fn() };
     const tray = { destroy: vi.fn(), isDestroyed: vi.fn(() => false) };
 
@@ -88,6 +89,7 @@ describe('window lifecycle helpers', () => {
     expect(stickyWindow.destroy).not.toHaveBeenCalled();
     expect(mainWindow.close).not.toHaveBeenCalled();
     expect(mainWindow.destroy).not.toHaveBeenCalled();
+    expect(schedulerWindow.destroy).not.toHaveBeenCalled();
     expect(tray.destroy).not.toHaveBeenCalled();
     expect(electronApp.quit).not.toHaveBeenCalled();
   });
@@ -128,6 +130,7 @@ describe('window lifecycle helpers', () => {
   it('Main X closes only Main while visible Sticky, Tray, and app remain', () => {
     const mainWindow = createWindow();
     const stickyWindow = createWindow({ isVisible: vi.fn(() => true) });
+    const schedulerWindow = createWindow();
     const electronApp = { quit: vi.fn() };
     const tray = { destroy: vi.fn(), isDestroyed: vi.fn(() => false) };
 
@@ -135,6 +138,7 @@ describe('window lifecycle helpers', () => {
     expect(mainWindow.close).toHaveBeenCalledOnce();
     expect(stickyWindow.hide).not.toHaveBeenCalled();
     expect(stickyWindow.destroy).not.toHaveBeenCalled();
+    expect(schedulerWindow.destroy).not.toHaveBeenCalled();
     expect(tray.destroy).not.toHaveBeenCalled();
     expect(electronApp.quit).not.toHaveBeenCalled();
   });
@@ -142,6 +146,7 @@ describe('window lifecycle helpers', () => {
   it('Main X closes only Main while hidden Sticky, Tray, and app remain', () => {
     const mainWindow = createWindow();
     const stickyWindow = createWindow({ isVisible: vi.fn(() => false) });
+    const schedulerWindow = createWindow();
     const electronApp = { quit: vi.fn() };
     const tray = { destroy: vi.fn(), isDestroyed: vi.fn(() => false) };
 
@@ -150,6 +155,7 @@ describe('window lifecycle helpers', () => {
     expect(stickyWindow.show).not.toHaveBeenCalled();
     expect(stickyWindow.hide).not.toHaveBeenCalled();
     expect(stickyWindow.destroy).not.toHaveBeenCalled();
+    expect(schedulerWindow.destroy).not.toHaveBeenCalled();
     expect(tray.destroy).not.toHaveBeenCalled();
     expect(electronApp.quit).not.toHaveBeenCalled();
   });
@@ -158,19 +164,21 @@ describe('window lifecycle helpers', () => {
     const mainWindow = createWindow();
     const stickyWindow = createWindow();
     const guideWindow = createWindow();
+    const schedulerWindow = createWindow();
     const tray = { destroy: vi.fn(), isDestroyed: vi.fn(() => false) };
     const electronApp = { quit: vi.fn() };
 
     expect(
       quitApplication({
         electronApp,
-        getWindows: () => [mainWindow, stickyWindow, guideWindow],
+        getWindows: () => [mainWindow, stickyWindow, guideWindow, schedulerWindow],
         getTray: () => tray,
       }),
     ).toBe(true);
     expect(mainWindow.destroy).toHaveBeenCalledOnce();
     expect(stickyWindow.destroy).toHaveBeenCalledOnce();
     expect(guideWindow.destroy).toHaveBeenCalledOnce();
+    expect(schedulerWindow.destroy).toHaveBeenCalledOnce();
     expect(tray.destroy).toHaveBeenCalledOnce();
     expect(electronApp.quit).toHaveBeenCalledOnce();
   });

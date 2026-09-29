@@ -14,6 +14,10 @@ const {
 } = require('electron');
 const { createStartupLoginController } = require('./startup-login.cjs');
 const {
+  createSchedulerWindow: createSchedulerBrowserWindow,
+  ensureSchedulerWindow: ensureSingleSchedulerWindow,
+} = require('./scheduler-window.cjs');
+const {
   closeMainWindow,
   getMainWindowMaximized,
   hideStickyWindow,
@@ -65,9 +69,16 @@ const STICKY_RESIZE_REASONS = new Set([
 let mainWindow;
 let stickyWindow;
 let guideWindow;
+let schedulerWindow;
 let tray;
 let stickyAlwaysOnTopPreference = true;
 let isQuitting = false;
+let schedulerRecoveryTimer;
+let schedulerStabilityTimer;
+let schedulerRecoveryArmed = true;
+
+const SCHEDULER_RECOVERY_DELAY_MS = 1_000;
+const SCHEDULER_STABILITY_INTERVAL_MS = 30_000;
 
 function resolveAppIconPath() {
   const candidates =
@@ -140,6 +151,60 @@ function loadRenderer(windowInstance, windowMode) {
   windowInstance.loadFile(entry.value, { query: entry.query });
 }
 
+function scheduleSchedulerRecovery(lostWindow) {
+  if (schedulerWindow === lostWindow) {
+    schedulerWindow = undefined;
+  }
+
+  if (schedulerStabilityTimer) {
+    clearTimeout(schedulerStabilityTimer);
+    schedulerStabilityTimer = undefined;
+  }
+
+  if (isQuitting || schedulerRecoveryTimer || !schedulerRecoveryArmed) {
+    return;
+  }
+
+  schedulerRecoveryArmed = false;
+  schedulerRecoveryTimer = setTimeout(() => {
+    schedulerRecoveryTimer = undefined;
+    if (isQuitting) {
+      return;
+    }
+
+    ensureSchedulerWindow();
+  }, SCHEDULER_RECOVERY_DELAY_MS);
+}
+
+function createSchedulerWindow() {
+  const createdWindow = createSchedulerBrowserWindow({
+    BrowserWindow,
+    loadRenderer,
+    isShuttingDown: () => isQuitting,
+    onUnexpectedLoss: scheduleSchedulerRecovery,
+  });
+
+  createdWindow.webContents.once('did-finish-load', () => {
+    if (schedulerStabilityTimer) {
+      clearTimeout(schedulerStabilityTimer);
+    }
+
+    schedulerStabilityTimer = setTimeout(() => {
+      schedulerStabilityTimer = undefined;
+      if (!isQuitting && schedulerWindow === createdWindow && !createdWindow.isDestroyed()) {
+        schedulerRecoveryArmed = true;
+      }
+    }, SCHEDULER_STABILITY_INTERVAL_MS);
+  });
+
+  return createdWindow;
+}
+
+function ensureSchedulerWindow() {
+  schedulerWindow = ensureSingleSchedulerWindow(schedulerWindow, createSchedulerWindow);
+  return schedulerWindow;
+}
+
 function ownerWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     return mainWindow;
@@ -176,9 +241,17 @@ function quitTimeAssistant() {
   }
 
   isQuitting = true;
+  if (schedulerRecoveryTimer) {
+    clearTimeout(schedulerRecoveryTimer);
+    schedulerRecoveryTimer = undefined;
+  }
+  if (schedulerStabilityTimer) {
+    clearTimeout(schedulerStabilityTimer);
+    schedulerStabilityTimer = undefined;
+  }
   return quitApplication({
     electronApp: app,
-    getWindows: () => [mainWindow, stickyWindow, guideWindow],
+    getWindows: () => [mainWindow, stickyWindow, guideWindow, schedulerWindow],
     getTray: () => tray,
   });
 }
@@ -611,6 +684,7 @@ ipcMain.handle('assistant-time:open-text-file', async () => {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  ensureSchedulerWindow();
   createTray();
   createStickyWindow(true, 'yellow');
 

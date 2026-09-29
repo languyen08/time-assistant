@@ -47,14 +47,17 @@ function createAssistantTimeApi(
 describe('App', () => {
   const originalAssistantTime = window.assistantTime;
   const originalAvailHeight = window.screen.availHeight;
+  const originalRelativeUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
   beforeEach(async () => {
+    window.history.replaceState({}, '', '/');
     await TestBed.configureTestingModule({
       imports: [App],
     }).compileComponents();
   });
 
   afterEach(() => {
+    window.history.replaceState({}, '', originalRelativeUrl);
     window.assistantTime = originalAssistantTime;
     Object.defineProperty(window.screen, 'availHeight', {
       configurable: true,
@@ -78,6 +81,83 @@ describe('App', () => {
     const app = fixture.componentInstance;
     expect(app).toBeTruthy();
   });
+
+  it('should recognize scheduler mode, render no UI, and initialize only task state', async () => {
+    window.history.replaceState({}, '', '/?window=scheduler');
+    const assistantTime = createAssistantTimeApi({
+      getMainWindowMaximized: vi.fn().mockResolvedValue(false),
+      getStartAtLogin: vi.fn().mockResolvedValue(false),
+      onMainWindowMaximizedChanged: vi.fn(() => () => undefined),
+      setReminderOverlayState: vi.fn().mockResolvedValue(true),
+      setStickyWindow: vi.fn().mockResolvedValue(true),
+    });
+    window.assistantTime = assistantTime;
+
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const taskLoad = vi.spyOn(app.taskService, 'load').mockResolvedValue();
+    const settingsLoad = vi.spyOn(app.settingsService, 'load').mockResolvedValue();
+    const historyLoad = vi.spyOn(app.historyService, 'load').mockResolvedValue();
+    const timerStart = vi.spyOn(app.timerService, 'start');
+    const reminderStart = vi.spyOn(app.reminderScheduler, 'start');
+    const historyMeasurement = vi.spyOn(
+      app as unknown as { scheduleHistoryPageSizeMeasurement: () => void },
+      'scheduleHistoryPageSizeMeasurement',
+    );
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(app.windowMode()).toBe('scheduler');
+    expect(app.isSchedulerMode()).toBe(true);
+    expect(app.isStickyMode()).toBe(false);
+    expect(host.querySelector('main')).toBeNull();
+    expect(host.querySelector('.topbar')).toBeNull();
+    expect(host.querySelector('.sticky-window')).toBeNull();
+    expect(host.querySelector('.settings-modal')).toBeNull();
+    expect(host.querySelector('.friendly-reminder')).toBeNull();
+    expect(taskLoad).toHaveBeenCalledOnce();
+    expect(settingsLoad).not.toHaveBeenCalled();
+    expect(historyLoad).not.toHaveBeenCalled();
+    expect(timerStart).not.toHaveBeenCalled();
+    expect(reminderStart).not.toHaveBeenCalled();
+    expect(historyMeasurement).not.toHaveBeenCalled();
+    expect(assistantTime.getMainWindowMaximized).not.toHaveBeenCalled();
+    expect(assistantTime.getStartAtLogin).not.toHaveBeenCalled();
+    expect(assistantTime.onMainWindowMaximizedChanged).not.toHaveBeenCalled();
+    expect(assistantTime.setStickyWindow).not.toHaveBeenCalled();
+    expect(assistantTime.setReminderOverlayState).not.toHaveBeenCalled();
+    expect(assistantTime.resizeStickyWindow).not.toHaveBeenCalled();
+  });
+
+  it.each(['main', 'sticky'] as const)(
+    'should preserve normal %s renderer initialization',
+    async (windowMode) => {
+      window.history.replaceState({}, '', `/?window=${windowMode}`);
+      window.assistantTime = undefined;
+
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+      const taskLoad = vi.spyOn(app.taskService, 'load').mockResolvedValue();
+      const settingsLoad = vi.spyOn(app.settingsService, 'load').mockResolvedValue();
+      const historyLoad = vi.spyOn(app.historyService, 'load').mockResolvedValue();
+      const timerStart = vi.spyOn(app.timerService, 'start');
+      const reminderStart = vi.spyOn(app.reminderScheduler, 'start');
+
+      await app.ngOnInit();
+
+      expect(app.windowMode()).toBe(windowMode);
+      expect(taskLoad).toHaveBeenCalledOnce();
+      expect(settingsLoad).toHaveBeenCalledOnce();
+      expect(historyLoad).toHaveBeenCalledOnce();
+      expect(timerStart).toHaveBeenCalledOnce();
+      expect(reminderStart).toHaveBeenCalledOnce();
+
+      fixture.destroy();
+    },
+  );
 
   it('should render the compact app header', async () => {
     const fixture = TestBed.createComponent(App);
@@ -701,7 +781,7 @@ describe('App', () => {
 
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
-    app.isStickyMode.set(true);
+    app.windowMode.set('sticky');
 
     app.reminderScheduler.activeReminder.set({
       taskId: 'task-1',
@@ -722,7 +802,7 @@ describe('App', () => {
   it('should wire sticky reminder input and action buttons', async () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
-    app.isStickyMode.set(true);
+    app.windowMode.set('sticky');
 
     const addReminderTimeSpy = vi.spyOn(app, 'addReminderTime').mockResolvedValue();
     const pauseTaskSpy = vi.spyOn(app, 'pauseTask').mockResolvedValue();
@@ -778,7 +858,7 @@ describe('App', () => {
   it('should open the user guide from the sticky header info button', async () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
-    app.isStickyMode.set(true);
+    app.windowMode.set('sticky');
     const guideSpy = vi.spyOn(app, 'openUserGuide').mockResolvedValue();
 
     fixture.detectChanges();

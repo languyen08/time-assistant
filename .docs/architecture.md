@@ -30,17 +30,19 @@ Packaging and release use Electron Builder exclusively; see accepted ADR-012. Th
 ## High-Level Architecture
 
 ```txt
-Angular renderer(s)
-  |- standalone root UI and Angular services
-  |- TimerService and ReminderSchedulerService per renderer
-  |- repositories -> IndexedDB v2
+Angular renderers
+  |- Main: full user interface
+  |- Sticky: compact user interface
+  |- Scheduler: hidden, authoritative owner for future automatic task lifecycle scheduling
+  |- TimerService and ReminderSchedulerService in Main and Sticky
+  |- repositories -> shared IndexedDB v2 environment
   `- BroadcastChannel for task-change synchronization only
 
 Electron preload
   `- narrow window.assistantTime IPC bridge and main-window state event
 
 Electron main
-  |- main, sticky-note, and user-guide windows
+  |- main, sticky-note, hidden scheduler, and user-guide windows
   |- BrowserWindow maximize/restore and hide/show lifecycle
   |- native Tray lifecycle and context menu
   |- native desktop notifications
@@ -159,7 +161,11 @@ Current windows:
 
 1. Sticky-note window: created at Electron startup; compact and optionally always-on-top.
 2. Main application window: created on demand through the focus-main-window IPC flow.
-3. User-guide window: created on demand and loads the local HTML guide.
+3. Scheduler window: created at Electron startup; hidden, non-focusable, absent from the taskbar,
+   and retained for the Electron process lifetime. It uses the same Angular application, browser
+   session, and IndexedDB environment with `window=scheduler`, but it has no preload bridge or
+   user-facing UI.
+4. User-guide window: created on demand and loads the local HTML guide.
 
 Current background behavior:
 
@@ -170,10 +176,16 @@ Current background behavior:
 - Main application X closes only that BrowserWindow; Sticky Note, Tray, and process state remain
   unchanged. Tray icon click restores/focuses Sticky Note only, while the explicit Open Time
   Assistant menu action opens/focuses Main without duplicating it. Tray Quit is the sole normal
-  full shutdown path: it destroys all application windows and the Tray, then calls `app.quit()`.
+  full shutdown path: it destroys Main, Sticky, Guide, Scheduler, and the Tray, then calls
+  `app.quit()`.
+- The Scheduler remains alive when Main closes, Sticky hides, or only the Tray remains. If it is
+  lost unexpectedly, Electron recreates one owner through a guarded singleton recovery path;
+  explicit shutdown suppresses recovery.
 - Main-window Maximize/Restore flows through narrow preload IPC. Electron sends maximize and
   unmaximize state changes back to the main renderer so Angular does not infer native state.
 - No independent main-process timer or reminder scheduler is implemented.
+- Scheduler mode loads task state only. It does not start `TimerService`,
+  `ReminderSchedulerService`, native window synchronization, or UI measurement observers.
 
 ## Local Storage
 
@@ -251,15 +263,17 @@ Notification design:
 
 Current implementation:
 
-- Every Angular renderer initializes its own `TimerService` and `ReminderSchedulerService`.
+- Main and Sticky initialize their own `TimerService` and `ReminderSchedulerService`.
+- The hidden Scheduler renderer is the sole owner reserved for future automatic task lifecycle
+  scheduling, but no automatic-start loop is implemented yet.
 - Task mutations broadcast `tasks-changed` through `BroadcastChannel`, causing other renderers to reload tasks from IndexedDB.
 - Settings, loaded history, break state, and active reminder-overlay state do not have comprehensive cross-window synchronization.
 
 Known limitation / technical debt:
 
 - Main and sticky renderers can observe the same due reminder and independently process it. This creates a potential duplicate reminder/history/notification race.
-- Reminder ownership must be decided before the architecture can claim reliable multi-window scheduling.
-- This document records the current limitation; it does not prescribe the eventual fix.
+- Existing reminder ownership remains unresolved technical debt and is not migrated into the
+  Scheduler by ADR-013.
 
 ## Break Flow
 

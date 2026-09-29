@@ -103,6 +103,16 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
   temporarily hidden. Sticky Note X hides only Sticky, Main application X closes only Main,
   Tray icon click restores Sticky only, and Tray Quit is the explicit full shutdown action.
 
+### Automatic Task Lifecycle Architecture Foundation
+
+- Keep one hidden, process-lifetime Scheduler Angular renderer as the sole owner for future
+  automatic task lifecycle scheduling.
+- Reuse the current local IndexedDB task repository from that renderer without changing storage
+  technology or adding a backend.
+- Keep Main and Sticky as presentation/action clients for future automatic scheduling.
+- This foundation does not implement automatic starts, postponement, concurrent tasks, or
+  deadlines. Existing reminder scheduling remains in the visible renderers for now.
+
 ### Pause / Resume
 
 - User can pause the current task when going away.

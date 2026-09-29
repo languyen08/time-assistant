@@ -57,7 +57,7 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Keep `nodeIntegration: false` in renderer windows.
 - Keep renderer sandboxing enabled where currently configured.
 - Do not expose broad filesystem or shell APIs to Angular.
-- Current BrowserWindow types are main, sticky-note, and user-guide windows.
+- Current BrowserWindow types are main, sticky-note, scheduler, and user-guide windows.
 - Electron main owns Windows startup-at-login configuration through narrow preload/IPC methods.
 - Windows login-item state is authoritative; do not persist a duplicate startup boolean in IndexedDB.
 - Electron main owns the native Tray and BrowserWindow lifecycle. The Tray keeps the process
@@ -69,6 +69,8 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
   `stickyNoteEnabled` setting.
 - There is no independent main-process reminder scheduler.
 - Each Angular renderer currently starts its own timer/reminder scheduler. Only task changes are synchronized with `BroadcastChannel`; treat reminder ownership and other cross-window state as unresolved technical debt.
+- Only the dedicated Scheduler renderer may own future automatic task lifecycle scheduling. Main
+  and Sticky renderers must not independently start automatic-task scheduling loops.
 
 ## Coding Rules
 - Use Angular standalone components where appropriate.

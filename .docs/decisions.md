@@ -249,3 +249,36 @@ Consequences:
 - The canonical packaging commands are the Electron Builder-backed `package:dir`, `package:win`, and `package:installer` scripts.
 - Windows release automation uses `package:win` and publishes the resulting portable executable.
 - Electron Forge is no longer installed or configured.
+
+---
+
+## ADR-013: Dedicated Hidden Renderer for Automatic Task Scheduling
+
+Status: Accepted
+
+Context:
+Task persistence currently lives in Angular/Chromium IndexedDB. The Electron process can remain
+alive while Main is closed and Sticky is hidden, so neither visible renderer is a reliable
+process-lifetime owner. Main and Sticky also cannot both safely own future automatic task
+scheduling because duplicate owners could start or defer the same task and write conflicting
+history. Moving task persistence into Electron main would require a disproportionate storage and
+service migration.
+
+Decision:
+Create exactly one hidden, long-lived Scheduler Angular renderer using `window=scheduler`. It
+shares the existing browser session and local IndexedDB environment and is the sole owner for
+future automatic task lifecycle scheduling. Main and Sticky remain presentation/action clients
+for that future behavior. The Scheduler has no user-facing UI or preload bridge and does not run
+normal window synchronization. Existing `ReminderSchedulerService` ownership is not migrated by
+this ADR.
+
+Consequences:
+- Future automatic task starts have one authoritative owner that survives visible-window
+  lifecycle changes.
+- The current IndexedDB repositories remain usable without a storage technology migration.
+- Duplicate future automatic scheduling risk is reduced.
+- The application retains one additional hidden renderer/process.
+- Main and Sticky still each own the existing reminder scheduler, so the duplicate reminder race
+  remains technical debt.
+- This ADR establishes ownership only; automatic starts, retries, concurrent tasks, and deadlines
+  are not implemented.

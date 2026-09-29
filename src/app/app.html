@@ -1,3 +1,5 @@
+<!-- prettier-ignore -->
+@if (!isSchedulerMode()) {
 <main
   class="app-shell"
   [class.sticky-shell]="isStickyMode()"
@@ -4094,3 +4096,4 @@
 
   <router-outlet />
 </main>
+}
