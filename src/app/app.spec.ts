@@ -104,6 +104,9 @@ describe('App', () => {
     const automaticStart = vi
       .spyOn(app.automaticTaskScheduler, 'start')
       .mockImplementation(() => undefined);
+    const deadlineStart = vi
+      .spyOn(app.deadlineScheduler, 'start')
+      .mockImplementation(() => undefined);
     const schedulerCoordinationStart = vi.spyOn(app.breakCoordination, 'startScheduler');
     const visibleCoordinationStart = vi.spyOn(app.breakCoordination, 'startVisible');
     const historyMeasurement = vi.spyOn(
@@ -130,6 +133,7 @@ describe('App', () => {
     expect(timerStart).not.toHaveBeenCalled();
     expect(reminderStart).not.toHaveBeenCalled();
     expect(automaticStart).toHaveBeenCalledOnce();
+    expect(deadlineStart).toHaveBeenCalledOnce();
     expect(schedulerCoordinationStart).toHaveBeenCalledOnce();
     expect(visibleCoordinationStart).not.toHaveBeenCalled();
     expect(historyMeasurement).not.toHaveBeenCalled();
@@ -156,6 +160,7 @@ describe('App', () => {
       const timerStart = vi.spyOn(app.timerService, 'start');
       const reminderStart = vi.spyOn(app.reminderScheduler, 'start');
       const automaticStart = vi.spyOn(app.automaticTaskScheduler, 'start');
+      const deadlineStart = vi.spyOn(app.deadlineScheduler, 'start');
       const visibleCoordinationStart = vi.spyOn(app.breakCoordination, 'startVisible');
 
       await app.ngOnInit();
@@ -167,6 +172,7 @@ describe('App', () => {
       expect(timerStart).toHaveBeenCalledOnce();
       expect(reminderStart).toHaveBeenCalledOnce();
       expect(automaticStart).not.toHaveBeenCalled();
+      expect(deadlineStart).not.toHaveBeenCalled();
       expect(visibleCoordinationStart).toHaveBeenCalledWith('idle', {
         sessionId: expect.any(String),
       });
@@ -1449,6 +1455,73 @@ describe('App', () => {
 
     expect(app.pendingPageCount()).toBe(1000);
     expect(app.pagedPendingTasks()).toHaveLength(4);
+  });
+
+  it('selects one unacknowledged deadline in task order and advances after acknowledgement', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.taskService.tasks.set([
+      pendingTask('first', 'First deadline', 0, {
+        deadlineAt: '2026-05-30T11:00:00.000Z',
+        deadlineMessage: 'First message',
+        deadlineNotifiedAt: '2026-05-30T11:00:00.000Z',
+      }),
+      pendingTask('second', 'Second deadline', 1, {
+        deadlineAt: '2026-05-30T11:05:00.000Z',
+        deadlineMessage: 'Second message',
+        deadlineNotifiedAt: '2026-05-30T11:05:00.000Z',
+      }),
+    ]);
+
+    expect(app.visibleDeadlineAlert()?.id).toBe('first');
+    app.taskService.tasks.update((tasks) =>
+      tasks.map((task) =>
+        task.id === 'first'
+          ? { ...task, deadlineAcknowledgedAt: '2026-05-30T11:01:00.000Z' }
+          : task,
+      ),
+    );
+    expect(app.visibleDeadlineAlert()?.id).toBe('second');
+  });
+
+  it('hides completed deadline alerts and defers them behind an active reminder', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.taskService.tasks.set([
+      pendingTask('deadline', 'Deadline', 0, {
+        deadlineAt: '2026-05-30T11:00:00.000Z',
+        deadlineMessage: 'Custom message',
+        deadlineNotifiedAt: '2026-05-30T11:00:00.000Z',
+      }),
+    ]);
+    app.reminderScheduler.activeReminder.set({
+      taskId: 'other',
+      taskName: 'Other',
+      attemptNumber: 1,
+      maxAttempts: 3,
+      shownAt: '2026-05-30T11:00:00.000Z',
+      message: 'Reminder',
+    });
+
+    expect(app.deadlineAlertTask()?.id).toBe('deadline');
+    expect(app.visibleDeadlineAlert()).toBeUndefined();
+    app.reminderScheduler.dismiss();
+    expect(app.visibleDeadlineAlert()?.id).toBe('deadline');
+
+    app.taskService.tasks.update((tasks) =>
+      tasks.map((task) => (task.id === 'deadline' ? { ...task, status: 'completed' } : task)),
+    );
+    expect(app.deadlineAlertTask()).toBeUndefined();
+  });
+
+  it('acknowledges the exact deadline task through TaskService', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const acknowledge = vi.spyOn(app.taskService, 'acknowledgeDeadline').mockResolvedValue(true);
+
+    await app.acknowledgeDeadline('deadline-task');
+
+    expect(acknowledge).toHaveBeenCalledWith('deadline-task');
   });
 
   it('should keep history rendering bounded for large event lists', async () => {

@@ -24,7 +24,7 @@ describe('CsvService', () => {
     const csv = service.exportTasks([task]);
 
     expect(csv.split('\r\n')[0]).toBe(
-      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown',
+      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart,deadlineAt,deadlineMessage,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown',
     );
     expect(csv).toContain('Study Angular');
   });
@@ -94,5 +94,80 @@ describe('CsvService', () => {
     expect(result.errors).toContain('Row 2: reminderAt must be a valid date/time.');
     expect(result.errors).toContain('Row 2: reminderCount must be between 1 and 20.');
     expect(result.errors).toContain('Row 2: reminderIntervalMinutes must be between 1 and 240.');
+  });
+
+  it('round-trips user-authored deadline columns without processing state', () => {
+    const deadlineTask: Task = {
+      ...task,
+      deadlineAt: '2026-05-30T11:00:00.000Z',
+      deadlineMessage: 'Finish the chapter.',
+      deadlineNotifiedAt: '2026-05-30T11:00:00.000Z',
+      deadlineAcknowledgedAt: '2026-05-30T11:01:00.000Z',
+    };
+
+    const csv = service.exportTasks([deadlineTask]);
+    const result = service.importTasks(csv, []);
+
+    expect(csv).not.toContain('deadlineNotifiedAt');
+    expect(csv).not.toContain('deadlineAcknowledgedAt');
+    expect(result.errors).toEqual([]);
+    expect(result.tasks[0]).toMatchObject({
+      deadlineAt: deadlineTask.deadlineAt,
+      deadlineMessage: deadlineTask.deadlineMessage,
+      deadlineNotifiedAt: undefined,
+      deadlineAcknowledgedAt: undefined,
+    });
+  });
+
+  it('imports old CSV without deadline columns as no deadline', () => {
+    const result = service.importTasks(
+      [
+        'name,reminderAt,reminderCount,reminderIntervalMinutes',
+        'Old task,2026-05-30T10:00:00.000Z,3,5',
+      ].join('\n'),
+      [],
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(result.tasks[0].deadlineAt).toBeUndefined();
+    expect(result.tasks[0].deadlineMessage).toBeUndefined();
+  });
+
+  it.each([
+    {
+      row: 'Missing message,2026-05-30T10:00:00.000Z,3,5,2026-05-30T11:00:00.000Z,',
+      error: 'Row 2: deadlineMessage is required when deadlineAt is present.',
+    },
+    {
+      row: 'Missing deadline,2026-05-30T10:00:00.000Z,3,5,,Message only',
+      error: 'Row 2: deadlineAt is required when deadlineMessage is present.',
+    },
+    {
+      row: 'Early deadline,2026-05-30T10:00:00.000Z,3,5,2026-05-30T09:59:00.000Z,Too early',
+      error: 'Row 2: deadlineAt must be later than reminderAt.',
+    },
+  ])('rejects invalid deadline pairs with row-level errors', ({ row, error }) => {
+    const result = service.importTasks(
+      [
+        'name,reminderAt,reminderCount,reminderIntervalMinutes,deadlineAt,deadlineMessage',
+        row,
+      ].join('\n'),
+      [],
+    );
+
+    expect(result.importedCount).toBe(0);
+    expect(result.errors).toContain(error);
+  });
+
+  it('rejects deadline messages longer than 240 characters', () => {
+    const result = service.importTasks(
+      [
+        'name,reminderAt,reminderCount,reminderIntervalMinutes,deadlineAt,deadlineMessage',
+        `Long message,2026-05-30T10:00:00.000Z,3,5,2026-05-30T11:00:00.000Z,${'x'.repeat(241)}`,
+      ].join('\n'),
+      [],
+    );
+
+    expect(result.errors).toContain('Row 2: deadlineMessage cannot be more than 240 characters.');
   });
 });

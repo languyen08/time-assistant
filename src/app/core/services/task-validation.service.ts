@@ -8,7 +8,12 @@ export interface TaskValidationResult {
 
 @Injectable({ providedIn: 'root' })
 export class TaskValidationService {
-  validate(draft: TaskDraft, now = new Date(), existingReminderAt?: string): TaskValidationResult {
+  validate(
+    draft: TaskDraft,
+    now = new Date(),
+    existingReminderAt?: string,
+    existingDeadlineAt?: string,
+  ): TaskValidationResult {
     const errors: string[] = [];
 
     if (!draft.name.trim()) {
@@ -20,6 +25,32 @@ export class TaskValidationService {
       errors.push('Start time must be a valid date and time.');
     } else if (reminderDate.getTime() <= now.getTime() && draft.reminderAt !== existingReminderAt) {
       errors.push('Start time must be in the future.');
+    }
+
+    const deadlineMessage = draft.deadlineMessage?.trim() ?? '';
+    if (draft.deadlineAt) {
+      const deadlineDate = new Date(draft.deadlineAt);
+      if (Number.isNaN(deadlineDate.getTime())) {
+        errors.push('Finish-by time must be a valid date and time.');
+      } else {
+        if (deadlineDate.getTime() <= now.getTime() && draft.deadlineAt !== existingDeadlineAt) {
+          errors.push('Finish-by time must be in the future.');
+        }
+        if (
+          !Number.isNaN(reminderDate.getTime()) &&
+          deadlineDate.getTime() <= reminderDate.getTime()
+        ) {
+          errors.push('Finish-by time must be later than the Start time.');
+        }
+      }
+
+      if (!deadlineMessage) {
+        errors.push('Deadline message is required when Finish by is enabled.');
+      } else if (deadlineMessage.length > 240) {
+        errors.push('Deadline message cannot be more than 240 characters.');
+      }
+    } else if (deadlineMessage) {
+      errors.push('Deadline message requires a Finish-by time.');
     }
 
     if (

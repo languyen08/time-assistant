@@ -4,6 +4,7 @@ export type HistoryEventType =
   | 'task_deleted'
   | 'task_started'
   | 'auto_start_deferred'
+  | 'deadline_reached'
   | 'reminder_shown'
   | 'extra_time_added'
   | 'task_paused'

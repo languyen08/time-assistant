@@ -13,6 +13,8 @@ const TASK_HEADERS = [
   'reminderCount',
   'reminderIntervalMinutes',
   'allowConcurrentStart',
+  'deadlineAt',
+  'deadlineMessage',
   'status',
   'order',
   'createdAt',
@@ -60,6 +62,8 @@ export class CsvService {
       reminderCount: String(task.reminderCount),
       reminderIntervalMinutes: String(task.reminderIntervalMinutes),
       allowConcurrentStart: String(task.allowConcurrentStart),
+      deadlineAt: this.formatDateTime(task.deadlineAt, dateTimeFormat),
+      deadlineMessage: task.deadlineMessage ?? '',
       status: task.status,
       order: String(task.order),
       createdAt: this.formatDateTime(task.createdAt, dateTimeFormat),
@@ -148,6 +152,8 @@ export class CsvService {
         reminderCount: this.integer(row['reminderCount']),
         reminderIntervalMinutes: this.integer(row['reminderIntervalMinutes']),
         allowConcurrentStart: this.boolean(row['allowConcurrentStart']) ?? false,
+        deadlineAt: this.optionalIso(row['deadlineAt']),
+        deadlineMessage: this.text(row['deadlineMessage']) || undefined,
         order: baseOrder + importedTasks.length,
         status,
         createdAt: this.optionalIso(row['createdAt']) ?? now,
@@ -157,6 +163,8 @@ export class CsvService {
         pausedRemainingSeconds: undefined,
         totalPausedSeconds: this.optionalInteger(row['totalPausedSeconds']) ?? 0,
         completedAt: status === 'completed' ? this.optionalIso(row['completedAt']) : undefined,
+        deadlineNotifiedAt: undefined,
+        deadlineAcknowledgedAt: undefined,
         nextReminderAt: undefined,
         reminderAttemptsShown: this.optionalInteger(row['reminderAttemptsShown']) ?? 0,
       };
@@ -180,6 +188,8 @@ export class CsvService {
     const reminderInterval = this.integer(row['reminderIntervalMinutes']);
     const statusText = this.text(row['status']);
     const concurrentStartText = this.text(row['allowConcurrentStart']).toLowerCase();
+    const deadlineAt = this.text(row['deadlineAt']);
+    const deadlineMessage = this.text(row['deadlineMessage']);
 
     if (!name) {
       errors.push(`Row ${rowNumber}: Task name is required.`);
@@ -203,6 +213,27 @@ export class CsvService {
 
     if (concurrentStartText && concurrentStartText !== 'true' && concurrentStartText !== 'false') {
       errors.push(`Row ${rowNumber}: allowConcurrentStart must be true or false.`);
+    }
+
+    if (deadlineAt) {
+      if (!this.isIsoDate(deadlineAt)) {
+        errors.push(`Row ${rowNumber}: deadlineAt must be a valid date/time.`);
+      } else if (
+        this.isIsoDate(reminderAt) &&
+        new Date(deadlineAt).getTime() <= new Date(reminderAt).getTime()
+      ) {
+        errors.push(`Row ${rowNumber}: deadlineAt must be later than reminderAt.`);
+      }
+
+      if (!deadlineMessage) {
+        errors.push(`Row ${rowNumber}: deadlineMessage is required when deadlineAt is present.`);
+      }
+    } else if (deadlineMessage) {
+      errors.push(`Row ${rowNumber}: deadlineAt is required when deadlineMessage is present.`);
+    }
+
+    if (deadlineMessage.length > 240) {
+      errors.push(`Row ${rowNumber}: deadlineMessage cannot be more than 240 characters.`);
     }
 
     return errors;

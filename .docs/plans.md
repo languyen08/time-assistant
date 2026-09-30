@@ -31,6 +31,7 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
    - repeat interval between reminders
    - optional category/note
    - optional custom reminder messages as target behavior; the current implementation uses a built-in friendly message pool
+   - optional Finish by time with a required user-authored deadline message
 
 2. The task starts automatically when its Start time arrives. The user may choose **Start now** to
    begin it early.
@@ -125,8 +126,23 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 - Process due tasks in queue order. A task with **Allow concurrent start** may bypass any
   active/paused blocker, while a non-concurrent task is deferred in 30-minute increments.
 - Break prompt/running state blocks every automatic start without advancing retry state.
-- Keep Main and Sticky as presentation/action clients. Deadline work remains deferred. Existing
+- Keep Main and Sticky as presentation/action clients. Scheduler owns one-time Finish-by deadline
+  triggering; visible renderers present persisted unacknowledged deadline alerts. Existing normal
   reminder scheduling remains in the visible renderers and serializes one overlay at a time.
+
+### Finish-By Deadlines
+
+- Finish by is optional and, when enabled, requires a custom message of at most 240 characters.
+- Finish by must be later than Start time and is an absolute wall-clock target for pending, active,
+  and paused tasks.
+- Pause, Break, automatic +30 retry, Start now, and Add more time do not move Finish by.
+- Scheduler persists one trigger per configured deadline and sends the custom message through the
+  native Windows notification bridge. Changing the Finish-by time re-arms it; changing only the
+  message does not.
+- Main and Sticky show one persisted unacknowledged alert at a time. Got it acknowledges that exact
+  task. A completed task no longer presents an alert, while its trigger/history remains stored.
+- A fully exited Electron process cannot notify at the target time. On the next launch, Scheduler
+  processes an overdue unprocessed deadline once.
 
 ### Pause / Resume
 

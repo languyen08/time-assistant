@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import schedulerWindowModule from './scheduler-window.cjs';
 
@@ -57,16 +58,17 @@ describe('Scheduler BrowserWindow ownership', () => {
     expect(options.focusable).toBe(false);
   });
 
-  it('uses secure renderer settings without a preload and disables background throttling', () => {
+  it('uses secure renderer settings with the dedicated preload and disables background throttling', () => {
     const options = schedulerWindowOptions();
 
-    expect(options.webPreferences).toEqual({
+    expect(options.webPreferences).toMatchObject({
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
       backgroundThrottling: false,
     });
-    expect(options.webPreferences).not.toHaveProperty('preload');
+    expect(options.webPreferences.preload).toMatch(/scheduler-preload\.cjs$/);
+    expect(options.webPreferences.preload).not.toMatch(/[\\/]preload\.cjs$/);
   });
 
   it('loads the shared Angular renderer with window=scheduler', () => {
@@ -84,6 +86,18 @@ describe('Scheduler BrowserWindow ownership', () => {
     expect(created).toBe(windowInstance);
     expect(BrowserWindow).toHaveBeenCalledWith(schedulerWindowOptions());
     expect(loadRenderer).toHaveBeenCalledWith(windowInstance, 'scheduler');
+  });
+
+  it('uses a notify-only Scheduler preload surface', () => {
+    const source = readFileSync(schedulerWindowOptions().webPreferences.preload, 'utf8');
+
+    expect(source).toContain(
+      "notify: (payload) => ipcRenderer.invoke('assistant-time:notify', payload)",
+    );
+    expect(source).not.toContain('openTextFile');
+    expect(source).not.toContain('saveTextFile');
+    expect(source).not.toContain('setStickyWindow');
+    expect(source).not.toContain('focusMainWindow');
   });
 
   it('reports unexpected Scheduler close so one owner can be restored', () => {

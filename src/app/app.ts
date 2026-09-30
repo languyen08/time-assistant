@@ -21,6 +21,7 @@ import { BreakCoordinationService } from './core/services/break-coordination.ser
 import { AutomaticTaskSchedulerService } from './core/services/automatic-task-scheduler.service';
 import { ChartSummaryService } from './core/services/chart-summary.service';
 import { CsvService } from './core/services/csv.service';
+import { DeadlineSchedulerService } from './core/services/deadline-scheduler.service';
 import { ElectronBridgeService } from './core/services/electron-bridge.service';
 import { HistoryService } from './core/services/history.service';
 import { NotificationService } from './core/services/notification.service';
@@ -80,6 +81,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly breakService = inject(BreakService);
   readonly breakCoordination = inject(BreakCoordinationService);
   readonly automaticTaskScheduler = inject(AutomaticTaskSchedulerService);
+  readonly deadlineScheduler = inject(DeadlineSchedulerService);
   readonly notificationService = inject(NotificationService);
   private readonly chartSummary = inject(ChartSummaryService);
   private readonly csv = inject(CsvService);
@@ -270,6 +272,31 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
     return this.nextTaskCandidate();
   });
+  readonly deadlineAlertTask = computed(() =>
+    this.taskService
+      .tasks()
+      .find(
+        (task) =>
+          task.status !== 'completed' &&
+          Boolean(task.deadlineNotifiedAt) &&
+          !task.deadlineAcknowledgedAt,
+      ),
+  );
+  readonly visibleDeadlineAlert = computed(() => {
+    if (
+      this.reminderScheduler.activeReminder() ||
+      this.breakService.state() === 'prompt' ||
+      this.breakService.state() === 'complete' ||
+      this.breakConflictTask() ||
+      this.settingsOpen() ||
+      this.csvOpen() ||
+      this.historyClearModalOpen()
+    ) {
+      return undefined;
+    }
+
+    return this.deadlineAlertTask();
+  });
   private notifiedReminderKey = '';
 
   readonly taskForm = this.formBuilder.nonNullable.group({
@@ -278,6 +305,9 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     reminderCount: [3, [Validators.required, Validators.min(1), Validators.max(20)]],
     reminderIntervalMinutes: [5, [Validators.required, Validators.min(1), Validators.max(240)]],
     allowConcurrentStart: [false],
+    deadlineEnabled: [false],
+    deadlineAt: [''],
+    deadlineMessage: ['', Validators.maxLength(240)],
     category: ['', Validators.maxLength(80)],
     note: ['', Validators.maxLength(400)],
   });
@@ -378,7 +408,9 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
     effect(() => {
       const stickyMode = this.isStickyMode();
-      const reminderVisible = Boolean(this.reminderScheduler.activeReminder());
+      const reminderVisible = Boolean(
+        this.reminderScheduler.activeReminder() || this.visibleDeadlineAlert(),
+      );
       if (!stickyMode) {
         this.lastStickyReminderVisible = false;
         return;
@@ -397,6 +429,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
         await this.taskService.load();
         this.breakCoordination.startScheduler();
         this.automaticTaskScheduler.start();
+        this.deadlineScheduler.start();
         return;
       }
 
@@ -452,6 +485,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     this.timerService.stop();
     this.reminderScheduler.stop();
     this.automaticTaskScheduler.stop();
+    this.deadlineScheduler.stop();
     this.breakCoordination.stop();
     this.cancelStickyResizeFrames();
     this.removeMainWindowMaximizedListener?.();
@@ -485,9 +519,13 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       reminderCount: task.reminderCount,
       reminderIntervalMinutes: task.reminderIntervalMinutes,
       allowConcurrentStart: task.allowConcurrentStart,
+      deadlineEnabled: Boolean(task.deadlineAt),
+      deadlineAt: task.deadlineAt ? toDatetimeLocalValue(new Date(task.deadlineAt)) : '',
+      deadlineMessage: task.deadlineMessage ?? '',
       category: task.category,
       note: task.note,
     });
+    this.onDeadlineEnabledChanged();
   }
 
   resetForm(): void {
@@ -498,9 +536,13 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       reminderCount: this.settingsService.settings().defaultReminderCount,
       reminderIntervalMinutes: this.settingsService.settings().defaultReminderRepeatMinutes,
       allowConcurrentStart: false,
+      deadlineEnabled: false,
+      deadlineAt: '',
+      deadlineMessage: '',
       category: '',
       note: '',
     });
+    this.onDeadlineEnabledChanged();
   }
 
   async startTask(taskId: string): Promise<void> {
@@ -570,6 +612,27 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     if (deleted) {
       this.dismissReminderFor(taskId);
     }
+  }
+
+  onDeadlineEnabledChanged(): void {
+    const enabled = this.taskForm.controls.deadlineEnabled.value;
+    const deadlineAt = this.taskForm.controls.deadlineAt;
+    const deadlineMessage = this.taskForm.controls.deadlineMessage;
+    if (enabled) {
+      deadlineAt.setValidators(Validators.required);
+      deadlineMessage.setValidators([Validators.required, Validators.maxLength(240)]);
+    } else {
+      deadlineAt.clearValidators();
+      deadlineMessage.setValidators(Validators.maxLength(240));
+      deadlineAt.setValue('');
+      deadlineMessage.setValue('');
+    }
+    deadlineAt.updateValueAndValidity();
+    deadlineMessage.updateValueAndValidity();
+  }
+
+  async acknowledgeDeadline(taskId: string): Promise<void> {
+    await this.taskService.acknowledgeDeadline(taskId);
   }
 
   clearGlobalError(): void {
@@ -923,15 +986,27 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   controlInvalid(
-    name: 'name' | 'reminderAt' | 'reminderCount' | 'reminderIntervalMinutes',
+    name:
+      | 'name'
+      | 'reminderAt'
+      | 'reminderCount'
+      | 'reminderIntervalMinutes'
+      | 'deadlineAt'
+      | 'deadlineMessage',
   ): boolean {
     const control = this.taskControl(name);
     return control.invalid && (control.touched || control.dirty);
   }
 
   controlError(
-    name: 'name' | 'reminderAt' | 'reminderCount' | 'reminderIntervalMinutes',
-    error: 'required' | 'min' | 'max',
+    name:
+      | 'name'
+      | 'reminderAt'
+      | 'reminderCount'
+      | 'reminderIntervalMinutes'
+      | 'deadlineAt'
+      | 'deadlineMessage',
+    error: 'required' | 'min' | 'max' | 'maxlength',
   ): boolean {
     const control = this.taskControl(name);
     return this.controlInvalid(name) && control.hasError(error);
@@ -1330,13 +1405,24 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       reminderCount: Number(value.reminderCount),
       reminderIntervalMinutes: Number(value.reminderIntervalMinutes),
       allowConcurrentStart: value.allowConcurrentStart,
+      deadlineAt:
+        value.deadlineEnabled && value.deadlineAt
+          ? fromDatetimeLocalValue(value.deadlineAt)
+          : undefined,
+      deadlineMessage: value.deadlineEnabled ? value.deadlineMessage : undefined,
       category: value.category,
       note: value.note,
     };
   }
 
   private taskControl(
-    name: 'name' | 'reminderAt' | 'reminderCount' | 'reminderIntervalMinutes',
+    name:
+      | 'name'
+      | 'reminderAt'
+      | 'reminderCount'
+      | 'reminderIntervalMinutes'
+      | 'deadlineAt'
+      | 'deadlineMessage',
   ): AbstractControl {
     return this.taskForm.controls[name];
   }

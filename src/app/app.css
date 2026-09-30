@@ -2452,3 +2452,83 @@ button:disabled {
     0 12px 20px rgba(206, 103, 23, 0.2),
     inset 0 1px 0 rgba(255, 221, 183, 0.48);
 }
+
+.deadline-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(164, 185, 128, 0.32);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.deadline-helper,
+.deadline-meta,
+.deadline-alert-time {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.deadline-reached-badge {
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid rgba(181, 95, 60, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 235, 224, 0.82);
+  color: #9a4529;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.deadline-backdrop {
+  z-index: 30;
+}
+
+.deadline-alert {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 520px);
+  padding: 28px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(245, 191, 111, 0.22), transparent 30%),
+    linear-gradient(180deg, #fffdf8, #fff7e9);
+}
+
+.deadline-alert h2 {
+  color: #352619;
+  font-size: 1.75rem;
+}
+
+.deadline-alert-message {
+  color: #514438;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.deadline-acknowledge-button {
+  justify-self: end;
+  min-width: 120px;
+}
+
+:host-context(body.sticky-mode) .deadline-backdrop {
+  padding: 8px;
+}
+
+:host-context(body.sticky-mode) .deadline-alert {
+  width: min(100%, 340px);
+  gap: 10px;
+  padding: 18px;
+}
+
+:host-context(body.sticky-mode) .deadline-alert h2 {
+  font-size: 1.3rem;
+}
+
+:host-context(body.sticky-mode) .deadline-alert-message {
+  font-size: 0.9rem;
+}

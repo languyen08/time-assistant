@@ -374,4 +374,157 @@ describe('TaskService automatic scheduling', () => {
     expect(service.pendingTasks()[0].allowConcurrentStart).toBe(true);
     expect(service.pendingTasks()[0].nextAutoStartAt).toBeUndefined();
   });
+
+  it('creates tasks with and without normalized deadline configuration', async () => {
+    await configure([]);
+    await service.create({
+      name: 'No deadline',
+      note: '',
+      category: '',
+      reminderAt: '2026-05-30T11:00:00.000Z',
+      reminderCount: 3,
+      reminderIntervalMinutes: 5,
+      allowConcurrentStart: false,
+    });
+    await service.create({
+      name: 'Has deadline',
+      note: '',
+      category: '',
+      reminderAt: '2026-05-30T11:00:00.000Z',
+      reminderCount: 3,
+      reminderIntervalMinutes: 5,
+      allowConcurrentStart: false,
+      deadlineAt: '2026-05-30T12:00:00.000Z',
+      deadlineMessage: '  Wrap this up.  ',
+    });
+
+    expect(service.tasks()[0]).toMatchObject({
+      deadlineAt: undefined,
+      deadlineMessage: undefined,
+    });
+    expect(service.tasks()[1]).toMatchObject({
+      deadlineAt: '2026-05-30T12:00:00.000Z',
+      deadlineMessage: 'Wrap this up.',
+    });
+    expect(service.tasks()[1].deadlineNotifiedAt).toBeUndefined();
+    expect(service.tasks()[1].deadlineAcknowledgedAt).toBeUndefined();
+  });
+
+  it('re-arms a changed deadline and clears every deadline field when disabled', async () => {
+    await configure([
+      pendingTask({
+        deadlineAt: '2026-05-30T11:00:00.000Z',
+        deadlineMessage: 'Old message',
+        deadlineNotifiedAt: '2026-05-30T11:00:00.000Z',
+        deadlineAcknowledgedAt: '2026-05-30T11:01:00.000Z',
+      }),
+    ]);
+    const baseDraft = {
+      name: 'Scheduled work',
+      note: '',
+      category: '',
+      reminderAt: '2026-05-30T10:00:00.000Z',
+      reminderCount: 3,
+      reminderIntervalMinutes: 5,
+      allowConcurrentStart: false,
+    };
+
+    await service.update('task_2', {
+      ...baseDraft,
+      deadlineAt: '2026-05-30T12:00:00.000Z',
+      deadlineMessage: 'New message',
+    });
+    expect(service.pendingTasks()[0]).toMatchObject({
+      deadlineAt: '2026-05-30T12:00:00.000Z',
+      deadlineNotifiedAt: undefined,
+      deadlineAcknowledgedAt: undefined,
+    });
+
+    await service.update('task_2', baseDraft);
+    expect(service.pendingTasks()[0]).toMatchObject({
+      deadlineAt: undefined,
+      deadlineMessage: undefined,
+      deadlineNotifiedAt: undefined,
+      deadlineAcknowledgedAt: undefined,
+    });
+  });
+
+  it('preserves processing state for a message-only deadline edit', async () => {
+    await configure([
+      pendingTask({
+        deadlineAt: '2026-05-30T11:00:00.000Z',
+        deadlineMessage: 'Old message',
+        deadlineNotifiedAt: '2026-05-30T11:00:00.000Z',
+        deadlineAcknowledgedAt: '2026-05-30T11:01:00.000Z',
+      }),
+    ]);
+
+    await service.update('task_2', {
+      name: 'Scheduled work',
+      note: '',
+      category: '',
+      reminderAt: '2026-05-30T10:00:00.000Z',
+      reminderCount: 3,
+      reminderIntervalMinutes: 5,
+      allowConcurrentStart: false,
+      deadlineAt: '2026-05-30T11:00:00.000Z',
+      deadlineMessage: 'Updated message',
+    });
+
+    expect(service.pendingTasks()[0]).toMatchObject({
+      deadlineMessage: 'Updated message',
+      deadlineNotifiedAt: '2026-05-30T11:00:00.000Z',
+      deadlineAcknowledgedAt: '2026-05-30T11:01:00.000Z',
+    });
+  });
+
+  it('marks a deadline once, records one history event, and acknowledges only its task', async () => {
+    await configure([
+      pendingTask({
+        id: 'deadline-a',
+        deadlineAt: '2026-05-30T10:05:00.000Z',
+        deadlineMessage: 'A',
+      }),
+      pendingTask({
+        id: 'deadline-b',
+        order: 2,
+        deadlineAt: '2026-05-30T10:05:00.000Z',
+        deadlineMessage: 'B',
+      }),
+    ]);
+    const now = new Date('2026-05-30T10:10:00.000Z');
+
+    expect(await service.markDeadlineNotified('deadline-a', now)).toBeDefined();
+    expect(await service.markDeadlineNotified('deadline-a', now)).toBeUndefined();
+    expect(record.mock.calls.filter(([type]) => type === 'deadline_reached')).toHaveLength(1);
+    expect(record).toHaveBeenCalledWith(
+      'deadline_reached',
+      'Finish-by deadline reached for "Scheduled work".',
+      'deadline-a',
+      { deadlineAt: '2026-05-30T10:05:00.000Z' },
+    );
+
+    expect(await service.acknowledgeDeadline('deadline-a', now)).toBe(true);
+    expect(await service.acknowledgeDeadline('deadline-a', now)).toBe(false);
+    expect(service.tasks().find((task) => task.id === 'deadline-a')?.deadlineAcknowledgedAt).toBe(
+      now.toISOString(),
+    );
+    expect(
+      service.tasks().find((task) => task.id === 'deadline-b')?.deadlineAcknowledgedAt,
+    ).toBeUndefined();
+  });
+
+  it('keeps historical deadline state when a current task completes', async () => {
+    await configure([
+      activeTask({
+        deadlineAt: '2026-05-30T10:05:00.000Z',
+        deadlineMessage: 'Done?',
+        deadlineNotifiedAt: '2026-05-30T10:05:00.000Z',
+      }),
+    ]);
+
+    await service.complete('task_1');
+
+    expect(service.completedTasks()[0].deadlineNotifiedAt).toBe('2026-05-30T10:05:00.000Z');
+  });
 });

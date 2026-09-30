@@ -93,16 +93,33 @@ export class TaskService {
       return false;
     }
 
-    const validation = this.validator.validate(draft, new Date(), current.reminderAt);
+    const validation = this.validator.validate(
+      draft,
+      new Date(),
+      current.reminderAt,
+      current.deadlineAt,
+    );
     if (!validation.valid) {
       this.errorMessage.set(validation.errors[0]);
       return false;
     }
 
+    const cleanedDraft = this.cleanDraft(draft);
+    const deadlineChanged = cleanedDraft.deadlineAt !== current.deadlineAt;
     const updated: Task = {
       ...current,
-      ...this.cleanDraft(draft),
+      ...cleanedDraft,
       updatedAt: nowIso(),
+      deadlineNotifiedAt: cleanedDraft.deadlineAt
+        ? deadlineChanged
+          ? undefined
+          : current.deadlineNotifiedAt
+        : undefined,
+      deadlineAcknowledgedAt: cleanedDraft.deadlineAt
+        ? deadlineChanged
+          ? undefined
+          : current.deadlineAcknowledgedAt
+        : undefined,
       nextAutoStartAt:
         current.status === 'pending' &&
         (draft.reminderAt !== current.reminderAt ||
@@ -418,6 +435,61 @@ export class TaskService {
     }
   }
 
+  async markDeadlineNotified(taskId: string, now: Date): Promise<Task | undefined> {
+    const task = this.findTask(taskId);
+    if (!task || !task.deadlineAt || task.status === 'completed' || task.deadlineNotifiedAt) {
+      return undefined;
+    }
+
+    const updated: Task = {
+      ...task,
+      deadlineNotifiedAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
+    try {
+      await this.saveAndReplace(updated);
+    } catch (error) {
+      this.captureError(error, 'Deadline state could not be saved.');
+      return undefined;
+    }
+
+    try {
+      await this.history.record(
+        'deadline_reached',
+        `Finish-by deadline reached for "${updated.name}".`,
+        updated.id,
+        { deadlineAt: updated.deadlineAt! },
+      );
+    } catch (error) {
+      this.captureError(error, 'The deadline was saved, but its history could not be recorded.');
+    }
+
+    return updated;
+  }
+
+  async acknowledgeDeadline(taskId: string, now = new Date()): Promise<boolean> {
+    const task = this.findTask(taskId);
+    if (!task?.deadlineNotifiedAt || task.deadlineAcknowledgedAt) {
+      return false;
+    }
+
+    const updated: Task = {
+      ...task,
+      deadlineAcknowledgedAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
+    try {
+      await this.saveAndReplace(updated);
+      this.errorMessage.set('');
+      return true;
+    } catch (error) {
+      this.captureError(error, 'Deadline acknowledgement could not be saved.');
+      return false;
+    }
+  }
+
   async pause(taskId: string, now = new Date()): Promise<boolean> {
     const task = this.findTask(taskId);
     if (!task || task.status !== 'active') {
@@ -505,6 +577,8 @@ export class TaskService {
       reminderCount: draft.reminderCount,
       reminderIntervalMinutes: draft.reminderIntervalMinutes,
       allowConcurrentStart: draft.allowConcurrentStart,
+      deadlineAt: draft.deadlineAt || undefined,
+      deadlineMessage: draft.deadlineAt ? draft.deadlineMessage?.trim() || undefined : undefined,
     };
   }
 
@@ -514,6 +588,10 @@ export class TaskService {
       allowConcurrentStart: task.allowConcurrentStart ?? false,
       totalPausedSeconds: task.totalPausedSeconds ?? 0,
       reminderAttemptsShown: task.reminderAttemptsShown ?? 0,
+      deadlineAt: task.deadlineAt ?? undefined,
+      deadlineMessage: task.deadlineMessage ?? undefined,
+      deadlineNotifiedAt: task.deadlineNotifiedAt ?? undefined,
+      deadlineAcknowledgedAt: task.deadlineAcknowledgedAt ?? undefined,
     };
   }
 

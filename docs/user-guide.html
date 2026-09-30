@@ -402,6 +402,10 @@
                   <strong>Allow concurrent start</strong> is off by default. Turn it on only when
                   this task may start while another task is active or paused.
                 </li>
+                <li>
+                  <strong>Set finish-by deadline</strong> is optional. When enabled, choose a time
+                  later than Start time and write a custom message of at most 240 characters.
+                </li>
               </ul>
             </article>
             <article class="step-card">
@@ -446,6 +450,23 @@
                 <li>The default break duration comes from Settings.</li>
                 <li>You can skip a break or stop it early.</li>
                 <li>Break actions are recorded in History.</li>
+              </ul>
+            </article>
+            <article class="step-card">
+              <h2>Finish-by alerts</h2>
+              <p>
+                Finish by is an absolute wall-clock target for pending, active, and paused tasks. At
+                that time, Scheduler sends the custom message once as a Windows notification and
+                keeps an in-app alert available until you press <strong>Got it</strong>.
+              </p>
+              <ul>
+                <li>Pause, Break, +30 Start retry, and Add more time do not move Finish by.</li>
+                <li>Changing the Finish-by time re-arms it; editing only the message does not.</li>
+                <li>Completing or deleting the task before the deadline prevents the alert.</li>
+                <li>
+                  If the app is completely exited, an overdue deadline is processed once on the next
+                  launch.
+                </li>
               </ul>
             </article>
           </div>
@@ -509,8 +530,9 @@
               <strong>Task export</strong>
               <p>
                 Export includes <code>allowConcurrentStart</code>, task status, reminder state,
-                timestamps, and pause totals. Older imports without that optional column remain
-                valid and default it to <code>false</code>.
+                timestamps, pause totals, <code>deadlineAt</code>, and <code>deadlineMessage</code>.
+                Local processing fields are not exported. Older imports without the optional
+                concurrency or deadline columns remain valid.
               </p>
             </div>
             <div class="tip">
@@ -526,7 +548,8 @@
             Main and Sticky each still own their visible reminder scheduler. Each renderer correctly
             serializes reminders across multiple active tasks, but opening both windows can still
             produce a duplicate reminder-owner race. This ownership issue remains planned technical
-            debt.
+            debt. Finish-by deadlines do not share that race: the hidden Scheduler alone triggers
+            them, while Main and Sticky only present persisted unacknowledged alerts.
           </p>
         </section>
       </main>

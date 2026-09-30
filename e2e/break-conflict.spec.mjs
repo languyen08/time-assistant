@@ -194,3 +194,106 @@ test('starts a concurrent due task and keeps the other task active until final c
   await expect(page.getByRole('button', { name: 'Start break' })).toBeVisible();
   await schedulerPage.close();
 });
+
+test('processes and acknowledges one persisted finish-by deadline', async ({ context, page }) => {
+  const now = Date.now();
+  const startAt = new Date(now - 2 * 60 * 60_000).toISOString();
+  const deadlineAt = new Date(now - 60_000).toISOString();
+  const nextReminderAt = new Date(now + 60 * 60_000).toISOString();
+
+  await page.goto('/');
+  await page.evaluate(
+    async ({
+      startAt: storedStartAt,
+      deadlineAt: storedDeadlineAt,
+      nextReminderAt: storedNextReminderAt,
+    }) => {
+      const database = await new Promise((resolve, reject) => {
+        const request = indexedDB.open('friendly-task-reminder', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction('tasks', 'readwrite');
+        transaction.objectStore('tasks').put({
+          id: 'e2e-deadline-task',
+          name: 'Deadline E2E task',
+          note: '',
+          category: '',
+          reminderAt: storedStartAt,
+          reminderCount: 0,
+          reminderIntervalMinutes: 5,
+          allowConcurrentStart: false,
+          deadlineAt: storedDeadlineAt,
+          deadlineMessage: 'This is the custom deadline message.',
+          order: 0,
+          status: 'active',
+          activeStartedAt: storedStartAt,
+          nextReminderAt: storedNextReminderAt,
+          createdAt: storedDeadlineAt,
+          updatedAt: storedDeadlineAt,
+          totalPausedSeconds: 0,
+          reminderAttemptsShown: 0,
+        });
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+      database.close();
+    },
+    { startAt, deadlineAt, nextReminderAt },
+  );
+
+  await page.reload();
+  const schedulerPage = await context.newPage();
+  await schedulerPage.goto('/?window=scheduler');
+
+  const deadlineDialog = page.getByRole('dialog', { name: 'Deadline E2E task' });
+  await expect(deadlineDialog.getByRole('heading', { name: 'Deadline E2E task' })).toBeVisible();
+  await expect(page.getByText('This is the custom deadline message.')).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const database = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('friendly-task-reminder', 2);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const task = await new Promise((resolve, reject) => {
+          const request = database
+            .transaction('tasks', 'readonly')
+            .objectStore('tasks')
+            .get('e2e-deadline-task');
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        database.close();
+        return Boolean(task?.deadlineNotifiedAt);
+      }),
+    )
+    .toBe(true);
+
+  await page.getByRole('button', { name: 'Got it' }).click();
+  await expect(page.getByText('This is the custom deadline message.')).toHaveCount(0);
+  const acknowledged = await page.evaluate(async () => {
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('friendly-task-reminder', 2);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const task = await new Promise((resolve, reject) => {
+      const request = database
+        .transaction('tasks', 'readonly')
+        .objectStore('tasks')
+        .get('e2e-deadline-task');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    database.close();
+    return task;
+  });
+  expect(acknowledged.deadlineAcknowledgedAt).toBeTruthy();
+  expect(acknowledged.status).toBe('active');
+  expect(acknowledged.reminderAt).toBe(startAt);
+  await schedulerPage.close();
+});

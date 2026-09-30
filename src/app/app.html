@@ -1469,6 +1469,11 @@
               <div class="sticky-task-copy">
                 <p class="task-label">{{ stickyTaskStateLabel(task) }}</p>
                 <h2>{{ task.name }}</h2>
+                @if (task.deadlineAt) {
+                  <span class="deadline-meta">
+                    Finish by: {{ task.deadlineAt | date: 'short' }}
+                  </span>
+                }
               </div>
               <div class="sticky-timer-row">
                 <div class="sticky-timer-cell">
@@ -1509,6 +1514,11 @@
               <div class="sticky-task-copy">
                 <p class="task-label">Next up</p>
                 <strong class="sticky-next-name">{{ task.name }}</strong>
+                @if (task.deadlineAt) {
+                  <span class="deadline-meta">
+                    Finish by: {{ task.deadlineAt | date: 'short' }}
+                  </span>
+                }
                 <span class="sticky-next-count">{{ stickyTaskPositionLabel(index) }}</span>
               </div>
             </article>
@@ -1685,6 +1695,14 @@
                       {{ task.name }}
                     </h2>
                     <span class="current-task-status">{{ stickyTaskStateLabel(task) }}</span>
+                    @if (task.deadlineAt) {
+                      <span class="deadline-meta">
+                        Finish by: {{ task.deadlineAt | date: 'short' }}
+                      </span>
+                    }
+                    @if (task.deadlineNotifiedAt) {
+                      <span class="deadline-reached-badge">Deadline reached</span>
+                    }
                     @if (task.note) {
                       <p class="current-task-active-note-text">
                         {{ task.note }}
@@ -1951,6 +1969,14 @@
                         <span class="task-meta" style="color: #7a6a95; font-size: 0.82rem">
                           Start time: {{ task.reminderAt | date: 'short' }}
                         </span>
+                        @if (task.deadlineAt) {
+                          <span class="task-meta deadline-meta">
+                            Finish by: {{ task.deadlineAt | date: 'short' }}
+                          </span>
+                        }
+                        @if (task.deadlineNotifiedAt) {
+                          <span class="deadline-reached-badge">Deadline reached</span>
+                        }
                         @if (task.allowConcurrentStart) {
                           <span class="concurrent-badge">Concurrent start allowed</span>
                         }
@@ -2231,6 +2257,64 @@
                   <small>Start this task even if another task is already active.</small>
                 </span>
               </label>
+
+              <label class="concurrent-start-control deadline-toggle-control">
+                <input
+                  type="checkbox"
+                  formControlName="deadlineEnabled"
+                  (change)="onDeadlineEnabledChanged()"
+                />
+                <span class="concurrent-start-copy">
+                  <strong>Set finish-by deadline</strong>
+                  <small>Show a custom message if this task is not finished in time.</small>
+                </span>
+              </label>
+
+              @if (taskForm.controls.deadlineEnabled.value) {
+                <div class="deadline-fields">
+                  <label [class.field-invalid]="controlInvalid('deadlineAt')">
+                    <span>Finish by</span>
+                    <input
+                      type="datetime-local"
+                      formControlName="deadlineAt"
+                      [attr.aria-invalid]="controlInvalid('deadlineAt')"
+                      [attr.aria-describedby]="
+                        controlInvalid('deadlineAt') ? 'deadline-time-error' : null
+                      "
+                    />
+                    @if (controlError('deadlineAt', 'required')) {
+                      <small id="deadline-time-error" class="field-error">
+                        Finish-by time is required.
+                      </small>
+                    }
+                  </label>
+                  <label [class.field-invalid]="controlInvalid('deadlineMessage')">
+                    <span>Deadline message</span>
+                    <textarea
+                      rows="3"
+                      maxlength="240"
+                      formControlName="deadlineMessage"
+                      placeholder="Write the message you want to see at the deadline"
+                      [attr.aria-invalid]="controlInvalid('deadlineMessage')"
+                      [attr.aria-describedby]="
+                        controlInvalid('deadlineMessage') ? 'deadline-message-error' : null
+                      "
+                    ></textarea>
+                    <small class="deadline-helper">
+                      Show this message if the task is not finished by this time.
+                    </small>
+                    @if (controlError('deadlineMessage', 'required')) {
+                      <small id="deadline-message-error" class="field-error">
+                        A custom deadline message is required.
+                      </small>
+                    } @else if (controlError('deadlineMessage', 'maxlength')) {
+                      <small id="deadline-message-error" class="field-error">
+                        Deadline message cannot be more than 240 characters.
+                      </small>
+                    }
+                  </label>
+                </div>
+              }
 
               <div
                 class="new-task-inline-grid"
@@ -3948,6 +4032,31 @@
         </article>
       </section>
     }
+  }
+
+  @if (visibleDeadlineAlert(); as deadlineTask) {
+    <section class="modal-backdrop deadline-backdrop" role="presentation">
+      <article
+        class="reminder-modal deadline-alert"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="deadline-alert-title"
+      >
+        <p class="eyebrow">Finish by reached</p>
+        <h2 id="deadline-alert-title">{{ deadlineTask.name }}</h2>
+        <p class="deadline-alert-message">{{ deadlineTask.deadlineMessage }}</p>
+        <p class="deadline-alert-time">
+          Finish by: {{ deadlineTask.deadlineAt | date: 'short' }}
+        </p>
+        <button
+          type="button"
+          class="primary-button deadline-acknowledge-button"
+          (click)="acknowledgeDeadline(deadlineTask.id)"
+        >
+          Got it
+        </button>
+      </article>
+    </section>
   }
 
   @if (reminderScheduler.activeReminder(); as reminder) {

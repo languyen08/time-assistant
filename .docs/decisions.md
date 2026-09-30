@@ -326,3 +326,47 @@ Consequences:
 - Old IndexedDB records and old CSV files remain compatible through `false` normalization/defaults.
 - Reminder overlay serialization works within each renderer, but the duplicate reminder-owner race
   between Main and Sticky remains separate unresolved technical debt.
+
+---
+
+## ADR-015: Scheduler-Owned One-Time Finish-By Deadline Alerts
+
+Status: Accepted
+
+Context:
+Finish-by deadlines must fire for pending, active, and paused tasks, including while work is blocked
+by another task or a Break. They must remain reliable while Main is closed or Sticky is hidden,
+without allowing Main and Sticky to independently send duplicate native notifications. The hidden
+Scheduler previously had no native-notification bridge.
+
+Decision:
+- The dedicated Scheduler renderer is the sole owner of deadline triggering through
+  `DeadlineSchedulerService`.
+- One-time trigger and acknowledgement state are persisted on Task as `deadlineNotifiedAt` and
+  `deadlineAcknowledgedAt` without changing IndexedDB version 2.
+- Scheduler receives a dedicated `scheduler-preload.cjs` that exposes only
+  `window.assistantTime.notify(...)` and reuses the validated `assistant-time:notify` IPC handler.
+- Scheduler persists the trigger, records `deadline_reached`, and then sends one native notification
+  containing the user-authored custom message.
+- Main and Sticky only display persisted unacknowledged deadline alerts. Got it acknowledges the
+  exact task and normal task broadcasting synchronizes the change.
+- Finish by is absolute: pause, Break, automatic-start retry, and reminder Add more time do not
+  pause or move it. Changing Finish-by time re-arms it; changing only the message does not.
+
+Consequences:
+
+Positive:
+- One authoritative deadline trigger owner prevents Main/Sticky native-notification duplication.
+- Persistent processing state deduplicates notifications across renderer or application restart.
+- Deadline triggering continues while only Tray/Scheduler remain, with no storage technology or
+  IndexedDB version migration.
+
+Tradeoffs:
+- Scheduler gains one narrow native capability.
+- A native notification failure after the trigger is persisted is not retried; the persisted in-app
+  alert remains available.
+- Main and Sticky may both temporarily show the same unacknowledged in-app alert until one
+  acknowledges it.
+- A fully exited Electron process cannot trigger at the wall-clock instant; overdue unprocessed
+  deadlines are handled on the next launch.
+- The general Main/Sticky normal-reminder ownership race remains separate technical debt.

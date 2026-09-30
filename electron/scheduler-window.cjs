@@ -1,3 +1,5 @@
+const path = require('node:path');
+
 function isUsableWindow(windowInstance) {
   return Boolean(windowInstance && !windowInstance.isDestroyed());
 }
@@ -8,6 +10,7 @@ function schedulerWindowOptions() {
     skipTaskbar: true,
     focusable: false,
     webPreferences: {
+      preload: path.join(__dirname, 'scheduler-preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,

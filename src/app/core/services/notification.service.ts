@@ -42,6 +42,10 @@ export class NotificationService {
     }
   }
 
+  async showDeadline(taskName: string, message: string): Promise<boolean> {
+    return this.electron.notify(`Finish by reached — ${taskName}`, message);
+  }
+
   private playSound(soundId: string): void {
     try {
       this.audioContext ??= new AudioContext();

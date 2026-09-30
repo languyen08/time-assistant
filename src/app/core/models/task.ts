@@ -18,6 +18,10 @@ export interface Task {
   pausedRemainingSeconds?: number;
   totalPausedSeconds: number;
   completedAt?: string;
+  deadlineAt?: string;
+  deadlineMessage?: string;
+  deadlineNotifiedAt?: string;
+  deadlineAcknowledgedAt?: string;
   nextAutoStartAt?: string;
   nextReminderAt?: string;
   reminderAttemptsShown: number;
@@ -31,4 +35,6 @@ export interface TaskDraft {
   reminderCount: number;
   reminderIntervalMinutes: number;
   allowConcurrentStart: boolean;
+  deadlineAt?: string;
+  deadlineMessage?: string;
 }

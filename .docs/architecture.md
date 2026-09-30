@@ -34,14 +34,16 @@ Angular renderers
   |- Main: full user interface
   |- Sticky: compact user interface
   |- Scheduler: hidden, authoritative owner for automatic task lifecycle scheduling
-  |    `- AutomaticTaskSchedulerService -> TaskService -> IndexedDB
+  |    |- AutomaticTaskSchedulerService -> TaskService -> IndexedDB
+  |    `- DeadlineSchedulerService -> TaskService -> notify-only preload
   |- TimerService and ReminderSchedulerService in Main and Sticky
   |- repositories -> shared IndexedDB v2 environment
   |- task-change BroadcastChannel
   `- break BroadcastChannel with source-qualified Main/Sticky state
 
 Electron preload
-  `- narrow window.assistantTime IPC bridge and main-window state event
+  |- full narrow window.assistantTime bridge for Main and Sticky
+  `- notify-only window.assistantTime bridge for Scheduler
 
 Electron main
   |- main, sticky-note, hidden scheduler, and user-guide windows
@@ -165,8 +167,8 @@ Current windows:
 2. Main application window: created on demand through the focus-main-window IPC flow.
 3. Scheduler window: created at Electron startup; hidden, non-focusable, absent from the taskbar,
    and retained for the Electron process lifetime. It uses the same Angular application, browser
-   session, and IndexedDB environment with `window=scheduler`, but it has no preload bridge or
-   user-facing UI.
+   session, and IndexedDB environment with `window=scheduler`. It has a dedicated notify-only
+   preload bridge and no user-facing UI.
 4. User-guide window: created on demand and loads the local HTML guide.
 
 Current background behavior:
@@ -188,7 +190,7 @@ Current background behavior:
 - No independent main-process timer or reminder scheduler is implemented.
 - Scheduler mode loads task state only. It does not start `TimerService`,
   `ReminderSchedulerService`, native window synchronization, or UI measurement observers. It
-  starts only `AutomaticTaskSchedulerService` and break-state coordination.
+  starts `AutomaticTaskSchedulerService`, `DeadlineSchedulerService`, and break-state coordination.
 
 ## Local Storage
 
@@ -215,7 +217,8 @@ Persisted state:
 - Task records include active/paused timing fields, next-reminder state, reminder attempt count,
   the user-authored scheduled Start time in `reminderAt`, and optional internal automatic retry
   state in `nextAutoStartAt`. User-owned `allowConcurrentStart` defaults/normalizes to `false`
-  without an IndexedDB version bump.
+  without an IndexedDB version bump. Optional `deadlineAt` and `deadlineMessage` are user data;
+  `deadlineNotifiedAt` and `deadlineAcknowledgedAt` persist one-time processing/presentation state.
 - Settings and history events are stored in their own stores.
 
 Runtime-only or conceptual state:
@@ -265,6 +268,23 @@ Notification design:
 - Do not spam notifications.
 - Respect reminder repeat count and interval.
 
+Finish-by deadline flow:
+
+```txt
+Scheduler checks ordered tasks once per second
+  -> first due pending/active/paused task without deadlineNotifiedAt
+  -> persist deadlineNotifiedAt
+  -> record deadline_reached history
+  -> invoke existing validated assistant-time:notify IPC with the custom message
+  -> Main/Sticky derive one unacknowledged in-app alert from persisted task state
+  -> Got it persists deadlineAcknowledgedAt for that task
+```
+
+The persisted-before-notify ordering favors restart-safe deduplication. Native notification failure
+does not clear the trigger or create a retry loop; the in-app alert remains available. Pause,
+Break, +30 automatic-start retry, and Add more time neither block nor move the absolute deadline.
+If Electron is fully exited, an overdue unprocessed deadline is handled on the next launch.
+
 ## Multi-Window Synchronization
 
 Current implementation:
@@ -287,6 +307,10 @@ Current implementation:
   persistence across application exit remain unimplemented.
 - Settings, loaded history, and active reminder-overlay state do not have comprehensive
   cross-window synchronization.
+- Scheduler alone triggers deadlines and processes at most one new deadline per check. Main and
+  Sticky may both temporarily display the same persisted unacknowledged alert, but acknowledging in
+  either saves and broadcasts the task change so both reload. Deadline alert rendering yields to an
+  active normal reminder or break decision/completion modal.
 
 Known limitation / technical debt:
 

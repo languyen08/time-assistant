@@ -89,6 +89,15 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
   before completing the final current task; deleting a current task never opens Break.
 - Visible renderers scan all active tasks in order but serialize reminder overlays one at a time.
   The Main/Sticky duplicate reminder-owner race remains unresolved technical debt.
+- Finish by is optional task data. When configured, it requires a user-authored message of at most
+  240 characters and must be later than Start time. It is an absolute wall-clock target unaffected
+  by pause, break, automatic +30 retries, or Add more time.
+- Only the Scheduler renderer runs `DeadlineSchedulerService`. It persists `deadlineNotifiedAt`
+  before invoking the existing native notification IPC and processes at most one new deadline per
+  check. Main and Sticky only present persisted, unacknowledged deadline alerts.
+- Scheduler uses the dedicated notify-only `scheduler-preload.cjs`; do not replace it with the full
+  renderer preload. Changing Finish-by time re-arms the deadline, while changing only its message
+  preserves processing state.
 
 ## Coding Rules
 - Use Angular standalone components where appropriate.

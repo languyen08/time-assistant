@@ -335,7 +335,7 @@ Goal: add optional convenience features and polish after the core app is stable.
   - [x] Make Sticky Note X temporarily hide the sticky window without changing
     `stickyNoteEnabled`.
   - [x] Preserve deterministic smoke-test shutdown and Windows startup-at-login behavior.
-- [ ] Phase 2 — Automatic and concurrent task lifecycle.
+- [x] Phase 2 — Automatic and concurrent task lifecycle.
   - [x] Establish one dedicated hidden Scheduler renderer as the sole owner for automatic
     task lifecycle scheduling.
   - [x] Automatically start tasks at their scheduled Start time.
@@ -343,7 +343,7 @@ Goal: add optional convenience features and polish after the core app is stable.
     unblock scheduling.
   - [x] Support per-task concurrent start / multiple active tasks.
   - [x] Reschedule blocked automatic starts in repeated 30-minute increments.
-  - [ ] Finish-by/deadline + custom message.
+  - [x] Finish-by/deadline + custom message.
 - [ ] Complete accessibility verification, including keyboard navigation, contrast, and reduced-motion behavior.
 - [ ] Add the missing Playwright coverage for add-more-time and pause/resume.
 - [ ] Decide whether to introduce semantic linting or rename the current Prettier-only `lint` command.
