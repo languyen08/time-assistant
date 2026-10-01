@@ -4,8 +4,10 @@ import windowLifecycleModule from './window-lifecycle.cjs';
 const {
   closeMainWindow,
   getMainWindowMaximized,
+  getReminderPresenter,
   hideStickyWindow,
   openMainWindow,
+  publishReminderPresenterChanged,
   quitApplication,
   showStickyWindow,
   toggleMainWindowMaximized,
@@ -14,6 +16,10 @@ const {
 function createWindow(overrides = {}) {
   let maximized = false;
   return {
+    webContents: {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    },
     isDestroyed: vi.fn(() => false),
     isMaximized: vi.fn(() => maximized),
     maximize: vi.fn(() => {
@@ -30,11 +36,78 @@ function createWindow(overrides = {}) {
     focus: vi.fn(),
     close: vi.fn(),
     destroy: vi.fn(),
+    setIgnoreMouseEvents: vi.fn(),
+    setAlwaysOnTop: vi.fn(),
     ...overrides,
   };
 }
 
 describe('window lifecycle helpers', () => {
+  it('selects Main, Sticky, or none from BrowserWindow existence', () => {
+    const mainWindow = createWindow();
+    const stickyWindow = createWindow();
+
+    expect(
+      getReminderPresenter(
+        () => mainWindow,
+        () => stickyWindow,
+      ),
+    ).toBe('main');
+    expect(
+      getReminderPresenter(
+        () => undefined,
+        () => stickyWindow,
+      ),
+    ).toBe('sticky');
+    expect(
+      getReminderPresenter(
+        () => undefined,
+        () => undefined,
+      ),
+    ).toBe('none');
+    expect(
+      getReminderPresenter(
+        () => createWindow({ isDestroyed: vi.fn(() => true) }),
+        () => stickyWindow,
+      ),
+    ).toBe('sticky');
+  });
+
+  it('publishes sticky to main and main to sticky transitions with constrained payloads', () => {
+    let mainWindow;
+    let stickyWindow = createWindow();
+    const publish = () =>
+      publishReminderPresenterChanged({
+        getMainWindow: () => mainWindow,
+        getStickyWindow: () => stickyWindow,
+        stickyAlwaysOnTop: true,
+      });
+
+    expect(publish()).toBe('sticky');
+    expect(stickyWindow.webContents.send).toHaveBeenLastCalledWith(
+      'assistant-time:reminder-presenter-changed',
+      'sticky',
+    );
+
+    mainWindow = createWindow();
+    expect(publish()).toBe('main');
+    expect(mainWindow.webContents.send).toHaveBeenLastCalledWith(
+      'assistant-time:reminder-presenter-changed',
+      'main',
+    );
+    expect(stickyWindow.webContents.send).toHaveBeenLastCalledWith(
+      'assistant-time:reminder-presenter-changed',
+      'main',
+    );
+
+    mainWindow = undefined;
+    expect(publish()).toBe('sticky');
+    expect(stickyWindow.setIgnoreMouseEvents).toHaveBeenLastCalledWith(false);
+    expect(stickyWindow.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
+
+    stickyWindow = undefined;
+    expect(publish()).toBe('none');
+  });
   it('maximizes and restores from the actual BrowserWindow state', () => {
     const windowInstance = createWindow();
     const getWindow = () => windowInstance;

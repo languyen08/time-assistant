@@ -20,9 +20,11 @@ const {
 const {
   closeMainWindow,
   getMainWindowMaximized,
+  getReminderPresenter,
   hideStickyWindow,
   isUsableWindow,
   openMainWindow,
+  publishReminderPresenterChanged,
   quitApplication,
   showStickyWindow,
   toggleMainWindowMaximized,
@@ -217,6 +219,21 @@ function ownerWindow() {
   return undefined;
 }
 
+function currentReminderPresenter() {
+  return getReminderPresenter(
+    () => mainWindow,
+    () => stickyWindow,
+  );
+}
+
+function publishCurrentReminderPresenter() {
+  return publishReminderPresenterChanged({
+    getMainWindow: () => mainWindow,
+    getStickyWindow: () => stickyWindow,
+    stickyAlwaysOnTop: stickyAlwaysOnTopPreference,
+  });
+}
+
 function sendMainWindowMaximizedState() {
   if (!isUsableWindow(mainWindow) || mainWindow.webContents.isDestroyed()) {
     return;
@@ -334,9 +351,11 @@ function createMainWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = undefined;
+    publishCurrentReminderPresenter();
   });
   mainWindow.on('maximize', sendMainWindowMaximizedState);
   mainWindow.on('unmaximize', sendMainWindowMaximizedState);
+  publishCurrentReminderPresenter();
 
   if (isSmokeTest) {
     mainWindow.webContents.once('did-finish-load', () => {
@@ -470,6 +489,7 @@ function createStickyWindow(alwaysOnTop, color) {
   stickyWindow.on('closed', () => {
     stickyWindow = undefined;
     updateTrayMenu();
+    publishCurrentReminderPresenter();
   });
   stickyWindow.on('hide', updateTrayMenu);
   stickyWindow.on('show', updateTrayMenu);
@@ -477,6 +497,7 @@ function createStickyWindow(alwaysOnTop, color) {
   if (appIconPath) {
     stickyWindow.setIcon(appIconPath);
   }
+  publishCurrentReminderPresenter();
 
   if (isSmokeTest) {
     stickyWindow.webContents.once('did-finish-load', () => {
@@ -579,6 +600,8 @@ ipcMain.handle('assistant-time:hide-sticky-window', () => {
 ipcMain.handle('assistant-time:get-main-window-maximized', () =>
   getMainWindowMaximized(() => mainWindow),
 );
+
+ipcMain.handle('assistant-time:get-reminder-presenter', () => currentReminderPresenter());
 
 ipcMain.handle('assistant-time:toggle-main-window-maximized', () =>
   toggleMainWindowMaximized(() => mainWindow),

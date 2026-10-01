@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('assistantTime', {
   closeMainWindow: () => ipcRenderer.invoke('assistant-time:close-main-window'),
   focusMainWindow: () => ipcRenderer.invoke('assistant-time:focus-main-window'),
   getMainWindowMaximized: () => ipcRenderer.invoke('assistant-time:get-main-window-maximized'),
+  getReminderPresenter: () => ipcRenderer.invoke('assistant-time:get-reminder-presenter'),
   getStartAtLogin: () => ipcRenderer.invoke('assistant-time:get-start-at-login'),
   hideStickyWindow: () => ipcRenderer.invoke('assistant-time:hide-sticky-window'),
   minimizeStickyWindow: () => ipcRenderer.invoke('assistant-time:minimize-sticky-window'),
@@ -25,6 +26,16 @@ contextBridge.exposeInMainWorld('assistantTime', {
     ipcRenderer.on('assistant-time:main-window-maximized-changed', listener);
     return () => {
       ipcRenderer.removeListener('assistant-time:main-window-maximized-changed', listener);
+    };
+  },
+  onReminderPresenterChanged: (callback) => {
+    const listener = (_event, value) => {
+      const presenter = value === 'main' || value === 'sticky' ? value : 'none';
+      callback(presenter);
+    };
+    ipcRenderer.on('assistant-time:reminder-presenter-changed', listener);
+    return () => {
+      ipcRenderer.removeListener('assistant-time:reminder-presenter-changed', listener);
     };
   },
 });

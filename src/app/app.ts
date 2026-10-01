@@ -14,7 +14,7 @@ import { RouterOutlet } from '@angular/router';
 import { ChartConfiguration } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
 import { StickyNoteColor } from './core/models/app-settings';
-import { StickyResizeReason } from './core/models/electron-api';
+import { ReminderPresenter, StickyResizeReason } from './core/models/electron-api';
 import { Task, TaskDraft } from './core/models/task';
 import { BreakService } from './core/services/break.service';
 import { BreakCoordinationService } from './core/services/break-coordination.service';
@@ -69,6 +69,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   private stickyResizeFrameTwo: number | undefined;
   private stickyResizeObserver: ResizeObserver | undefined;
   private removeMainWindowMaximizedListener: (() => void) | undefined;
+  private removeReminderPresenterListener: (() => void) | undefined;
   private lastStickyMeasuredHeight = 0;
   private suppressStickyResizeUntil = 0;
   private lastStickyReminderVisible = false;
@@ -111,6 +112,13 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly windowMode = signal<AppWindowMode>(appWindowMode(window.location.search));
   readonly isStickyMode = computed(() => this.windowMode() === 'sticky');
   readonly isSchedulerMode = computed(() => this.windowMode() === 'scheduler');
+  readonly reminderPresenter = signal<ReminderPresenter>(
+    this.windowMode() === 'sticky' ? 'sticky' : this.windowMode() === 'scheduler' ? 'none' : 'main',
+  );
+  readonly isReminderPresenter = computed(() => this.reminderPresenter() === this.windowMode());
+  readonly visibleReminder = computed(() =>
+    this.isReminderPresenter() ? this.reminderScheduler.activeReminder() : undefined,
+  );
   readonly isMainWindowMaximized = signal(false);
   readonly stickyNoteColor = computed(() => this.settingsService.settings().stickyNoteColor);
   readonly stickyVisibleNotes = computed(() =>
@@ -297,8 +305,6 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
     return this.deadlineAlertTask();
   });
-  private notifiedReminderKey = '';
-
   readonly taskForm = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
     reminderAt: [toDatetimeLocalValue(addMinutes(new Date(), 30)), Validators.required],
@@ -347,7 +353,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
-      const reminder = this.reminderScheduler.activeReminder();
+      const reminder = this.visibleReminder();
       const settings = this.settingsService.settings();
       if (this.electron.isElectron) {
         const stickyMode = this.isStickyMode();
@@ -356,18 +362,6 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
           settings.stickyNoteAlwaysOnTop,
         );
       }
-
-      if (!reminder) {
-        return;
-      }
-
-      const key = `${reminder.taskId}:${reminder.attemptNumber}:${reminder.shownAt}`;
-      if (key === this.notifiedReminderKey) {
-        return;
-      }
-
-      this.notifiedReminderKey = key;
-      void this.notificationService.showReminder(reminder, settings);
     });
 
     effect(() => {
@@ -408,9 +402,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
     effect(() => {
       const stickyMode = this.isStickyMode();
-      const reminderVisible = Boolean(
-        this.reminderScheduler.activeReminder() || this.visibleDeadlineAlert(),
-      );
+      const reminderVisible = Boolean(this.visibleReminder() || this.visibleDeadlineAlert());
       if (!stickyMode) {
         this.lastStickyReminderVisible = false;
         return;
@@ -426,16 +418,24 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   async ngOnInit(): Promise<void> {
     try {
       if (this.isSchedulerMode()) {
-        await this.taskService.load();
+        await Promise.all([this.taskService.load(), this.settingsService.load()]);
         this.breakCoordination.startScheduler();
         this.automaticTaskScheduler.start();
         this.deadlineScheduler.start();
+        this.reminderScheduler.start();
         return;
       }
 
       this.breakCoordination.startVisible(this.breakService.state(), {
         sessionId: this.breakService.session().id,
       });
+
+      if (this.electron.isElectron) {
+        this.removeReminderPresenterListener = this.electron.onReminderPresenterChanged(
+          (presenter) => this.reminderPresenter.set(presenter),
+        );
+        this.reminderPresenter.set(await this.electron.getReminderPresenter());
+      }
 
       if (!this.isStickyMode() && this.electron.isElectron) {
         this.removeMainWindowMaximizedListener = this.electron.onMainWindowMaximizedChanged(
@@ -457,7 +457,6 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       await this.syncStickyWindow();
       this.resetForm();
       this.timerService.start();
-      this.reminderScheduler.start();
       this.scheduleStickyResize('initial-open');
     } catch (error) {
       this.taskService.errorMessage.set(
@@ -490,6 +489,8 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     this.cancelStickyResizeFrames();
     this.removeMainWindowMaximizedListener?.();
     this.removeMainWindowMaximizedListener = undefined;
+    this.removeReminderPresenterListener?.();
+    this.removeReminderPresenterListener = undefined;
   }
 
   async saveTask(): Promise<void> {
@@ -576,7 +577,6 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    this.dismissReminderFor(taskId);
     if (shouldPromptBreak) {
       this.breakMinutes.set(defaultBreakMinutes);
     }
@@ -585,10 +585,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   async addReminderTime(taskId: string): Promise<void> {
     const now = new Date();
     this.timerService.now.set(now);
-    const changed = await this.taskService.addTime(taskId, this.extensionMinutes(), now);
-    if (changed) {
-      this.dismissReminderFor(taskId);
-    }
+    await this.taskService.addTime(taskId, this.extensionMinutes(), now);
   }
 
   setExtensionMinutes(event: Event): void {
@@ -597,10 +594,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   async pauseTask(taskId: string): Promise<void> {
-    const changed = await this.taskService.pause(taskId);
-    if (changed) {
-      this.dismissReminderFor(taskId);
-    }
+    await this.taskService.pause(taskId);
   }
 
   async resumeTask(taskId: string): Promise<void> {
@@ -608,10 +602,11 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   async deleteTask(taskId: string): Promise<void> {
-    const deleted = await this.taskService.delete(taskId);
-    if (deleted) {
-      this.dismissReminderFor(taskId);
-    }
+    await this.taskService.delete(taskId);
+  }
+
+  async dismissReminder(taskId: string): Promise<void> {
+    await this.reminderScheduler.dismiss(taskId);
   }
 
   onDeadlineEnabledChanged(): void {
@@ -1425,12 +1420,6 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       | 'deadlineMessage',
   ): AbstractControl {
     return this.taskForm.controls[name];
-  }
-
-  private dismissReminderFor(taskId: string): void {
-    if (this.reminderScheduler.activeReminder()?.taskId === taskId) {
-      this.reminderScheduler.dismiss();
-    }
   }
 
   private withInsightsPalette(

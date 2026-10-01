@@ -437,6 +437,10 @@
                 <li>
                   Only one reminder overlay appears at a time; the next due task follows later.
                 </li>
+                <li>
+                  Dismiss is saved. The same reminder stays available after a window is recreated or
+                  the app restarts, without another Windows notification.
+                </li>
               </ul>
             </article>
             <article class="step-card">
@@ -499,7 +503,9 @@
               <h2>Notifications and sounds</h2>
               <p>
                 Desktop reminders can play a sound and also show an in-app prompt when the app is
-                open.
+                open. The hidden Scheduler sends each reminder notification and configured sound
+                once. Main presents the in-app reminder when it exists; otherwise Sticky presents
+                it. Switching between those windows keeps the same reminder attempt and message.
               </p>
             </article>
             <article class="step-card">
@@ -543,13 +549,15 @@
         </section>
 
         <section class="card">
-          <h2>Current limitation</h2>
+          <h2>Reliable reminder ownership</h2>
           <p>
-            Main and Sticky each still own their visible reminder scheduler. Each renderer correctly
-            serializes reminders across multiple active tasks, but opening both windows can still
-            produce a duplicate reminder-owner race. This ownership issue remains planned technical
-            debt. Finish-by deadlines do not share that race: the hidden Scheduler alone triggers
-            them, while Main and Sticky only present persisted unacknowledged alerts.
+            The hidden Scheduler is the sole normal-reminder timing owner. It persists one pending
+            occurrence globally before recording history and sending the Windows notification or
+            sound. Main has in-app presenter priority, with Sticky as fallback; if neither exists,
+            the occurrence remains saved until a window opens. Window transitions never increment
+            the attempt or duplicate history/notification. This optional task field uses the
+            existing IndexedDB database and is intentionally excluded from CSV. Finish-by deadlines
+            remain an independent Scheduler-owned flow.
           </p>
         </section>
       </main>

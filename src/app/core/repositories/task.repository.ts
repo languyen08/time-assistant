@@ -13,6 +13,10 @@ export class TaskRepository {
     return tasks.sort((first, second) => first.order - second.order);
   }
 
+  get(taskId: string): Promise<Task | undefined> {
+    return this.storage.get<Task>(TASK_STORE, taskId);
+  }
+
   save(task: Task): Promise<void> {
     return this.storage.put(TASK_STORE, task);
   }

@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Task, TaskDraft } from '../models/task';
 import { TaskRepository } from '../repositories/task.repository';
 import { toFriendlyErrorMessage } from '../utils/error-message.util';
-import { createId, nowIso, secondsBetween, secondsUntil } from '../utils/date-time.util';
+import { createId, isDue, nowIso, secondsBetween, secondsUntil } from '../utils/date-time.util';
 import { HistoryService } from './history.service';
 import { TaskValidationService } from './task-validation.service';
 
@@ -225,6 +225,7 @@ export class TaskService {
       nextAutoStartAt: undefined,
       nextReminderAt: task.reminderAt,
       reminderAttemptsShown: 0,
+      pendingReminder: undefined,
       updatedAt: startedAt,
     };
 
@@ -258,6 +259,7 @@ export class TaskService {
       nextAutoStartAt: undefined,
       nextReminderAt: startedAt,
       reminderAttemptsShown: 0,
+      pendingReminder: undefined,
       updatedAt: startedAt,
     };
 
@@ -327,6 +329,7 @@ export class TaskService {
       pausedAt: undefined,
       pausedRemainingSeconds: undefined,
       nextReminderAt: undefined,
+      pendingReminder: undefined,
       updatedAt: completedAt,
     };
 
@@ -378,6 +381,7 @@ export class TaskService {
       reminderAt: task.reminderAt,
       nextReminderAt,
       pausedRemainingSeconds,
+      pendingReminder: undefined,
       updatedAt: nowIso(),
     };
 
@@ -399,39 +403,88 @@ export class TaskService {
     }
   }
 
-  async markReminderShown(taskId: string, now = new Date()): Promise<Task | undefined> {
-    const task = this.findTask(taskId);
-    if (!task || task.status !== 'active') {
-      return undefined;
-    }
-
-    const attemptsShown = task.reminderAttemptsShown + 1;
-    const nextReminderAt =
-      attemptsShown < task.reminderCount
-        ? new Date(now.getTime() + task.reminderIntervalMinutes * 60_000).toISOString()
-        : undefined;
-    const updated: Task = {
-      ...task,
-      reminderAttemptsShown: attemptsShown,
-      nextReminderAt,
-      updatedAt: nowIso(),
-    };
-
+  async triggerReminder(
+    taskId: string,
+    message: string,
+    now = new Date(),
+  ): Promise<Task | undefined> {
+    let updated: Task;
     try {
-      await this.saveAndReplace(updated);
-      await this.history.record(
-        'reminder_shown',
-        `Reminder ${attemptsShown} shown for "${updated.name}".`,
-        updated.id,
-        {
-          attempt: attemptsShown,
-          maxAttempts: updated.reminderCount,
+      const persistedTasks = await this.repository.list();
+      if (persistedTasks.some((task) => Boolean(task.pendingReminder))) {
+        return undefined;
+      }
+
+      const task = await this.repository.get(taskId);
+      if (
+        !task ||
+        task.status !== 'active' ||
+        task.pendingReminder ||
+        task.reminderAttemptsShown >= task.reminderCount ||
+        !isDue(task.nextReminderAt, now)
+      ) {
+        return undefined;
+      }
+
+      const attemptsShown = task.reminderAttemptsShown + 1;
+      const shownAt = now.toISOString();
+      updated = {
+        ...this.normalizeTask(task),
+        reminderAttemptsShown: attemptsShown,
+        nextReminderAt:
+          attemptsShown < task.reminderCount
+            ? new Date(now.getTime() + task.reminderIntervalMinutes * 60_000).toISOString()
+            : undefined,
+        pendingReminder: {
+          attemptNumber: attemptsShown,
+          maxAttempts: task.reminderCount,
+          shownAt,
+          message,
         },
-      );
-      return updated;
+        updatedAt: shownAt,
+      };
+
+      await this.saveAndReplace(updated);
     } catch (error) {
       this.captureError(error, 'Reminder state could not be updated.');
       return undefined;
+    }
+
+    try {
+      await this.history.record(
+        'reminder_shown',
+        `Reminder ${updated.reminderAttemptsShown} shown for "${updated.name}".`,
+        updated.id,
+        {
+          attempt: updated.reminderAttemptsShown,
+          maxAttempts: updated.reminderCount,
+        },
+      );
+      this.errorMessage.set('');
+    } catch (error) {
+      this.captureError(error, 'The reminder was saved, but its history could not be recorded.');
+    }
+    return updated;
+  }
+
+  async dismissReminder(taskId: string): Promise<boolean> {
+    try {
+      const task = await this.repository.get(taskId);
+      if (!task?.pendingReminder) {
+        return false;
+      }
+
+      const updated: Task = {
+        ...this.normalizeTask(task),
+        pendingReminder: undefined,
+        updatedAt: nowIso(),
+      };
+      await this.saveAndReplace(updated);
+      this.errorMessage.set('');
+      return true;
+    } catch (error) {
+      this.captureError(error, 'Reminder dismissal could not be saved.');
+      return false;
     }
   }
 
@@ -502,6 +555,7 @@ export class TaskService {
       status: 'paused',
       pausedAt,
       pausedRemainingSeconds: secondsUntil(task.nextReminderAt, now),
+      pendingReminder: undefined,
       updatedAt: pausedAt,
     };
 
@@ -592,6 +646,7 @@ export class TaskService {
       deadlineMessage: task.deadlineMessage ?? undefined,
       deadlineNotifiedAt: task.deadlineNotifiedAt ?? undefined,
       deadlineAcknowledgedAt: task.deadlineAcknowledgedAt ?? undefined,
+      pendingReminder: task.pendingReminder ?? undefined,
     };
   }
 

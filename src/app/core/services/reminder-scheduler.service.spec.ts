@@ -1,22 +1,24 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { DEFAULT_APP_SETTINGS } from '../models/app-settings';
 import { Task } from '../models/task';
 import { NotificationService } from './notification.service';
 import { ReminderSchedulerService } from './reminder-scheduler.service';
+import { SettingsService } from './settings.service';
 import { TaskService } from './task.service';
 import { TimerService } from './timer.service';
 
-function createActiveTask(overrides: Partial<Task> = {}): Task {
+function task(id: string, order: number, overrides: Partial<Task> = {}): Task {
   return {
-    id: 'task_1',
-    name: 'Read chapter',
+    id,
+    name: `Task ${id}`,
     note: '',
-    category: 'Study',
+    category: '',
     reminderAt: '2026-05-30T10:00:00.000Z',
     reminderCount: 2,
     reminderIntervalMinutes: 5,
     allowConcurrentStart: false,
-    order: 0,
+    order,
     status: 'active',
     createdAt: '2026-05-30T09:00:00.000Z',
     updatedAt: '2026-05-30T09:00:00.000Z',
@@ -29,108 +31,178 @@ function createActiveTask(overrides: Partial<Task> = {}): Task {
 }
 
 describe('ReminderSchedulerService', () => {
-  it('opens a reminder when the active task reaches its reminder time', async () => {
-    const task = createActiveTask();
-    const activeTasks = signal<Task[]>([task]);
-    const markReminderShown = vi.fn(async (taskId: string) => ({
-      ...activeTasks().find((candidate) => candidate.id === taskId)!,
-      reminderAttemptsShown: 1,
-    }));
+  const now = new Date('2026-05-30T10:00:01.000Z');
+  let tasks: ReturnType<typeof signal<Task[]>>;
+  let triggerReminder: ReturnType<typeof vi.fn>;
+  let dismissReminder: ReturnType<typeof vi.fn>;
+  let showReminder: ReturnType<typeof vi.fn>;
+  let service: ReminderSchedulerService;
+  let order: string[];
 
-    TestBed.configureTestingModule({
-      providers: [
-        ReminderSchedulerService,
-        { provide: TaskService, useValue: { activeTasks, markReminderShown } },
-        { provide: TimerService, useValue: { now: signal(new Date('2026-05-30T10:00:01.000Z')) } },
-        {
-          provide: NotificationService,
-          useValue: { randomFriendlyMessage: () => 'A friendly reminder.' },
-        },
-      ],
-    });
-
-    const service = TestBed.inject(ReminderSchedulerService);
-    await service.check(new Date('2026-05-30T10:00:01.000Z'));
-
-    expect(markReminderShown).toHaveBeenCalledWith(task.id, new Date('2026-05-30T10:00:01.000Z'));
-    expect(service.activeReminder()?.taskName).toBe('Read chapter');
-    expect(service.activeReminder()?.attemptNumber).toBe(1);
-    expect(service.activeReminder()?.message).toBe('A friendly reminder.');
-  });
-
-  it('does not open a reminder after the maximum attempt count', async () => {
-    const activeTasks = signal<Task[]>([
-      createActiveTask({
-        reminderAttemptsShown: 2,
-      }),
-    ]);
-    const markReminderShown = vi.fn();
-
-    TestBed.configureTestingModule({
-      providers: [
-        ReminderSchedulerService,
-        { provide: TaskService, useValue: { activeTasks, markReminderShown } },
-        { provide: TimerService, useValue: { now: signal(new Date('2026-05-30T10:10:00.000Z')) } },
-        {
-          provide: NotificationService,
-          useValue: { randomFriendlyMessage: () => 'A friendly reminder.' },
-        },
-      ],
-    });
-
-    const service = TestBed.inject(ReminderSchedulerService);
-    await service.check(new Date('2026-05-30T10:10:00.000Z'));
-
-    expect(markReminderShown).not.toHaveBeenCalled();
-    expect(service.activeReminder()).toBeUndefined();
-  });
-
-  it('serializes due reminders in task order and ignores paused tasks', async () => {
-    const now = new Date('2026-05-30T10:00:01.000Z');
-    const activeTasks = signal<Task[]>([
-      createActiveTask({ id: 'task-a', name: 'First', order: 0 }),
-      createActiveTask({ id: 'paused', name: 'Paused', order: 1, status: 'paused' }),
-      createActiveTask({ id: 'task-b', name: 'Second', order: 2 }),
-    ]);
-    const markReminderShown = vi.fn(async (taskId: string) => {
-      const selected = activeTasks().find((task) => task.id === taskId);
-      if (!selected) {
+  beforeEach(() => {
+    tasks = signal<Task[]>([]);
+    order = [];
+    triggerReminder = vi.fn(async (taskId: string, message: string, triggeredAt: Date) => {
+      const selected = tasks().find((candidate) => candidate.id === taskId);
+      if (!selected || tasks().some((candidate) => candidate.pendingReminder)) {
         return undefined;
       }
-      const updated = {
+      const attemptNumber = selected.reminderAttemptsShown + 1;
+      const updated: Task = {
         ...selected,
-        reminderAttemptsShown: selected.reminderAttemptsShown + 1,
-        nextReminderAt: '2026-05-30T10:05:01.000Z',
+        reminderAttemptsShown: attemptNumber,
+        nextReminderAt:
+          attemptNumber < selected.reminderCount
+            ? new Date(
+                triggeredAt.getTime() + selected.reminderIntervalMinutes * 60_000,
+              ).toISOString()
+            : undefined,
+        pendingReminder: {
+          attemptNumber,
+          maxAttempts: selected.reminderCount,
+          shownAt: triggeredAt.toISOString(),
+          message,
+        },
       };
-      activeTasks.update((tasks) => tasks.map((task) => (task.id === taskId ? updated : task)));
+      tasks.update((items) => items.map((item) => (item.id === taskId ? updated : item)));
+      order.push('persist');
       return updated;
+    });
+    dismissReminder = vi.fn(async (taskId: string) => {
+      let dismissed = false;
+      tasks.update((items) =>
+        items.map((item) => {
+          if (item.id !== taskId || !item.pendingReminder) {
+            return item;
+          }
+          dismissed = true;
+          return { ...item, pendingReminder: undefined };
+        }),
+      );
+      return dismissed;
+    });
+    showReminder = vi.fn(async () => {
+      order.push('notify');
     });
 
     TestBed.configureTestingModule({
       providers: [
         ReminderSchedulerService,
-        { provide: TaskService, useValue: { activeTasks, markReminderShown } },
+        {
+          provide: TaskService,
+          useValue: {
+            tasks,
+            activeTasks: () => tasks().filter((candidate) => candidate.status === 'active'),
+            triggerReminder,
+            dismissReminder,
+          },
+        },
         { provide: TimerService, useValue: { now: signal(now) } },
         {
           provide: NotificationService,
-          useValue: { randomFriendlyMessage: () => 'A friendly reminder.' },
+          useValue: {
+            randomFriendlyMessage: () => 'A friendly reminder.',
+            showReminder,
+          },
         },
+        { provide: SettingsService, useValue: { settings: signal(DEFAULT_APP_SETTINGS) } },
       ],
     });
+    service = TestBed.inject(ReminderSchedulerService);
+  });
 
-    const service = TestBed.inject(ReminderSchedulerService);
-    await service.check(now);
-    await service.check(now);
+  it('persists one due occurrence before notifying with configured settings', async () => {
+    tasks.set([task('due', 0)]);
 
-    expect(markReminderShown).toHaveBeenCalledTimes(1);
-    expect(markReminderShown).toHaveBeenCalledWith('task-a', now);
-    expect(service.activeReminder()?.taskId).toBe('task-a');
-
-    service.dismiss();
     await service.check(now);
 
-    expect(markReminderShown).toHaveBeenLastCalledWith('task-b', now);
-    expect(service.activeReminder()?.taskId).toBe('task-b');
-    expect(markReminderShown).not.toHaveBeenCalledWith('paused', now);
+    expect(triggerReminder).toHaveBeenCalledWith('due', 'A friendly reminder.', now);
+    expect(tasks()[0].pendingReminder).toEqual({
+      attemptNumber: 1,
+      maxAttempts: 2,
+      shownAt: now.toISOString(),
+      message: 'A friendly reminder.',
+    });
+    expect(tasks()[0].reminderAttemptsShown).toBe(1);
+    expect(tasks()[0].nextReminderAt).toBe('2026-05-30T10:05:01.000Z');
+    expect(showReminder).toHaveBeenCalledOnce();
+    expect(showReminder.mock.calls[0][1]).toEqual(DEFAULT_APP_SETTINGS);
+    expect(order).toEqual(['persist', 'notify']);
+  });
+
+  it('blocks every new occurrence while any task has a pending reminder', async () => {
+    tasks.set([
+      task('pending', 0, {
+        pendingReminder: {
+          attemptNumber: 1,
+          maxAttempts: 2,
+          shownAt: now.toISOString(),
+          message: 'Existing reminder.',
+        },
+        reminderAttemptsShown: 1,
+      }),
+      task('due', 1),
+    ]);
+
+    await service.check(now);
+
+    expect(triggerReminder).not.toHaveBeenCalled();
+    expect(showReminder).not.toHaveBeenCalled();
+  });
+
+  it('serializes multiple due tasks in order and ignores paused tasks', async () => {
+    tasks.set([task('first', 0), task('paused', 1, { status: 'paused' }), task('second', 2)]);
+
+    await service.check(now);
+    await service.check(now);
+    expect(triggerReminder.mock.calls.map(([taskId]) => taskId)).toEqual(['first']);
+
+    await service.dismiss('first');
+    await service.check(now);
+    expect(triggerReminder.mock.calls.map(([taskId]) => taskId)).toEqual(['first', 'second']);
+    expect(triggerReminder).not.toHaveBeenCalledWith(
+      'paused',
+      expect.any(String),
+      expect.any(Date),
+    );
+  });
+
+  it('derives the stable active reminder from persisted task state after restart', async () => {
+    tasks.set([
+      task('restart', 0, {
+        reminderAttemptsShown: 1,
+        pendingReminder: {
+          attemptNumber: 1,
+          maxAttempts: 2,
+          shownAt: '2026-05-30T09:59:00.000Z',
+          message: 'Persisted message.',
+        },
+      }),
+    ]);
+
+    await service.check(now);
+
+    expect(service.activeReminder()).toEqual({
+      taskId: 'restart',
+      taskName: 'Task restart',
+      attemptNumber: 1,
+      maxAttempts: 2,
+      shownAt: '2026-05-30T09:59:00.000Z',
+      message: 'Persisted message.',
+    });
+    expect(triggerReminder).not.toHaveBeenCalled();
+    expect(showReminder).not.toHaveBeenCalled();
+  });
+
+  it('does not retry native notification after a persisted occurrence if notification fails', async () => {
+    tasks.set([task('failure', 0)]);
+    showReminder.mockRejectedValueOnce(new Error('IPC unavailable'));
+
+    await expect(service.check(now)).resolves.toBeUndefined();
+    await service.check(now);
+
+    expect(tasks()[0].pendingReminder).toBeDefined();
+    expect(triggerReminder).toHaveBeenCalledTimes(1);
+    expect(showReminder).toHaveBeenCalledTimes(1);
   });
 });

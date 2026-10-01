@@ -347,7 +347,7 @@ Goal: add optional convenience features and polish after the core app is stable.
 - [ ] Complete accessibility verification, including keyboard navigation, contrast, and reduced-motion behavior.
 - [ ] Add the missing Playwright coverage for add-more-time and pause/resume.
 - [ ] Decide whether to introduce semantic linting or rename the current Prettier-only `lint` command.
-- [ ] Establish reliable multi-window reminder ownership/synchronization and eliminate the potential duplicate-processing race.
+- [x] Establish reliable multi-window reminder ownership/synchronization and eliminate the potential duplicate-processing race.
 - [ ] Decide whether full live break-session UI must persist across renderer reload/exit. Scheduler
   already retains only the process-lifetime running-break block required for automatic scheduling.
 - [ ] Record settings changes in history or remove the unused `settings_changed` event type through an explicit product decision.

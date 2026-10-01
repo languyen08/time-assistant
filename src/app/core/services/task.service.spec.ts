@@ -62,6 +62,7 @@ describe('TaskService pause/resume', () => {
           provide: TaskRepository,
           useValue: {
             list: vi.fn(async () => savedTasks),
+            get: vi.fn(async (taskId: string) => savedTasks.find((task) => task.id === taskId)),
             save: vi.fn(async (task: Task) => {
               savedTasks = savedTasks.map((item) => (item.id === task.id ? task : item));
             }),
@@ -138,6 +139,7 @@ describe('TaskService automatic scheduling', () => {
           provide: TaskRepository,
           useValue: {
             list: vi.fn(async () => savedTasks),
+            get: vi.fn(async (taskId: string) => savedTasks.find((task) => task.id === taskId)),
             save,
             delete: vi.fn(async (taskId: string) => {
               savedTasks = savedTasks.filter((task) => task.id !== taskId);
@@ -356,6 +358,110 @@ describe('TaskService automatic scheduling', () => {
 
     await service.delete('task-a');
     expect(service.tasks().map((task) => task.id)).toEqual(['task-b']);
+  });
+
+  it('creates one persisted reminder occurrence from a fresh due repository record', async () => {
+    await configure([activeTask({ id: 'due', reminderCount: 2, reminderIntervalMinutes: 5 })]);
+    const now = new Date('2026-05-30T10:30:01.000Z');
+
+    const updated = await service.triggerReminder('due', 'Stable message.', now);
+
+    expect(updated?.pendingReminder).toEqual({
+      attemptNumber: 1,
+      maxAttempts: 2,
+      shownAt: now.toISOString(),
+      message: 'Stable message.',
+    });
+    expect(updated?.reminderAttemptsShown).toBe(1);
+    expect(updated?.nextReminderAt).toBe('2026-05-30T10:35:01.000Z');
+    expect(record).toHaveBeenCalledWith(
+      'reminder_shown',
+      'Reminder 1 shown for "Deep work".',
+      'due',
+      { attempt: 1, maxAttempts: 2 },
+    );
+  });
+
+  it('uses fresh repository state to reject a stale due task and a global pending reminder', async () => {
+    await configure([activeTask({ id: 'stale' })]);
+    savedTasks = [{ ...savedTasks[0], status: 'paused' }];
+
+    expect(
+      await service.triggerReminder(
+        'stale',
+        'Should not persist.',
+        new Date('2026-05-30T10:30:01.000Z'),
+      ),
+    ).toBeUndefined();
+    expect(save).not.toHaveBeenCalled();
+
+    const existing = activeTask({
+      id: 'existing',
+      order: 0,
+      pendingReminder: {
+        attemptNumber: 1,
+        maxAttempts: 3,
+        shownAt: '2026-05-30T10:30:00.000Z',
+        message: 'Existing.',
+      },
+    });
+    const blocked = activeTask({ id: 'blocked', order: 1 });
+    await configure([existing, blocked]);
+
+    expect(
+      await service.triggerReminder('blocked', 'Blocked.', new Date('2026-05-30T10:30:01.000Z')),
+    ).toBeUndefined();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it.each(['addTime', 'pause', 'complete'] as const)(
+    'clears only the target pending reminder when %s responds to it',
+    async (action) => {
+      const pendingReminder = {
+        attemptNumber: 1,
+        maxAttempts: 3,
+        shownAt: '2026-05-30T10:30:00.000Z',
+        message: 'Respond to this.',
+      };
+      await configure([
+        activeTask({ id: 'task-a', order: 0 }),
+        activeTask({ id: 'task-b', order: 1, pendingReminder }),
+      ]);
+
+      if (action === 'addTime') {
+        await service.addTime('task-b', 5, new Date('2026-05-30T10:31:00.000Z'));
+      } else if (action === 'pause') {
+        await service.pause('task-b', new Date('2026-05-30T10:31:00.000Z'));
+      } else {
+        await service.complete('task-b');
+      }
+
+      expect(service.tasks().find((task) => task.id === 'task-b')?.pendingReminder).toBeUndefined();
+      expect(service.tasks().find((task) => task.id === 'task-a')?.status).toBe('active');
+    },
+  );
+
+  it('dismisses only the targeted persisted reminder and leaves its next attempt scheduled', async () => {
+    const nextReminderAt = '2026-05-30T10:35:00.000Z';
+    await configure([
+      activeTask({ id: 'task-a', order: 0 }),
+      activeTask({
+        id: 'task-b',
+        order: 1,
+        nextReminderAt,
+        pendingReminder: {
+          attemptNumber: 1,
+          maxAttempts: 3,
+          shownAt: '2026-05-30T10:30:00.000Z',
+          message: 'Dismiss me.',
+        },
+      }),
+    ]);
+
+    expect(await service.dismissReminder('task-b')).toBe(true);
+    expect(service.tasks().find((task) => task.id === 'task-b')).toMatchObject({ nextReminderAt });
+    expect(service.tasks().find((task) => task.id === 'task-b')?.pendingReminder).toBeUndefined();
+    expect(await service.dismissReminder('task-a')).toBe(false);
   });
 
   it('clears a stale retry when a pending task is edited to allow concurrency', async () => {

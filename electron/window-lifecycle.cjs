@@ -2,6 +2,44 @@ function isUsableWindow(windowInstance) {
   return Boolean(windowInstance && !windowInstance.isDestroyed());
 }
 
+function getReminderPresenter(getMainWindow, getStickyWindow) {
+  if (isUsableWindow(getMainWindow())) {
+    return 'main';
+  }
+
+  if (isUsableWindow(getStickyWindow())) {
+    return 'sticky';
+  }
+
+  return 'none';
+}
+
+function publishReminderPresenterChanged({
+  getMainWindow,
+  getStickyWindow,
+  stickyAlwaysOnTop = true,
+}) {
+  const mainWindow = getMainWindow();
+  const stickyWindow = getStickyWindow();
+  const presenter = getReminderPresenter(
+    () => mainWindow,
+    () => stickyWindow,
+  );
+
+  if (presenter !== 'main' && isUsableWindow(stickyWindow)) {
+    stickyWindow.setIgnoreMouseEvents(false);
+    stickyWindow.setAlwaysOnTop(stickyAlwaysOnTop);
+  }
+
+  for (const windowInstance of [mainWindow, stickyWindow]) {
+    if (isUsableWindow(windowInstance) && !windowInstance.webContents.isDestroyed()) {
+      windowInstance.webContents.send('assistant-time:reminder-presenter-changed', presenter);
+    }
+  }
+
+  return presenter;
+}
+
 function getMainWindowMaximized(getMainWindow) {
   const windowInstance = getMainWindow();
   return isUsableWindow(windowInstance) ? windowInstance.isMaximized() : false;
@@ -93,9 +131,11 @@ function quitApplication({ electronApp, getWindows, getTray }) {
 module.exports = {
   closeMainWindow,
   getMainWindowMaximized,
+  getReminderPresenter,
   hideStickyWindow,
   isUsableWindow,
   openMainWindow,
+  publishReminderPresenterChanged,
   quitApplication,
   showStickyWindow,
   toggleMainWindowMaximized,

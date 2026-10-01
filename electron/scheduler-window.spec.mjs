@@ -98,6 +98,24 @@ describe('Scheduler BrowserWindow ownership', () => {
     expect(source).not.toContain('saveTextFile');
     expect(source).not.toContain('setStickyWindow');
     expect(source).not.toContain('focusMainWindow');
+    expect(source).not.toContain('getReminderPresenter');
+    expect(source).not.toContain('onReminderPresenterChanged');
+  });
+
+  it('exposes presenter selection only through the normal narrow preload', () => {
+    const normalPreloadPath = schedulerWindowOptions().webPreferences.preload.replace(
+      'scheduler-preload.cjs',
+      'preload.cjs',
+    );
+    const source = readFileSync(normalPreloadPath, 'utf8');
+
+    expect(source).toContain(
+      "getReminderPresenter: () => ipcRenderer.invoke('assistant-time:get-reminder-presenter')",
+    );
+    expect(source).toContain(
+      "ipcRenderer.on('assistant-time:reminder-presenter-changed', listener)",
+    );
+    expect(source).toContain("value === 'main' || value === 'sticky' ? value : 'none'");
   });
 
   it('reports unexpected Scheduler close so one owner can be restored', () => {

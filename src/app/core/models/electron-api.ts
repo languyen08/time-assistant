@@ -1,9 +1,12 @@
 import { StickyNoteColor } from './app-settings';
 
+export type ReminderPresenter = 'main' | 'sticky' | 'none';
+
 export interface AssistantTimeApi {
   platform: string;
   closeMainWindow?: () => Promise<boolean>;
   focusMainWindow: () => Promise<boolean>;
+  getReminderPresenter?: () => Promise<ReminderPresenter>;
   getMainWindowMaximized?: () => Promise<boolean>;
   getStartAtLogin?: () => Promise<boolean>;
   hideStickyWindow?: () => Promise<boolean>;
@@ -29,6 +32,7 @@ export interface AssistantTimeApi {
   }) => Promise<boolean>;
   toggleMainWindowMaximized?: () => Promise<boolean>;
   onMainWindowMaximizedChanged?: (callback: (maximized: boolean) => void) => () => void;
+  onReminderPresenterChanged?: (callback: (presenter: ReminderPresenter) => void) => () => void;
 }
 
 export interface FileDialogFilter {

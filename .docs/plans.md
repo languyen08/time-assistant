@@ -20,7 +20,7 @@ current task, and move to the next task.
 - Storage: local-first IndexedDB for the MVP.
 - Sync: manual CSV import/export for MVP.
 
-Angular is the UI framework. Electron packages the Angular UI as a real Windows desktop app with native windows, notifications, file dialogs, sticky-note mode, and a Windows system tray. The current implementation has no independent background reminder scheduler. The MVP should not be implemented as a browser-only web app.
+Angular is the UI framework. Electron packages the Angular UI as a real Windows desktop app with native windows, notifications, file dialogs, sticky-note mode, and a Windows system tray. A hidden Scheduler renderer owns automatic starts, Finish-by processing, and normal reminder timing. The MVP should not be implemented as a browser-only web app.
 
 ## Core User Flow
 
@@ -69,12 +69,16 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 ### Reminder System
 
-- Schedule reminders based on task deadline/time.
+- Schedule reminders in the process-lifetime Scheduler renderer based on task reminder time.
 - Support repeat reminders.
 - Support configurable repeat interval.
 - Support maximum reminder count.
 - Randomly choose reminder text from a friendly message pool.
 - Avoid aggressive or stressful wording.
+- Persist the active occurrence on its task so its attempt, message, and shown time survive renderer
+  recreation and application restart.
+- Permit exactly one pending reminder interaction globally; after it is handled, the next due task
+  is selected in deterministic task order.
 
 ### Friendly Notification UX
 
@@ -87,6 +91,10 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
   - Complete
   - Dismiss for now, if useful
 - Avoid loud, spammy, or guilt-based interactions.
+- Send normal reminder notification/sound once from Scheduler after persisting the occurrence.
+- Present the in-app occurrence only in Main when Main exists, otherwise in Sticky when Sticky
+  exists. Do not create/show a window solely because a reminder is due.
+- Persist Dismiss for now. Add time, Pause, Complete, and Delete clear only the targeted occurrence.
 
 ### Sticky Notes Mode
 
@@ -127,8 +135,8 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
   active/paused blocker, while a non-concurrent task is deferred in 30-minute increments.
 - Break prompt/running state blocks every automatic start without advancing retry state.
 - Keep Main and Sticky as presentation/action clients. Scheduler owns one-time Finish-by deadline
-  triggering; visible renderers present persisted unacknowledged deadline alerts. Existing normal
-  reminder scheduling remains in the visible renderers and serializes one overlay at a time.
+  triggering and normal reminder timing/notification. Visible renderers present persisted state;
+  Main has reminder priority and Sticky presents only while Main does not exist.
 
 ### Finish-By Deadlines
 

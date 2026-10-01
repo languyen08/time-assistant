@@ -68,7 +68,9 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Sticky Note X temporarily hides its BrowserWindow without changing the persisted
   `stickyNoteEnabled` setting.
 - There is no independent main-process reminder scheduler.
-- Each Angular renderer currently starts its own timer/reminder scheduler. Only task changes are synchronized with `BroadcastChannel`; treat reminder ownership and other cross-window state as unresolved technical debt.
+- Only the dedicated Scheduler renderer starts `ReminderSchedulerService`. Main and Sticky derive
+  reminder UI from persisted task state and never run reminder timing loops or dispatch normal
+  reminder notifications/sounds.
 - Only the dedicated Scheduler renderer may own automatic task lifecycle scheduling. Main
   and Sticky renderers must not independently start automatic-task scheduling loops.
 - The dedicated Scheduler renderer is the sole owner of automatic task starts and blocked retry
@@ -87,8 +89,15 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
   `currentTasks` collections, and every mutation targets an explicit task ID.
 - Completing one of several current tasks does not open a Break prompt. The prompt is published
   before completing the final current task; deleting a current task never opens Break.
-- Visible renderers scan all active tasks in order but serialize reminder overlays one at a time.
-  The Main/Sticky duplicate reminder-owner race remains unresolved technical debt.
+- Scheduler scans active tasks in deterministic order, persists one `pendingReminder` occurrence,
+  records `reminder_shown`, and dispatches native notification/sound after persistence. Any pending
+  occurrence globally blocks a later one until the user responds or dismisses it.
+- Electron main selects the sole in-app reminder presenter by BrowserWindow existence: Main has
+  priority, Sticky is the fallback, and neither window means no in-app presenter. Presenter changes
+  do not create a new occurrence, history event, notification, sound, or attempt.
+- Reminder dismissals are persisted. Add time, pause, and complete clear only their target task's
+  `pendingReminder`; deletion removes it with the task. The optional field uses existing IndexedDB
+  v2 task records with no new store or version.
 - Finish by is optional task data. When configured, it requires a user-authored message of at most
   240 characters and must be later than Start time. It is an absolute wall-clock target unaffected
   by pause, break, automatic +30 retries, or Add more time.

@@ -278,8 +278,8 @@ Consequences:
 - The current IndexedDB repositories remain usable without a storage technology migration.
 - Duplicate future automatic scheduling risk is reduced.
 - The application retains one additional hidden renderer/process.
-- Main and Sticky still each own the existing reminder scheduler, so the duplicate reminder race
-  remains technical debt.
+- At the time of this ADR, Main and Sticky still each owned the existing reminder scheduler. ADR-016
+  later moved normal reminder ownership to Scheduler.
 - The ADR originally established ownership only; the Phase 2.2 implementation below adds automatic
   starts and retries without changing that ownership decision.
 
@@ -324,8 +324,8 @@ Consequences:
 - Singular mutation APIs are no longer valid business interfaces.
 - Several overdue concurrent tasks may start during one Scheduler evaluation in queue order.
 - Old IndexedDB records and old CSV files remain compatible through `false` normalization/defaults.
-- Reminder overlay serialization works within each renderer, but the duplicate reminder-owner race
-  between Main and Sticky remains separate unresolved technical debt.
+- At the time of this ADR, reminder overlay serialization worked only within each renderer. ADR-016
+  later removed the separate Main/Sticky duplicate reminder-owner race.
 
 ---
 
@@ -370,3 +370,54 @@ Tradeoffs:
 - A fully exited Electron process cannot trigger at the wall-clock instant; overdue unprocessed
   deadlines are handled on the next launch.
 - The general Main/Sticky normal-reminder ownership race remains separate technical debt.
+
+---
+
+## ADR-016: Scheduler-Owned Reminder Processing and Single In-App Presenter
+
+Status: Accepted
+
+Context:
+Main and Sticky previously ran independent reminder schedulers. Because task synchronization over
+`BroadcastChannel` is eventual, both renderers could observe and process the same due occurrence,
+duplicating history, native notification, sound, and renderer-memory overlay state even when the
+final stored task looked valid. The hidden Scheduler already owns automatic starts and Finish-by
+deadlines, while the active normal reminder previously existed only in renderer memory.
+
+Decision:
+- Scheduler is the sole normal-reminder timing and notification owner. Main and Sticky never start
+  reminder loops.
+- Persist the pending occurrence on Task as optional `pendingReminder` containing `attemptNumber`,
+  `maxAttempts`, `shownAt`, and the generated `message`, without changing IndexedDB v2 or adding a
+  store/index.
+- Permit at most one pending reminder globally. Scheduler selects the first eligible active due task
+  in deterministic order and creates at most one occurrence per check.
+- Persist the occurrence, attempt increment, and next-attempt timing before recording one
+  `reminder_shown` event and dispatching native notification/configured sound.
+- Electron main selects one in-app presenter from BrowserWindow existence through a narrow normal
+  preload query/change-event API: Main has priority, Sticky is fallback, and neither means no
+  in-app presentation. Scheduler preload remains notify-only.
+- Presenter transitions render the same persisted occurrence and never create another attempt,
+  history event, native notification, or sound.
+- Dismiss is persisted. Add time, pause, and complete clear only the target task's pending
+  occurrence; delete removes it with the task. Resume does not restore a prior occurrence.
+- Before triggering, TaskService rereads persisted task state and verifies active, due, below-limit,
+  and no-pending eligibility.
+
+Consequences:
+
+Positive:
+- Removes the Main/Sticky duplicate-processing race.
+- Pending reminder UI survives renderer recreation and application restart.
+- Friendly message, shown time, and attempt identity remain stable across presenter transitions.
+- Multiple active tasks remain deterministically serialized behind one reminder interaction.
+- Reminder timing, native notification, and sound have a clear process-lifetime owner.
+
+Tradeoffs:
+- Task gains optional runtime reminder processing state.
+- One pending reminder blocks later due reminders until it is acted on or dismissed.
+- Persistence-before-notification means native notification failure is not automatically retried;
+  the persisted in-app reminder remains available.
+- Presenter lifecycle adds a narrow Electron IPC/event surface and a Sticky interaction reset.
+- The fresh repository read materially reduces stale-renderer overwrite risk but is not a
+  distributed transaction or mathematical compare-and-set across renderer processes.

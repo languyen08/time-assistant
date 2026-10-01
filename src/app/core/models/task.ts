@@ -1,5 +1,12 @@
 export type TaskStatus = 'pending' | 'active' | 'paused' | 'completed';
 
+export interface PendingReminder {
+  attemptNumber: number;
+  maxAttempts: number;
+  shownAt: string;
+  message: string;
+}
+
 export interface Task {
   id: string;
   name: string;
@@ -25,6 +32,7 @@ export interface Task {
   nextAutoStartAt?: string;
   nextReminderAt?: string;
   reminderAttemptsShown: number;
+  pendingReminder?: PendingReminder;
 }
 
 export interface TaskDraft {

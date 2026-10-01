@@ -4,6 +4,7 @@ import {
   FileDialogFilter,
   FileOpenResult,
   FileSaveResult,
+  ReminderPresenter,
   StickyResizeReason,
 } from '../models/electron-api';
 import '../models/electron-api';
@@ -20,6 +21,10 @@ export class ElectronBridgeService {
 
   getMainWindowMaximized(): Promise<boolean> {
     return window.assistantTime?.getMainWindowMaximized?.() ?? Promise.resolve(false);
+  }
+
+  getReminderPresenter(): Promise<ReminderPresenter> {
+    return window.assistantTime?.getReminderPresenter?.() ?? Promise.resolve('none');
   }
 
   getStartAtLogin(): Promise<boolean> {
@@ -93,5 +98,9 @@ export class ElectronBridgeService {
 
   onMainWindowMaximizedChanged(callback: (maximized: boolean) => void): () => void {
     return window.assistantTime?.onMainWindowMaximizedChanged?.(callback) ?? (() => undefined);
+  }
+
+  onReminderPresenterChanged(callback: (presenter: ReminderPresenter) => void): () => void {
+    return window.assistantTime?.onReminderPresenterChanged?.(callback) ?? (() => undefined);
   }
 }

@@ -297,3 +297,180 @@ test('processes and acknowledges one persisted finish-by deadline', async ({ con
   expect(acknowledged.reminderAt).toBe(startAt);
   await schedulerPage.close();
 });
+
+test('serializes Scheduler reminders and transfers one persisted occurrence from Main to Sticky', async ({
+  context,
+  page,
+}) => {
+  await context.addInitScript(() => {
+    window.__reminderPresenter = 'main';
+    window.__notifyCount = 0;
+    window.assistantTime = {
+      platform: 'win32',
+      closeMainWindow: async () => true,
+      focusMainWindow: async () => true,
+      getMainWindowMaximized: async () => false,
+      getReminderPresenter: async () => window.__reminderPresenter,
+      getStartAtLogin: async () => false,
+      hideStickyWindow: async () => true,
+      minimizeStickyWindow: async () => true,
+      notify: async () => {
+        window.__notifyCount += 1;
+        return true;
+      },
+      onMainWindowMaximizedChanged: () => () => undefined,
+      onReminderPresenterChanged: (callback) => {
+        window.__setReminderPresenter = (presenter) => {
+          window.__reminderPresenter = presenter;
+          callback(presenter);
+        };
+        return () => {
+          window.__setReminderPresenter = undefined;
+        };
+      },
+      openTextFile: async () => ({ ok: false, canceled: true }),
+      resizeStickyWindow: async () => true,
+      saveTextFile: async () => ({ ok: false, canceled: true }),
+      setReminderOverlayState: async () => true,
+      setStartAtLogin: async () => false,
+      setStickyWindow: async () => true,
+      toggleMainWindowMaximized: async () => false,
+    };
+  });
+
+  const dueAt = new Date(Date.now() - 60_000).toISOString();
+  await page.goto('/?window=main');
+  await page.evaluate(async (storedDueAt) => {
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('friendly-task-reminder', 2);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(['tasks', 'history'], 'readwrite');
+      const tasks = transaction.objectStore('tasks');
+      tasks.clear();
+      transaction.objectStore('history').clear();
+      for (const [id, order] of [
+        ['e2e-reminder-a', 0],
+        ['e2e-reminder-b', 1],
+      ]) {
+        tasks.put({
+          id,
+          name: `Reminder ${id.at(-1).toUpperCase()}`,
+          note: '',
+          category: '',
+          reminderAt: storedDueAt,
+          reminderCount: 2,
+          reminderIntervalMinutes: 5,
+          allowConcurrentStart: true,
+          order,
+          status: 'active',
+          activeStartedAt: storedDueAt,
+          nextReminderAt: storedDueAt,
+          createdAt: storedDueAt,
+          updatedAt: storedDueAt,
+          totalPausedSeconds: 0,
+          reminderAttemptsShown: 0,
+        });
+      }
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+    database.close();
+  }, dueAt);
+
+  await page.reload();
+  const stickyPage = await context.newPage();
+  await stickyPage.goto('/?window=sticky');
+  const schedulerPage = await context.newPage();
+  await schedulerPage.goto('/?window=scheduler');
+
+  await expect(page.getByRole('dialog', { name: 'Reminder A' })).toBeVisible();
+  await expect(stickyPage.locator('.friendly-reminder')).toHaveCount(0);
+
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const database = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('friendly-task-reminder', 2);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const [tasks, history] = await Promise.all([
+          new Promise((resolve, reject) => {
+            const request = database.transaction('tasks', 'readonly').objectStore('tasks').getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          }),
+          new Promise((resolve, reject) => {
+            const request = database
+              .transaction('history', 'readonly')
+              .objectStore('history')
+              .getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          }),
+        ]);
+        database.close();
+        return {
+          pending: tasks.filter((task) => task.pendingReminder).length,
+          attempts: tasks.map((task) => task.reminderAttemptsShown),
+          reminderHistory: history.filter((event) => event.type === 'reminder_shown').length,
+        };
+      }),
+    )
+    .toEqual({ pending: 1, attempts: [1, 0], reminderHistory: 1 });
+  await expect.poll(() => schedulerPage.evaluate(() => window.__notifyCount)).toBe(1);
+
+  const mainReminder = await page.evaluate(async () => {
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('friendly-task-reminder', 2);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const task = await new Promise((resolve, reject) => {
+      const request = database
+        .transaction('tasks', 'readonly')
+        .objectStore('tasks')
+        .get('e2e-reminder-a');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    database.close();
+    return task.pendingReminder;
+  });
+
+  await page.close();
+  await stickyPage.evaluate(() => window.__setReminderPresenter('sticky'));
+  const stickyDialog = stickyPage.getByRole('dialog', { name: 'Reminder A' });
+  await expect(stickyDialog).toBeVisible();
+  await expect(stickyDialog).toContainText(mainReminder.message);
+  await stickyDialog.getByRole('button', { name: 'Close reminder' }).click();
+
+  await expect
+    .poll(() =>
+      stickyPage.evaluate(async () => {
+        const database = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('friendly-task-reminder', 2);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const task = await new Promise((resolve, reject) => {
+          const request = database
+            .transaction('tasks', 'readonly')
+            .objectStore('tasks')
+            .get('e2e-reminder-a');
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        database.close();
+        return task.pendingReminder;
+      }),
+    )
+    .toBeUndefined();
+
+  await schedulerPage.close();
+  await stickyPage.close();
+});

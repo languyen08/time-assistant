@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { App } from './app';
 import { HistoryEvent } from './core/models/history-event';
+import { ActiveReminder } from './core/models/reminder';
 import { Task } from './core/models/task';
 import { BaseChartDirective } from 'ng2-charts';
 
@@ -34,6 +35,7 @@ function createAssistantTimeApi(
     hideStickyWindow: vi.fn().mockResolvedValue(true),
     focusMainWindow: vi.fn().mockResolvedValue(true),
     getMainWindowMaximized: vi.fn().mockResolvedValue(false),
+    getReminderPresenter: vi.fn().mockResolvedValue('main'),
     minimizeStickyWindow: vi.fn().mockResolvedValue(true),
     notify: vi.fn().mockResolvedValue(true),
     openTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
@@ -41,8 +43,31 @@ function createAssistantTimeApi(
     saveTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
     resizeStickyWindow: vi.fn().mockResolvedValue(true),
     setStickyWindow: vi.fn().mockResolvedValue(true),
+    onReminderPresenterChanged: vi.fn(() => () => undefined),
     ...overrides,
   };
+}
+
+function setPendingReminder(app: App, reminder: ActiveReminder): void {
+  app.reminderPresenter.set(app.windowMode() === 'sticky' ? 'sticky' : 'main');
+  const existing = app.taskService.tasks().find((task) => task.id === reminder.taskId);
+  const task = pendingTask(reminder.taskId, reminder.taskName, existing?.order ?? 0, {
+    ...existing,
+    status: existing?.status ?? 'active',
+    reminderCount: reminder.maxAttempts,
+    reminderAttemptsShown: reminder.attemptNumber,
+    pendingReminder: {
+      attemptNumber: reminder.attemptNumber,
+      maxAttempts: reminder.maxAttempts,
+      shownAt: reminder.shownAt,
+      message: reminder.message,
+    },
+  });
+  app.taskService.tasks.update((tasks) =>
+    existing
+      ? tasks.map((candidate) => (candidate.id === task.id ? task : candidate))
+      : [...tasks, task],
+  );
 }
 
 describe('App', () => {
@@ -100,14 +125,18 @@ describe('App', () => {
     const settingsLoad = vi.spyOn(app.settingsService, 'load').mockResolvedValue();
     const historyLoad = vi.spyOn(app.historyService, 'load').mockResolvedValue();
     const timerStart = vi.spyOn(app.timerService, 'start');
-    const reminderStart = vi.spyOn(app.reminderScheduler, 'start');
+    const reminderStart = vi
+      .spyOn(app.reminderScheduler, 'start')
+      .mockImplementation(() => undefined);
     const automaticStart = vi
       .spyOn(app.automaticTaskScheduler, 'start')
       .mockImplementation(() => undefined);
     const deadlineStart = vi
       .spyOn(app.deadlineScheduler, 'start')
       .mockImplementation(() => undefined);
-    const schedulerCoordinationStart = vi.spyOn(app.breakCoordination, 'startScheduler');
+    const schedulerCoordinationStart = vi
+      .spyOn(app.breakCoordination, 'startScheduler')
+      .mockImplementation(() => undefined);
     const visibleCoordinationStart = vi.spyOn(app.breakCoordination, 'startVisible');
     const historyMeasurement = vi.spyOn(
       app as unknown as { scheduleHistoryPageSizeMeasurement: () => void },
@@ -117,6 +146,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
+    await vi.waitFor(() => expect(reminderStart).toHaveBeenCalledOnce());
 
     const host = fixture.nativeElement as HTMLElement;
     expect(app.windowMode()).toBe('scheduler');
@@ -128,10 +158,10 @@ describe('App', () => {
     expect(host.querySelector('.settings-modal')).toBeNull();
     expect(host.querySelector('.friendly-reminder')).toBeNull();
     expect(taskLoad).toHaveBeenCalledOnce();
-    expect(settingsLoad).not.toHaveBeenCalled();
+    expect(settingsLoad).toHaveBeenCalledOnce();
     expect(historyLoad).not.toHaveBeenCalled();
     expect(timerStart).not.toHaveBeenCalled();
-    expect(reminderStart).not.toHaveBeenCalled();
+    expect(reminderStart).toHaveBeenCalledOnce();
     expect(automaticStart).toHaveBeenCalledOnce();
     expect(deadlineStart).toHaveBeenCalledOnce();
     expect(schedulerCoordinationStart).toHaveBeenCalledOnce();
@@ -170,7 +200,7 @@ describe('App', () => {
       expect(settingsLoad).toHaveBeenCalledOnce();
       expect(historyLoad).toHaveBeenCalledOnce();
       expect(timerStart).toHaveBeenCalledOnce();
-      expect(reminderStart).toHaveBeenCalledOnce();
+      expect(reminderStart).not.toHaveBeenCalled();
       expect(automaticStart).not.toHaveBeenCalled();
       expect(deadlineStart).not.toHaveBeenCalled();
       expect(visibleCoordinationStart).toHaveBeenCalledWith('idle', {
@@ -255,7 +285,7 @@ describe('App', () => {
         activeStartedAt: '2026-05-30T10:00:00.000Z',
       }),
     ]);
-    app.reminderScheduler.activeReminder.set({
+    setPendingReminder(app, {
       taskId: 'task-b',
       taskName: 'Task B',
       attemptNumber: 1,
@@ -1013,23 +1043,12 @@ describe('App', () => {
 
   it('should notify Electron when reminder overlay becomes active in the main window', async () => {
     const setReminderOverlayState = vi.fn().mockResolvedValue(true);
-    window.assistantTime = {
-      platform: 'win32',
-      hideStickyWindow: vi.fn().mockResolvedValue(true),
-      focusMainWindow: vi.fn().mockResolvedValue(true),
-      minimizeStickyWindow: vi.fn().mockResolvedValue(true),
-      notify: vi.fn().mockResolvedValue(true),
-      openTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
-      setReminderOverlayState,
-      saveTextFile: vi.fn().mockResolvedValue({ ok: false, canceled: true }),
-      resizeStickyWindow: vi.fn().mockResolvedValue(true),
-      setStickyWindow: vi.fn().mockResolvedValue(true),
-    };
+    window.assistantTime = createAssistantTimeApi({ setReminderOverlayState });
 
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
 
-    app.reminderScheduler.activeReminder.set({
+    setPendingReminder(app, {
       taskId: 'task-1',
       taskName: 'Focus block',
       attemptNumber: 1,
@@ -1064,7 +1083,7 @@ describe('App', () => {
     const app = fixture.componentInstance;
     app.windowMode.set('sticky');
 
-    app.reminderScheduler.activeReminder.set({
+    setPendingReminder(app, {
       taskId: 'task-1',
       taskName: 'Focus block',
       attemptNumber: 1,
@@ -1090,7 +1109,7 @@ describe('App', () => {
     const completeTaskSpy = vi.spyOn(app, 'completeTask').mockResolvedValue();
     const dismissSpy = vi.spyOn(app.reminderScheduler, 'dismiss');
 
-    app.reminderScheduler.activeReminder.set({
+    setPendingReminder(app, {
       taskId: 'task-1',
       taskName: 'Focus block',
       attemptNumber: 1,
@@ -1134,6 +1153,38 @@ describe('App', () => {
     expect(pauseTaskSpy).toHaveBeenCalledWith('task-1');
     expect(completeTaskSpy).toHaveBeenCalledWith('task-1');
     expect(dismissSpy).toHaveBeenCalledTimes(1);
+    expect(dismissSpy).toHaveBeenCalledWith('task-1');
+  });
+
+  it('shows the same persisted occurrence only in the Electron-selected presenter', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    setPendingReminder(app, {
+      taskId: 'task-1',
+      taskName: 'Focus block',
+      attemptNumber: 2,
+      maxAttempts: 3,
+      shownAt: '2026-05-30T10:30:00.000Z',
+      message: 'Stable across windows.',
+    });
+
+    app.windowMode.set('main');
+    app.reminderPresenter.set('main');
+    expect(app.visibleReminder()).toMatchObject({
+      attemptNumber: 2,
+      shownAt: '2026-05-30T10:30:00.000Z',
+      message: 'Stable across windows.',
+    });
+
+    app.reminderPresenter.set('sticky');
+    expect(app.visibleReminder()).toBeUndefined();
+    app.windowMode.set('sticky');
+    expect(app.visibleReminder()).toMatchObject({
+      attemptNumber: 2,
+      shownAt: '2026-05-30T10:30:00.000Z',
+      message: 'Stable across windows.',
+    });
+    expect(app.taskService.tasks()[0].reminderAttemptsShown).toBe(2);
   });
 
   it('should open the user guide from the sticky header info button', async () => {
@@ -1175,7 +1226,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
 
-    app.reminderScheduler.activeReminder.set({
+    setPendingReminder(app, {
       taskId: 'task-1',
       taskName: 'Focus block',
       attemptNumber: 1,
@@ -1208,11 +1259,9 @@ describe('App', () => {
       const fixture = TestBed.createComponent(App);
       const app = fixture.componentInstance;
       const addTimeSpy = vi.spyOn(app.taskService, 'addTime').mockResolvedValue(true);
-      const dismissSpy = vi.spyOn(app.reminderScheduler, 'dismiss');
-
       app.timerService.now.set(new Date('2026-05-30T10:09:58.500Z'));
       app.extensionMinutes.set(1);
-      app.reminderScheduler.activeReminder.set({
+      setPendingReminder(app, {
         taskId: 'task-1',
         taskName: 'Task 1',
         attemptNumber: 1,
@@ -1226,7 +1275,6 @@ describe('App', () => {
       const clickTime = new Date('2026-05-30T10:10:00.000Z');
       expect(addTimeSpy).toHaveBeenCalledWith('task-1', 1, clickTime);
       expect(app.timerService.now().toISOString()).toBe(clickTime.toISOString());
-      expect(dismissSpy).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }
@@ -1494,7 +1542,7 @@ describe('App', () => {
         deadlineNotifiedAt: '2026-05-30T11:00:00.000Z',
       }),
     ]);
-    app.reminderScheduler.activeReminder.set({
+    setPendingReminder(app, {
       taskId: 'other',
       taskName: 'Other',
       attemptNumber: 1,
@@ -1505,7 +1553,9 @@ describe('App', () => {
 
     expect(app.deadlineAlertTask()?.id).toBe('deadline');
     expect(app.visibleDeadlineAlert()).toBeUndefined();
-    app.reminderScheduler.dismiss();
+    app.taskService.tasks.update((tasks) =>
+      tasks.map((task) => (task.id === 'other' ? { ...task, pendingReminder: undefined } : task)),
+    );
     expect(app.visibleDeadlineAlert()?.id).toBe('deadline');
 
     app.taskService.tasks.update((tasks) =>

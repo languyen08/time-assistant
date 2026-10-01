@@ -4059,7 +4059,7 @@
     </section>
   }
 
-  @if (reminderScheduler.activeReminder(); as reminder) {
+  @if (visibleReminder(); as reminder) {
     <section class="modal-backdrop friendly-backdrop" role="presentation">
       <article
         class="reminder-modal settings-modal friendly-reminder reminder-sheet"
@@ -4102,7 +4102,7 @@
             type="button"
             class="icon-button csv-close-button reminder-sheet-close"
             aria-label="Close reminder"
-            (click)="reminderScheduler.dismiss()"
+            (click)="dismissReminder(reminder.taskId)"
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" width="28" height="28" fill="none">
               <path
@@ -4205,7 +4205,7 @@
             <button
               type="button"
               class="secondary-button settings-action-button settings-open-sticky reminder-button reminder-button-secondary reminder-button-dismiss"
-              (click)="reminderScheduler.dismiss()"
+              (click)="dismissReminder(reminder.taskId)"
             >
               <span class="reminder-button-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="28" height="28" fill="none">

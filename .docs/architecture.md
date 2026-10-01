@@ -35,8 +35,9 @@ Angular renderers
   |- Sticky: compact user interface
   |- Scheduler: hidden, authoritative owner for automatic task lifecycle scheduling
   |    |- AutomaticTaskSchedulerService -> TaskService -> IndexedDB
-  |    `- DeadlineSchedulerService -> TaskService -> notify-only preload
-  |- TimerService and ReminderSchedulerService in Main and Sticky
+  |    |- DeadlineSchedulerService -> TaskService -> notify-only preload
+  |    `- ReminderSchedulerService -> TaskService -> notify-only preload
+  |- TimerService and persisted reminder presentation in Main and Sticky
   |- repositories -> shared IndexedDB v2 environment
   |- task-change BroadcastChannel
   `- break BroadcastChannel with source-qualified Main/Sticky state
@@ -49,6 +50,7 @@ Electron main
   |- main, sticky-note, hidden scheduler, and user-guide windows
   |- BrowserWindow maximize/restore and hide/show lifecycle
   |- native Tray lifecycle and context menu
+  |- reminder presenter selection by Main/Sticky BrowserWindow existence
   |- native desktop notifications
   |- open/save file dialogs
   |- sticky-window controls
@@ -102,7 +104,8 @@ Current IPC surface:
 - File system access is limited to explicit open/save dialog flows.
 - Exposed operations cover closing/focusing windows, main-window maximize state and toggling,
   hiding and configuring the sticky window, sticky-window size, notifications, the user guide,
-  CSV-oriented text file dialogs, and get/set access to the Windows startup login item.
+  CSV-oriented text file dialogs, reminder presenter query/change events, and get/set access to the
+  Windows startup login item. Scheduler preload remains notify-only.
 
 ## Frontend
 
@@ -188,9 +191,9 @@ Current background behavior:
 - Main-window Maximize/Restore flows through narrow preload IPC. Electron sends maximize and
   unmaximize state changes back to the main renderer so Angular does not infer native state.
 - No independent main-process timer or reminder scheduler is implemented.
-- Scheduler mode loads task state only. It does not start `TimerService`,
-  `ReminderSchedulerService`, native window synchronization, or UI measurement observers. It
-  starts `AutomaticTaskSchedulerService`, `DeadlineSchedulerService`, and break-state coordination.
+- Scheduler mode loads task and settings state. It does not start `TimerService`, presenter/window
+  synchronization, or UI measurement observers. It starts `AutomaticTaskSchedulerService`,
+  `DeadlineSchedulerService`, `ReminderSchedulerService`, and break-state coordination.
 
 ## Local Storage
 
@@ -219,6 +222,8 @@ Persisted state:
   state in `nextAutoStartAt`. User-owned `allowConcurrentStart` defaults/normalizes to `false`
   without an IndexedDB version bump. Optional `deadlineAt` and `deadlineMessage` are user data;
   `deadlineNotifiedAt` and `deadlineAcknowledgedAt` persist one-time processing/presentation state.
+  Optional `pendingReminder` persists the current normal reminder occurrence as attempt number,
+  maximum attempts, shown timestamp, and stable friendly message.
 - Settings and history events are stored in their own stores.
 
 Runtime-only or conceptual state:
@@ -240,23 +245,29 @@ Current schema status:
 - IndexedDB database version is `2`.
 - `v1` creates `tasks`, `settings`, and `history` stores.
 - `v2` adds non-destructive indexes for common reads (`tasks_by_order`, `tasks_by_status`, `tasks_by_next_reminder_at`, `history_by_occurred_at`, `history_by_type`).
+- `pendingReminder` is an optional field in existing task records. It requires no new store, index,
+  or IndexedDB version and is excluded from normal CSV import/export.
 
 ## Notification Flow
 
 Reminder flow:
 
 ```txt
-Task started
-  -> TimerService calculates timing for each active/paused task from one shared clock
-  -> ReminderService scans active tasks in deterministic order
-  -> Reminder time reached
-  -> NotificationService shows desktop notification
-  -> App shows friendly in-app overlay if open
+Scheduler checks ordered active tasks once per second
+  -> any persisted pendingReminder globally: stop
+  -> first due task below its attempt limit
+  -> fresh repository read verifies active/due/eligible state
+  -> persist pendingReminder, increment attempts, and schedule/clear nextReminderAt
+  -> record reminder_shown once
+  -> NotificationService sends desktop notification/configured sound once
+  -> Electron main selects Main, Sticky, or no in-app presenter from window existence
+  -> selected renderer derives the stable overlay from Task.pendingReminder
   -> User chooses action
       -> add more time
       -> pause task
       -> complete task
-      -> dismiss if supported
+      -> delete task
+      -> persisted dismiss
   -> HistoryService records action
 ```
 
@@ -267,6 +278,12 @@ Notification design:
 - Sound should be soft and configurable.
 - Do not spam notifications.
 - Respect reminder repeat count and interval.
+
+Persistence-before-notification provides restart-safe deduplication. A native notification failure
+does not clear the occurrence, decrement attempts, or create a retry loop; the persisted in-app
+reminder remains available. Scheduler WebAudio remains best effort in the hidden renderer. A fresh
+repository read narrows stale visible-renderer overwrite risk, but IndexedDB writes across renderers
+are not a distributed compare-and-set transaction.
 
 Finish-by deadline flow:
 
@@ -289,7 +306,8 @@ If Electron is fully exited, an overdue unprocessed deadline is handled on the n
 
 Current implementation:
 
-- Main and Sticky initialize their own `TimerService` and `ReminderSchedulerService`.
+- Only Scheduler starts `ReminderSchedulerService`; Main and Sticky may inject it only to derive the
+  persisted active reminder and persist dismissal.
 - The hidden Scheduler renderer is the sole owner of `AutomaticTaskSchedulerService`. It processes
   pending tasks in queue order. An incoming concurrent task may start beside current tasks; an
   incoming non-concurrent task starts only when `currentTasks` is empty or advances a due retry by
@@ -305,20 +323,23 @@ Current implementation:
 - Retained running-break state is process-memory coordination only. It expires at its calculated
   end or clears on an explicit terminal transition; full BreakSession UI restoration and
   persistence across application exit remain unimplemented.
-- Settings, loaded history, and active reminder-overlay state do not have comprehensive
-  cross-window synchronization.
+- Settings and loaded history do not have comprehensive cross-window synchronization.
+- `Task.pendingReminder` is the authoritative normal-reminder occurrence. At most one task may have
+  it. Task changes broadcast through the existing channel so renderer recreation and restart retain
+  the occurrence without another attempt, history record, notification, or sound.
+- Electron main owns the narrow `main | sticky | none` presenter selection based on usable
+  BrowserWindow existence. Main wins whenever it exists; otherwise Sticky wins. Hide/minimize does
+  not change ownership. Creation/close events publish changes through the normal preload only.
+- Presenter transitions change rendering only. Sticky interaction state is restored when Main
+  closes so Sticky can become the action surface for the same occurrence.
 - Scheduler alone triggers deadlines and processes at most one new deadline per check. Main and
   Sticky may both temporarily display the same persisted unacknowledged alert, but acknowledging in
   either saves and broadcasts the task change so both reload. Deadline alert rendering yields to an
   active normal reminder or break decision/completion modal.
 
-Known limitation / technical debt:
-
-- Main and sticky renderers can observe the same due reminder and independently process it. This creates a potential duplicate reminder/history/notification race.
-- Existing reminder ownership remains unresolved technical debt and is not migrated into the
-  Scheduler by ADR-013.
-- Within each renderer, active tasks are scanned in deterministic order and only one reminder
-  overlay is shown at a time; overlay actions target its `taskId`.
+Reminder actions target the occurrence's `taskId`. Add time, pause, and complete clear that task's
+pending occurrence in `TaskService`; delete removes it; dismiss clears only `pendingReminder` and
+leaves the already-calculated `nextReminderAt` intact. Resume never restores an old occurrence.
 
 ## Break Flow
 
