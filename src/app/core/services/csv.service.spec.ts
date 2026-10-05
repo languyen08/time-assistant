@@ -9,6 +9,7 @@ describe('CsvService', () => {
     note: 'Signals',
     category: 'Study',
     reminderAt: '2026-05-30T10:00:00.000Z',
+    reminderEnabled: true,
     reminderCount: 3,
     reminderIntervalMinutes: 5,
     allowConcurrentStart: true,
@@ -24,7 +25,7 @@ describe('CsvService', () => {
     const csv = service.exportTasks([task]);
 
     expect(csv.split('\r\n')[0]).toBe(
-      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart,deadlineAt,deadlineMessage,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown',
+      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart,deadlineAt,deadlineMessage,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown,reminderEnabled',
     );
     expect(csv).toContain('Study Angular');
   });
@@ -55,6 +56,59 @@ describe('CsvService', () => {
 
     expect(result.errors).toEqual([]);
     expect(result.tasks.map((item) => item.allowConcurrentStart)).toEqual([true, false]);
+  });
+
+  it('round-trips enabled and disabled reminders', () => {
+    const result = service.importTasks(
+      service.exportTasks([task, { ...task, id: 'disabled', reminderEnabled: false }]),
+      [],
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.tasks.map((item) => item.reminderEnabled)).toEqual([true, false]);
+    expect(result.tasks[1].reminderAttemptsShown).toBe(0);
+  });
+
+  it('defaults old CSV without reminderEnabled to true', () => {
+    const result = service.importTasks(
+      'name,reminderAt,reminderCount,reminderIntervalMinutes\nLegacy,2026-05-30T10:00:00.000Z,3,5',
+      [],
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.tasks[0].reminderEnabled).toBe(true);
+  });
+
+  it('imports disabled rows without reminder-specific columns or timing values', () => {
+    const result = service.importTasks('name,reminderEnabled\nFocus,false', []);
+    expect(result.errors).toEqual([]);
+    expect(result.tasks[0]).toMatchObject({
+      reminderEnabled: false,
+      reminderCount: 0,
+      reminderIntervalMinutes: 0,
+    });
+    expect(Number.isFinite(new Date(result.tasks[0].reminderAt).getTime())).toBe(true);
+  });
+
+  it('validates enabled rows while allowing blank reminder values on disabled rows', () => {
+    const result = service.importTasks(
+      'name,reminderEnabled,reminderAt,reminderCount,reminderIntervalMinutes\nFocus,false,,,\nInvalid,true,,,',
+      [],
+    );
+    expect(result.importedCount).toBe(1);
+    expect(result.tasks[0].reminderEnabled).toBe(false);
+    expect(result.errors).toEqual([
+      'Row 3: reminderAt must be a valid date/time.',
+      'Row 3: reminderCount must be between 1 and 20.',
+      'Row 3: reminderIntervalMinutes must be between 1 and 240.',
+    ]);
+  });
+
+  it('rejects invalid reminderEnabled values with a row error', () => {
+    const result = service.importTasks(
+      'name,reminderEnabled,reminderAt,reminderCount,reminderIntervalMinutes\nInvalid,yes,2026-05-30T10:00:00.000Z,3,5',
+      [],
+    );
+    expect(result.importedCount).toBe(0);
+    expect(result.errors).toContain('Row 2: reminderEnabled must be true or false.');
   });
 
   it('imports old task CSV without the optional concurrency column as false', () => {

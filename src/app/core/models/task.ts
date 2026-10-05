@@ -13,6 +13,7 @@ export interface Task {
   note: string;
   category: string;
   reminderAt: string;
+  reminderEnabled: boolean;
   reminderCount: number;
   reminderIntervalMinutes: number;
   allowConcurrentStart: boolean;
@@ -40,6 +41,7 @@ export interface TaskDraft {
   note: string;
   category: string;
   reminderAt: string;
+  reminderEnabled?: boolean;
   reminderCount: number;
   reminderIntervalMinutes: number;
   allowConcurrentStart: boolean;

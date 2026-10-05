@@ -15,7 +15,11 @@ export class ReminderSchedulerService {
   private readonly settings = inject(SettingsService);
 
   readonly activeReminder = computed<ActiveReminder | undefined>(() => {
-    const task = this.taskService.tasks().find((candidate) => Boolean(candidate.pendingReminder));
+    const task = this.taskService
+      .tasks()
+      .find(
+        (candidate) => candidate.reminderEnabled !== false && Boolean(candidate.pendingReminder),
+      );
     const pending = task?.pendingReminder;
     return task && pending
       ? {
@@ -56,7 +60,11 @@ export class ReminderSchedulerService {
 
     this.checking = true;
     try {
-      if (this.taskService.tasks().some((task) => Boolean(task.pendingReminder))) {
+      if (
+        this.taskService
+          .tasks()
+          .some((task) => task.reminderEnabled !== false && Boolean(task.pendingReminder))
+      ) {
         return;
       }
 
@@ -65,6 +73,7 @@ export class ReminderSchedulerService {
         .find(
           (candidate) =>
             candidate.status === 'active' &&
+            candidate.reminderEnabled !== false &&
             candidate.reminderAttemptsShown < candidate.reminderCount &&
             isDue(candidate.nextReminderAt, now),
         );

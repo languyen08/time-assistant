@@ -87,6 +87,11 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Tasks default to `allowConcurrentStart: false`. The incoming task's flag alone decides whether
   it may bypass existing active/paused tasks; break prompt/running state still blocks every
   automatic start.
+- Tasks default to `reminderEnabled: true`; a missing legacy property means true. Explicit false
+  disables reminder scheduling, presentation, repeats, attempts and extensions at the service layer.
+  No-reminder tasks reuse elapsed timing, pause/resume and completion/Break. Keep their Main/Sticky
+  cards compact without reminder panels or Add time. Start time and optional Finish by remain
+  independent task scheduling/deadline data. No IndexedDB version change is required.
 - `stickyVisibleNotes` is a maximum (1–5) for current active/paused cards; queued cards use only leftover space. Settings saves/reset invalidate other renderers through `settings-changed` on the existing task BroadcastChannel, after persistence, without polling.
 - Multiple active/paused tasks may coexist. Business logic uses ordered `activeTasks` and
   `currentTasks` collections, and every mutation targets an explicit task ID.

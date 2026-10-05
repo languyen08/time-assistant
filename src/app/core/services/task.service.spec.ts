@@ -4,6 +4,7 @@ import { TaskRepository } from '../repositories/task.repository';
 import { HistoryService } from './history.service';
 import { TaskService } from './task.service';
 import { TaskValidationService } from './task-validation.service';
+import { TimerService } from './timer.service';
 
 function activeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -12,6 +13,7 @@ function activeTask(overrides: Partial<Task> = {}): Task {
     note: '',
     category: '',
     reminderAt: '2026-05-30T10:30:00.000Z',
+    reminderEnabled: true,
     reminderCount: 3,
     reminderIntervalMinutes: 5,
     allowConcurrentStart: false,
@@ -34,6 +36,7 @@ function pendingTask(overrides: Partial<Task> = {}): Task {
     note: '',
     category: '',
     reminderAt: '2026-05-30T10:00:00.000Z',
+    reminderEnabled: true,
     reminderCount: 3,
     reminderIntervalMinutes: 5,
     allowConcurrentStart: false,
@@ -121,7 +124,7 @@ describe('TaskService automatic scheduling', () => {
   let save: ReturnType<typeof vi.fn>;
   let record: ReturnType<typeof vi.fn>;
 
-  async function configure(tasks: Task[]): Promise<void> {
+  async function configure(tasks: Task[], realValidation = false): Promise<void> {
     savedTasks = tasks;
     save = vi.fn(async (task: Task) => {
       const index = savedTasks.findIndex((item) => item.id === task.id);
@@ -149,13 +152,140 @@ describe('TaskService automatic scheduling', () => {
         { provide: HistoryService, useValue: { record } },
         {
           provide: TaskValidationService,
-          useValue: { validate: vi.fn(() => ({ valid: true, errors: [] })) },
+          useValue: realValidation
+            ? new TaskValidationService()
+            : { validate: vi.fn(() => ({ valid: true, errors: [] })) },
         },
       ],
     });
     service = TestBed.inject(TaskService);
     await service.load();
   }
+
+  it('normalizes a legacy task with no reminderEnabled property to true', async () => {
+    const { reminderEnabled: omitted, ...legacy } = activeTask();
+    await configure([legacy as Task]);
+    expect(service.currentTask()?.reminderEnabled).toBe(true);
+    expect(
+      await service.triggerReminder(
+        'task_1',
+        'Legacy reminder.',
+        new Date('2026-05-30T10:31:00.000Z'),
+      ),
+    ).toBeDefined();
+    expect(record).toHaveBeenCalledWith(
+      'reminder_shown',
+      expect.any(String),
+      'task_1',
+      expect.any(Object),
+    );
+  });
+
+  it('defaults a new task to enabled and creates a disabled task without timing', async () => {
+    await configure([], true);
+    const draft = {
+      name: 'Focus',
+      note: '',
+      category: '',
+      allowConcurrentStart: false,
+      reminderAt: new Date(Date.now() + 3600_000).toISOString(),
+      reminderCount: 3,
+      reminderIntervalMinutes: 5,
+    };
+    expect(await service.create(draft)).toBe(true);
+    expect(service.tasks()[0].reminderEnabled).toBe(true);
+    expect(
+      await service.create({
+        ...draft,
+        reminderEnabled: false,
+        reminderAt: '',
+        reminderCount: NaN,
+        reminderIntervalMinutes: NaN,
+      }),
+    ).toBe(true);
+    expect(service.tasks()[1]).toMatchObject({
+      reminderEnabled: false,
+      reminderCount: 0,
+      reminderIntervalMinutes: 0,
+    });
+    expect(Number.isFinite(new Date(service.tasks()[1].reminderAt).getTime())).toBe(true);
+  });
+
+  it.each(['manual', 'automatic'] as const)(
+    'starts a no-reminder task through the %s flow without scheduling reminders',
+    async (mode) => {
+      await configure([pendingTask({ reminderEnabled: false })]);
+      if (mode === 'manual') await service.start('task_2');
+      else
+        expect(
+          await service.startAutomatically('task_2', new Date('2026-05-30T10:05:00.000Z')),
+        ).toBe(true);
+      expect(service.currentTask()?.status).toBe('active');
+      expect(service.currentTask()?.activeStartedAt).toBeDefined();
+      expect(service.currentTask()?.nextReminderAt).toBeUndefined();
+    },
+  );
+
+  it('rejects reminder processing and extra time for disabled persisted tasks without history or attempts', async () => {
+    await configure([activeTask({ reminderEnabled: false })]);
+    // Even a stale enabled renderer must obey the freshly read disabled record.
+    service.tasks.set([activeTask()]);
+    expect(
+      await service.triggerReminder('task_1', 'Never shown.', new Date('2026-05-30T10:31:00.000Z')),
+    ).toBeUndefined();
+    expect(await service.addTime('task_1', 10)).toBe(false);
+    await service.load();
+    expect(await service.addTime('task_1', 10)).toBe(false);
+    expect(record).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+    expect(service.currentTask()?.reminderAttemptsShown).toBe(0);
+  });
+
+  it('retains elapsed timing, pause/resume, completion and the next candidate without reminders', async () => {
+    await configure([activeTask({ reminderEnabled: false }), pendingTask()]);
+    const timer = TestBed.inject(TimerService);
+    expect(await service.pause('task_1', new Date('2026-05-30T10:10:00.000Z'))).toBe(true);
+    timer.now.set(new Date('2026-05-30T10:15:00.000Z'));
+    expect(timer.elapsedSeconds(service.currentTask())).toBe(600);
+    expect(service.currentTask()?.pausedRemainingSeconds).toBeUndefined();
+    expect(await service.resume('task_1', new Date('2026-05-30T10:20:00.000Z'))).toBe(true);
+    timer.now.set(new Date('2026-05-30T10:25:00.000Z'));
+    expect(timer.elapsedSeconds(service.currentTask())).toBe(900);
+    expect(service.currentTask()?.nextReminderAt).toBeUndefined();
+    expect(await service.complete('task_1')).toBe(true);
+    expect(service.completedTasks()[0].reminderEnabled).toBe(false);
+    expect(service.nextTaskCandidate()?.id).toBe('task_2');
+    expect(record.mock.calls.map(([type]) => type)).toEqual([
+      'task_paused',
+      'task_resumed',
+      'task_completed',
+    ]);
+  });
+
+  it.each(['active', 'paused'] as const)(
+    'clears pending and future reminders when an %s task is edited to disable them',
+    async (status) => {
+      await configure([
+        activeTask({
+          status,
+          pausedRemainingSeconds: 60,
+          pendingReminder: {
+            attemptNumber: 1,
+            maxAttempts: 3,
+            shownAt: '2026-05-30T10:30:00.000Z',
+            message: 'Old reminder.',
+          },
+        }),
+      ]);
+      expect(await service.update('task_1', { ...activeTask(), reminderEnabled: false })).toBe(
+        true,
+      );
+      expect(service.currentTask()?.pendingReminder).toBeUndefined();
+      expect(service.currentTask()?.nextReminderAt).toBeUndefined();
+      expect(service.currentTask()?.pausedRemainingSeconds).toBeUndefined();
+      expect(service.currentTask()?.activeStartedAt).toBe('2026-05-30T10:00:00.000Z');
+    },
+  );
 
   it('automatically starts a due pending task and records its origin', async () => {
     await configure([pendingTask({ nextAutoStartAt: '2026-05-30T10:30:00.000Z' })]);
@@ -202,6 +332,7 @@ describe('TaskService automatic scheduling', () => {
       note: '',
       category: '',
       reminderAt: '2026-05-30T11:00:00.000Z',
+      reminderEnabled: true,
       reminderCount: 3,
       reminderIntervalMinutes: 5,
       allowConcurrentStart: false,
@@ -472,6 +603,7 @@ describe('TaskService automatic scheduling', () => {
       note: '',
       category: '',
       reminderAt: '2026-05-30T10:00:00.000Z',
+      reminderEnabled: true,
       reminderCount: 3,
       reminderIntervalMinutes: 5,
       allowConcurrentStart: true,
@@ -488,6 +620,7 @@ describe('TaskService automatic scheduling', () => {
       note: '',
       category: '',
       reminderAt: '2026-05-30T11:00:00.000Z',
+      reminderEnabled: true,
       reminderCount: 3,
       reminderIntervalMinutes: 5,
       allowConcurrentStart: false,
@@ -497,6 +630,7 @@ describe('TaskService automatic scheduling', () => {
       note: '',
       category: '',
       reminderAt: '2026-05-30T11:00:00.000Z',
+      reminderEnabled: true,
       reminderCount: 3,
       reminderIntervalMinutes: 5,
       allowConcurrentStart: false,
@@ -530,6 +664,7 @@ describe('TaskService automatic scheduling', () => {
       note: '',
       category: '',
       reminderAt: '2026-05-30T10:00:00.000Z',
+      reminderEnabled: true,
       reminderCount: 3,
       reminderIntervalMinutes: 5,
       allowConcurrentStart: false,
@@ -570,6 +705,7 @@ describe('TaskService automatic scheduling', () => {
       note: '',
       category: '',
       reminderAt: '2026-05-30T10:00:00.000Z',
+      reminderEnabled: true,
       reminderCount: 3,
       reminderIntervalMinutes: 5,
       allowConcurrentStart: false,

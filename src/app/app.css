@@ -478,6 +478,11 @@ select {
   gap: 8px;
 }
 
+.sticky-timer-row.no-reminder,
+.current-task-active-panels.no-reminder {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .sticky-timer-cell {
   padding: 10px 12px;
   border: 1px solid var(--note-line);

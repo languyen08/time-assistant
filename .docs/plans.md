@@ -27,6 +27,7 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 1. User creates tasks with:
    - task name
    - Start time
+   - Enable reminder (enabled by default); disable it for a focus task that ends manually
    - number of reminder attempts
    - repeat interval between reminders
    - optional category/note
@@ -38,7 +39,7 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 3. App shows all active/paused tasks in Main. Sticky shows up to the configured visible-note maximum, prioritizing current tasks over queued tasks.
 
-4. When reminder time arrives, app shows a friendly visible notification with sound.
+4. For reminder-enabled tasks, when reminder time arrives, app shows a friendly visible notification with sound. Tasks without reminders continue until manually completed.
 
 5. User chooses one action:
    - **I know, give me more time**: enter extra time for the reminder's task.
@@ -63,6 +64,12 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 ### Task Management
 
 - Create, edit, delete, and reorder tasks.
+- Creation/editing supports optional reminders. Disabling **Enable reminder** hides attempts and
+  repeat interval and skips their validation. Start time is still the automatic-start schedule;
+  for a no-reminder task it may be left empty to make the task ready now.
+- No-reminder tasks retain elapsed timing, pause/resume, normal history, next-task candidates,
+  completion and the existing final-task Break flow. They have no countdown, Add time action,
+  reminder notification/repeats, reminder attempts, or reminder/extension history events.
 - Tasks default to non-concurrent starts; optionally allow an incoming task to start while other
   tasks are active or paused.
 - Complete, pause, resume, extend, or delete a specific current task without affecting others.
@@ -71,7 +78,7 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 ### Reminder System
 
-- Schedule reminders in the process-lifetime Scheduler renderer based on task reminder time.
+- Schedule reminders only for reminder-enabled tasks in the process-lifetime Scheduler renderer.
 - Support repeat reminders.
 - Support configurable repeat interval.
 - Support maximum reminder count.
@@ -102,6 +109,8 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 - Provide a compact always-on-top window similar to Windows sticky notes.
 - Show current tasks, remaining time, and task-specific quick actions before queued tasks.
+- No-reminder cards in both Main and Sticky show the title, Elapsed, Pause/Resume and Complete task.
+  Remove the reminder panel and Add time/+10m entirely; Elapsed fills the available panel width.
 - Sticky notes shown (`stickyVisibleNotes`, 1–5) is a maximum, not a fixed card count. Three current tasks with limit 5 show three current cards; with limit 2 they show two. Changing this setting updates an already-open Sticky window without restart. Paused tasks remain current cards.
 - Quick actions:
   - pause
@@ -195,6 +204,9 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 - Export tasks to CSV.
 - Import tasks from CSV.
+- Export `reminderEnabled` as true/false. Missing or blank values in old CSV default to true.
+  Disabled rows do not need reminder count/interval values or columns; an omitted Start time
+  makes them ready now. Enabled rows retain the existing required-column/value validation.
 - Export history/action log to CSV.
 - CSV output should be easy to use in spreadsheets and charting tools.
 - Validate imported rows and show errors clearly.

@@ -8,6 +8,7 @@ function draft(overrides: Partial<TaskDraft> = {}): TaskDraft {
     note: '',
     category: '',
     reminderAt: '2026-05-30T10:30:00.000Z',
+    reminderEnabled: true,
     reminderCount: 3,
     reminderIntervalMinutes: 5,
     allowConcurrentStart: false,
@@ -26,6 +27,53 @@ describe('TaskValidationService', () => {
 
   it('accepts a valid task draft', () => {
     expect(service.validate(draft(), now).valid).toBe(true);
+  });
+
+  it('accepts a disabled reminder without timing, attempts, or interval', () => {
+    expect(
+      service.validate(
+        draft({
+          reminderEnabled: false,
+          reminderAt: '',
+          reminderCount: NaN,
+          reminderIntervalMinutes: NaN,
+        }),
+        now,
+      ).errors,
+    ).toEqual([]);
+  });
+
+  it.each([true, undefined])(
+    'preserves reminder validation when enabled is %s',
+    (reminderEnabled) => {
+      expect(
+        service.validate(
+          draft({ reminderEnabled, reminderAt: '', reminderCount: 0, reminderIntervalMinutes: 0 }),
+          now,
+        ).errors,
+      ).toEqual([
+        'Start time must be a valid date and time.',
+        'Reminder attempts must be between 1 and 20.',
+        'Repeat interval must be between 1 and 240 minutes.',
+      ]);
+    },
+  );
+
+  it('still validates an entered Start time and Finish by on a no-reminder task', () => {
+    expect(service.validate(draft({ reminderEnabled: false, reminderAt: 'bad' }), now).valid).toBe(
+      false,
+    );
+    expect(
+      service.validate(
+        draft({
+          reminderEnabled: false,
+          reminderAt: '',
+          deadlineAt: '2026-05-30T10:00:00.000Z',
+          deadlineMessage: 'Finish.',
+        }),
+        now,
+      ).errors,
+    ).toContain('Finish-by time must be later than the Start time.');
   });
 
   it('requires a task name', () => {

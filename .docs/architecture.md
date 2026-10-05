@@ -218,7 +218,10 @@ history
 Persisted state:
 
 - Task records include active/paused timing fields, next-reminder state, reminder attempt count,
-  the user-authored scheduled Start time in `reminderAt`, and optional internal automatic retry
+  and `reminderEnabled: boolean`. Missing legacy values normalize to true in TaskService; new
+  drafts default to true. Only explicit false disables reminders. This is a normal object property
+  in IndexedDB v2; no store, index, migration, or version change is needed.
+  Tasks also include the user-authored scheduled Start time in `reminderAt` and optional internal automatic retry
   state in `nextAutoStartAt`. User-owned `allowConcurrentStart` defaults/normalizes to `false`
   without an IndexedDB version bump. Optional `deadlineAt` and `deadlineMessage` are user data;
   `deadlineNotifiedAt` and `deadlineAcknowledgedAt` persist one-time processing/presentation state.
@@ -255,10 +258,20 @@ Current schema status:
 
 Reminder flow:
 
+Only reminder-enabled tasks participate. ReminderSchedulerService skips explicit false for both
+pending-occurrence presentation/blocking and due-task selection. TaskService rereads the persisted
+flag before triggering and rejects disabled-task extensions, so UI controls are not the only guard.
+Disabling an existing task clears pending/next reminder and paused countdown state. Start/resume
+never schedules a disabled reminder; elapsed timing still uses TimerService and existing paused time.
+`reminderAt` remains Start time for all tasks; a disabled draft without it receives the current time.
+Completion and Break use the same existing flow. Independently opted-in Finish-by deadlines retain
+their absolute-time behavior.
+
 ```txt
 Scheduler checks ordered active tasks once per second
   -> any persisted pendingReminder globally: stop
   -> first due task below its attempt limit
+     (reminderEnabled !== false)
   -> fresh repository read verifies active/due/eligible state
   -> persist pendingReminder, increment attempts, and schedule/clear nextReminderAt
   -> record reminder_shown once

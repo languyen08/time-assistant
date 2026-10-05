@@ -15,6 +15,7 @@ function task(id: string, order: number, overrides: Partial<Task> = {}): Task {
     note: '',
     category: '',
     reminderAt: '2026-05-30T10:00:00.000Z',
+    reminderEnabled: true,
     reminderCount: 2,
     reminderIntervalMinutes: 5,
     allowConcurrentStart: false,
@@ -128,6 +129,41 @@ describe('ReminderSchedulerService', () => {
     expect(showReminder).toHaveBeenCalledOnce();
     expect(showReminder.mock.calls[0][1]).toEqual(DEFAULT_APP_SETTINGS);
     expect(order).toEqual(['persist', 'notify']);
+  });
+
+  it('ignores disabled tasks even with due timing and repeats, without notifications or attempts', async () => {
+    tasks.set([task('disabled', 0, { reminderEnabled: false })]);
+    await service.check(now);
+    await service.check(new Date(now.getTime() + 600_000));
+    expect(triggerReminder).not.toHaveBeenCalled();
+    expect(showReminder).not.toHaveBeenCalled();
+    expect(tasks()[0].reminderAttemptsShown).toBe(0);
+    expect(service.activeReminder()).toBeUndefined();
+  });
+
+  it('does not present stale pending reminders on disabled tasks', async () => {
+    tasks.set([
+      task('disabled', 0, {
+        reminderEnabled: false,
+        pendingReminder: {
+          attemptNumber: 1,
+          maxAttempts: 2,
+          shownAt: now.toISOString(),
+          message: 'Stale reminder.',
+        },
+      }),
+    ]);
+    expect(service.hasReminder()).toBe(false);
+    await service.check(now);
+    expect(showReminder).not.toHaveBeenCalled();
+  });
+
+  it('skips disabled tasks while preserving scheduling for enabled and legacy tasks', async () => {
+    const { reminderEnabled: omitted, ...legacy } = task('legacy', 1);
+    tasks.set([task('disabled', 0, { reminderEnabled: false }), legacy as Task]);
+    await service.check(now);
+    expect(triggerReminder).toHaveBeenCalledWith('legacy', 'A friendly reminder.', now);
+    expect(showReminder).toHaveBeenCalledOnce();
   });
 
   it('blocks every new occurrence while any task has a pending reminder', async () => {

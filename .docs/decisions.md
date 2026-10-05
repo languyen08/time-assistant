@@ -48,6 +48,12 @@ Consequences:
 - Notification sound must be soft and configurable.
 - Reminder repeat count and interval must be respected.
 
+Accepted product behavior update (2026-10-05): tasks may explicitly disable reminders through
+`reminderEnabled: false`. New and legacy tasks default to enabled. No-reminder tasks retain the
+existing timer, manual completion and Break flow; they never participate in normal reminder or
+extension processing. This adds a backward-compatible task property without changing ADR-016
+ownership or IndexedDB v2. Separately configured Finish-by deadlines remain governed by ADR-015.
+
 ---
 
 ## ADR-003: Mobile Push Notification Optional

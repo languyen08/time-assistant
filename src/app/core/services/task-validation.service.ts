@@ -20,10 +20,15 @@ export class TaskValidationService {
       errors.push('Task name is required.');
     }
 
-    const reminderDate = new Date(draft.reminderAt);
+    const reminderEnabled = draft.reminderEnabled !== false;
+    const reminderDate = new Date(draft.reminderAt || (!reminderEnabled ? now.toISOString() : ''));
     if (Number.isNaN(reminderDate.getTime())) {
       errors.push('Start time must be a valid date and time.');
-    } else if (reminderDate.getTime() <= now.getTime() && draft.reminderAt !== existingReminderAt) {
+    } else if (
+      draft.reminderAt &&
+      reminderDate.getTime() <= now.getTime() &&
+      draft.reminderAt !== existingReminderAt
+    ) {
       errors.push('Start time must be in the future.');
     }
 
@@ -54,17 +59,19 @@ export class TaskValidationService {
     }
 
     if (
-      !Number.isInteger(draft.reminderCount) ||
-      draft.reminderCount < 1 ||
-      draft.reminderCount > 20
+      reminderEnabled &&
+      (!Number.isInteger(draft.reminderCount) ||
+        draft.reminderCount < 1 ||
+        draft.reminderCount > 20)
     ) {
       errors.push('Reminder attempts must be between 1 and 20.');
     }
 
     if (
-      !Number.isInteger(draft.reminderIntervalMinutes) ||
-      draft.reminderIntervalMinutes < 1 ||
-      draft.reminderIntervalMinutes > 240
+      reminderEnabled &&
+      (!Number.isInteger(draft.reminderIntervalMinutes) ||
+        draft.reminderIntervalMinutes < 1 ||
+        draft.reminderIntervalMinutes > 240)
     ) {
       errors.push('Repeat interval must be between 1 and 240 minutes.');
     }

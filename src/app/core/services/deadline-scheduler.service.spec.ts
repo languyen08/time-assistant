@@ -12,6 +12,7 @@ function task(id: string, order: number, overrides: Partial<Task> = {}): Task {
     note: '',
     category: '',
     reminderAt: '2026-05-30T09:00:00.000Z',
+    reminderEnabled: true,
     reminderCount: 3,
     reminderIntervalMinutes: 5,
     allowConcurrentStart: false,

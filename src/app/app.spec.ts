@@ -13,6 +13,7 @@ function pendingTask(id: string, name: string, order: number, overrides: Partial
     note: '',
     category: '',
     reminderAt: '2026-05-30T10:30:00.000Z',
+    reminderEnabled: true,
     reminderCount: 3,
     reminderIntervalMinutes: 5,
     allowConcurrentStart: false,
@@ -106,6 +107,152 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
     expect(app).toBeTruthy();
+  });
+
+  it('defaults reminders on, hides disabled settings, and saves without reminder timing', async () => {
+    vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    vi.spyOn(app, 'ngOnInit').mockResolvedValue();
+    app.loading.set(false);
+    expect(app.taskForm.controls.reminderEnabled.value).toBe(true);
+    app.taskForm.patchValue({
+      name: 'Focus note',
+      reminderEnabled: false,
+      reminderAt: '',
+      reminderCount: NaN,
+      reminderIntervalMinutes: NaN,
+    });
+    app.onReminderEnabledChanged();
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('[formControlName="reminderCount"]')).toBeNull();
+    expect(host.querySelector('[formControlName="reminderIntervalMinutes"]')).toBeNull();
+    expect(host.textContent).toContain('manually complete the task');
+    expect(app.taskForm.valid).toBe(true);
+    const create = vi.spyOn(app.taskService, 'create').mockResolvedValue(true);
+    await app.saveTask();
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ reminderEnabled: false, reminderAt: '' }),
+    );
+    expect(app.taskForm.controls.reminderEnabled.value).toBe(true);
+    expect(app.taskForm.controls.reminderCount.enabled).toBe(true);
+    app.taskForm.patchValue({ reminderCount: 0 });
+    expect(app.taskForm.invalid).toBe(true);
+    fixture.destroy();
+  });
+
+  it('loads the reminder toggle when editing and restores default reminder settings on a disabled task', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.editTask(
+      pendingTask('disabled', 'Focus note', 0, {
+        reminderEnabled: false,
+        reminderCount: 0,
+        reminderIntervalMinutes: 0,
+      }),
+    );
+    expect(app.taskForm.controls.reminderEnabled.value).toBe(false);
+    expect(app.taskForm.controls.reminderCount.disabled).toBe(true);
+    app.taskForm.controls.reminderEnabled.setValue(true);
+    app.onReminderEnabledChanged();
+    expect(app.taskForm.controls.reminderCount.value).toBe(
+      app.settingsService.settings().defaultReminderCount,
+    );
+    expect(app.taskForm.controls.reminderCount.valid).toBe(true);
+    fixture.destroy();
+  });
+
+  it('preserves an unchanged ready-now Start timestamp when editing a no-reminder task', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const task = pendingTask('focus', 'Focus note', 0, {
+      reminderEnabled: false,
+      reminderAt: '2026-05-30T10:30:25.123Z',
+    });
+    app.taskService.tasks.set([task]);
+    app.editTask(task);
+    app.taskForm.controls.note.setValue('Updated note');
+    const update = vi.spyOn(app.taskService, 'update').mockResolvedValue(true);
+    await app.saveTask();
+    expect(update).toHaveBeenCalledWith(
+      'focus',
+      expect.objectContaining({
+        reminderEnabled: false,
+        reminderAt: task.reminderAt,
+        note: 'Updated note',
+      }),
+    );
+    fixture.destroy();
+  });
+
+  it.each(['main', 'sticky'] as const)(
+    'hides reminder UI in %s while preserving elapsed and pause/resume/complete controls',
+    async (mode) => {
+      vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+      vi.spyOn(app, 'ngOnInit').mockResolvedValue();
+      app.windowMode.set(mode);
+      app.loading.set(false);
+      app.timerService.now.set(new Date('2026-05-30T10:33:09.000Z'));
+      app.taskService.tasks.set([
+        pendingTask('focus', 'Focus note', 0, {
+          reminderEnabled: false,
+          status: 'active',
+          activeStartedAt: '2026-05-30T10:00:00.000Z',
+        }),
+      ]);
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      const selector = mode === 'sticky' ? '.sticky-focus-card' : '.current-task-active-note';
+      const card = host.querySelector(selector) as HTMLElement;
+      expect(card.textContent).toContain('Focus note');
+      expect(card.textContent).toContain('33:09');
+      expect(card.textContent).toContain('Elapsed');
+      expect(card.textContent).not.toContain('Reminder');
+      expect(card.textContent).not.toContain('+10m');
+      expect(card.textContent).not.toContain('Add time');
+      expect(card.querySelector('.no-reminder')).toBeTruthy();
+      const pause = vi.spyOn(app, 'pauseTask').mockResolvedValue();
+      const complete = vi.spyOn(app, 'completeTask').mockResolvedValue();
+      const buttons = Array.from(card.querySelectorAll('button'));
+      buttons.find((button) => button.textContent?.includes('Pause'))?.click();
+      buttons.find((button) => button.textContent?.includes('Complete task'))?.click();
+      expect(pause).toHaveBeenCalledWith('focus');
+      expect(complete).toHaveBeenCalledWith('focus');
+      app.taskService.tasks.update((tasks) => tasks.map((task) => ({ ...task, status: 'paused' })));
+      fixture.detectChanges();
+      expect(card.textContent).toContain('Resume');
+      expect(card.textContent).not.toContain('Reminder');
+      const resume = vi.spyOn(app, 'resumeTask').mockResolvedValue();
+      Array.from(card.querySelectorAll('button'))
+        .find((button) => button.textContent?.includes('Resume'))
+        ?.click();
+      expect(resume).toHaveBeenCalledWith('focus');
+      app.taskService.tasks.update((tasks) =>
+        tasks.map((task) => ({ ...task, reminderEnabled: true })),
+      );
+      fixture.detectChanges();
+      expect(card.textContent).toContain('Reminder');
+      if (mode === 'sticky') expect(card.textContent).toContain('+10m');
+      fixture.destroy();
+    },
+  );
+
+  it('uses the existing final-task break flow for a task without reminders', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.taskService.tasks.set([
+      pendingTask('focus', 'Focus note', 0, { reminderEnabled: false, status: 'active' }),
+      pendingTask('next', 'Next task', 1),
+    ]);
+    const complete = vi.spyOn(app.taskService, 'complete').mockResolvedValue(true);
+    await app.completeTask('focus');
+    expect(complete).toHaveBeenCalledWith('focus');
+    expect(app.breakService.state()).toBe('prompt');
+    expect(app.nextTaskCandidate()?.id).toBe('next');
+    fixture.destroy();
   });
 
   it('should recognize scheduler mode, render no UI, and initialize only task state', async () => {
@@ -1591,6 +1738,7 @@ describe('App', () => {
       note: '',
       category: '',
       reminderAt: '2026-05-30T10:30:00.000Z',
+      reminderEnabled: true,
       reminderCount: 3,
       reminderIntervalMinutes: 5,
       allowConcurrentStart: false,

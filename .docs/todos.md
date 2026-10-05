@@ -316,6 +316,22 @@ Goal: add optional convenience features and polish after the core app is stable.
 
 ## Current Reconciliation / Stabilization
 
+- [x] Implement optional task reminders (2026-10-05).
+  - [x] Add `reminderEnabled`, default enabled for new drafts and missing legacy records without a
+    storage schema/version change.
+  - [x] Add create/edit toggle and conditional validation; allow a disabled task with no entered timing.
+  - [x] Guard scheduler selection/presentation, reminder processing and extensions in services.
+  - [x] Compact Main/Sticky cards to elapsed time and pause/resume/complete when disabled.
+  - [x] Preserve existing timer, automatic starts, completion, next candidate and Break behavior.
+  - [x] Add compatible CSV flag export/import and disabled-row validation.
+  - [x] Add focused service/component tests and a small multi-window Playwright regression.
+  - [x] Synchronize the canonical docs; clarify existing ADRs without adding a new ADR.
+  - [x] Pass 196 Angular tests, 38 Electron tests, seven Playwright scenarios, production build,
+    changed-file Prettier and diff whitespace checks.
+  - Validation limits: repository-wide `lint` is still a Prettier-only check and reports 54
+    unchanged files (68 before this feature). Production build retains bundle/CSS budget warnings.
+    Commands ran with the available Node 25.6.0; packaged Windows builds were not retested for this feature.
+
 - [x] Reconcile the five canonical docs with the audited current local source state.
 - [x] Reconcile the packaging migration: retain Electron Builder as the sole packaging tool, remove Electron Forge, and accept ADR-012.
 - [x] Remove light/dark/system theme support and persistence from MVP scope through an explicit product decision and documentation update.

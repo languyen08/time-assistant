@@ -309,6 +309,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   });
   readonly taskForm = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
+    reminderEnabled: [true],
     reminderAt: [toDatetimeLocalValue(addMinutes(new Date(), 30)), Validators.required],
     reminderCount: [3, [Validators.required, Validators.min(1), Validators.max(20)]],
     reminderIntervalMinutes: [5, [Validators.required, Validators.min(1), Validators.max(240)]],
@@ -496,6 +497,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   async saveTask(): Promise<void> {
+    this.onReminderEnabledChanged();
     this.taskForm.markAllAsTouched();
     if (this.taskForm.invalid) {
       this.taskService.errorMessage.set('Please check the highlighted fields.');
@@ -518,9 +520,16 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     this.taskService.clearError();
     this.taskForm.setValue({
       name: task.name,
+      reminderEnabled: task.reminderEnabled !== false,
       reminderAt: toDatetimeLocalValue(new Date(task.reminderAt)),
-      reminderCount: task.reminderCount,
-      reminderIntervalMinutes: task.reminderIntervalMinutes,
+      reminderCount:
+        task.reminderEnabled === false
+          ? this.settingsService.settings().defaultReminderCount
+          : task.reminderCount,
+      reminderIntervalMinutes:
+        task.reminderEnabled === false
+          ? this.settingsService.settings().defaultReminderRepeatMinutes
+          : task.reminderIntervalMinutes,
       allowConcurrentStart: task.allowConcurrentStart,
       deadlineEnabled: Boolean(task.deadlineAt),
       deadlineAt: task.deadlineAt ? toDatetimeLocalValue(new Date(task.deadlineAt)) : '',
@@ -529,12 +538,14 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       note: task.note,
     });
     this.onDeadlineEnabledChanged();
+    this.onReminderEnabledChanged();
   }
 
   resetForm(): void {
     this.editingTaskId.set(undefined);
     this.taskForm.reset({
       name: '',
+      reminderEnabled: true,
       reminderAt: toDatetimeLocalValue(addMinutes(new Date(), 30)),
       reminderCount: this.settingsService.settings().defaultReminderCount,
       reminderIntervalMinutes: this.settingsService.settings().defaultReminderRepeatMinutes,
@@ -546,6 +557,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       note: '',
     });
     this.onDeadlineEnabledChanged();
+    this.onReminderEnabledChanged();
   }
 
   async startTask(taskId: string): Promise<void> {
@@ -609,6 +621,23 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   async dismissReminder(taskId: string): Promise<void> {
     await this.reminderScheduler.dismiss(taskId);
+  }
+
+  onReminderEnabledChanged(): void {
+    const enabled = this.taskForm.controls.reminderEnabled.value;
+    const start = this.taskForm.controls.reminderAt;
+    start.setValidators(enabled ? Validators.required : []);
+    start.updateValueAndValidity();
+    for (const control of [
+      this.taskForm.controls.reminderCount,
+      this.taskForm.controls.reminderIntervalMinutes,
+    ]) {
+      if (enabled) {
+        control.enable();
+      } else {
+        control.disable();
+      }
+    }
   }
 
   onDeadlineEnabledChanged(): void {
@@ -1405,9 +1434,18 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   private formToDraft(): TaskDraft {
     const value = this.taskForm.getRawValue();
+    const editingTask = this.taskService.tasks().find((task) => task.id === this.editingTaskId());
+    // Ready-now tasks carry seconds that the datetime-local input cannot display.
+    const unchangedStart =
+      editingTask && value.reminderAt === toDatetimeLocalValue(new Date(editingTask.reminderAt));
     return {
       name: value.name,
-      reminderAt: fromDatetimeLocalValue(value.reminderAt),
+      reminderEnabled: value.reminderEnabled,
+      reminderAt: unchangedStart
+        ? editingTask.reminderAt
+        : value.reminderAt
+          ? fromDatetimeLocalValue(value.reminderAt)
+          : '',
       reminderCount: Number(value.reminderCount),
       reminderIntervalMinutes: Number(value.reminderIntervalMinutes),
       allowConcurrentStart: value.allowConcurrentStart,

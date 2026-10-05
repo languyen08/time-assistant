@@ -13,6 +13,7 @@ describe('ChartSummaryService', () => {
         note: '',
         category: 'Study',
         reminderAt: '2026-05-30T10:00:00.000Z',
+        reminderEnabled: true,
         reminderCount: 3,
         reminderIntervalMinutes: 5,
         allowConcurrentStart: false,

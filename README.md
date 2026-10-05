@@ -142,6 +142,9 @@ The guide preview scripts use [docs/user-guide.html](/c:/Where%20I%20improve%20m
 The app stores all data locally in IndexedDB. Core workflows work offline and do not require login, calendar integration, or cloud services.
 
 - Task CSV import validates required columns and reminder values before saving.
+- Task CSV includes `reminderEnabled` (`true`/`false`). Older CSV files without it default to
+  enabled. Disabled rows can omit reminder count/interval and Start time; an empty Start time makes
+  the task ready now. Reminder-enabled rows keep the existing validation.
 - Task CSV export includes reminder/timer state fields useful for moving local data between machines.
 - History CSV export includes event type, timestamp, summary, and metadata JSON.
 - CSV date/time output can use ISO timestamps or a spreadsheet-friendly local `yyyy-MM-dd HH:mm` format.

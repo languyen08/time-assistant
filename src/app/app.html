@@ -1475,19 +1475,22 @@
                   </span>
                 }
               </div>
-              <div class="sticky-timer-row">
+              <div class="sticky-timer-row" [class.no-reminder]="task.reminderEnabled === false">
                 <div class="sticky-timer-cell">
                   <span>Elapsed</span>
                   <strong>{{ elapsedFor(task) }}</strong>
                 </div>
+                @if (task.reminderEnabled !== false) {
                 <div class="sticky-timer-cell">
                   <span>Reminder</span>
                   <strong>{{ remainingFor(task) }}</strong>
                 </div>
+                }
               </div>
               <app-task-action-buttons
                 [paused]="task.status === 'paused'"
                 [sticky]="true"
+                [reminderEnabled]="task.reminderEnabled !== false"
                 [extensionMinutes]="extensionMinutes()"
                 (pause)="pauseTask(task.id)"
                 (resume)="resumeTask(task.id)"
@@ -1710,7 +1713,7 @@
                     }
                   </div>
 
-                  <div class="current-task-active-panels">
+                  <div class="current-task-active-panels" [class.no-reminder]="task.reminderEnabled === false">
                     <div class="current-task-active-panel current-task-active-panel--elapsed">
                       <div class="current-task-active-panel-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
@@ -1732,6 +1735,7 @@
                       </div>
                     </div>
 
+                    @if (task.reminderEnabled !== false) {
                     <div class="current-task-active-panel current-task-active-panel--reminder">
                       <div class="current-task-active-panel-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
@@ -1756,6 +1760,7 @@
                         }}</strong>
                       </div>
                     </div>
+                    }
                   </div>
 
                   <div class="current-task-active-actions">
@@ -2223,7 +2228,7 @@
                 [class.field-invalid]="controlInvalid('reminderAt')"
                 style="gap: 8px; color: #556243; font-size: 0.9rem"
               >
-                <span>Start time</span>
+                <span>Start time{{ taskForm.controls.reminderEnabled.value ? '' : ' (optional)' }}</span>
                 <input
                   type="datetime-local"
                   formControlName="reminderAt"
@@ -2255,6 +2260,14 @@
                 <span class="concurrent-start-copy">
                   <strong>Allow concurrent start</strong>
                   <small>Start this task even if another task is already active.</small>
+                </span>
+              </label>
+
+              <label class="concurrent-start-control">
+                <input type="checkbox" formControlName="reminderEnabled" (change)="onReminderEnabledChanged()" />
+                <span class="concurrent-start-copy">
+                  <strong>Enable reminder</strong>
+                  <small>When off, track elapsed time until you manually complete the task. Leave Start time empty to make it ready now.</small>
                 </span>
               </label>
 
@@ -2316,6 +2329,7 @@
                 </div>
               }
 
+              @if (taskForm.controls.reminderEnabled.value) {
               <div
                 class="new-task-inline-grid"
                 style="
@@ -2404,6 +2418,7 @@
                 </label>
               </div>
 
+              }
               <label style="gap: 8px; color: #556243; font-size: 0.9rem">
                 <span>Category</span>
                 <input

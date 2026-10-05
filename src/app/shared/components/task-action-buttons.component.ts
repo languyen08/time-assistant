@@ -107,11 +107,7 @@ import { Component, input, output } from '@angular/core';
     }
 
     .sticky-action-row > .secondary-button {
-      background: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.42),
-        rgba(255, 255, 255, 0.2)
-      );
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.2));
       color: var(--note-text, #2f2818);
     }
 
@@ -170,7 +166,7 @@ import { Component, input, output } from '@angular/core';
           {{ sticky() ? 'Pause' : 'Pause task' }}
         </button>
       }
-      @if (sticky()) {
+      @if (sticky() && reminderEnabled()) {
         <button type="button" class="secondary-button sticky-time-button" (click)="addTime.emit()">
           +{{ extensionMinutes() }}m
         </button>
@@ -202,6 +198,7 @@ import { Component, input, output } from '@angular/core';
 export class TaskActionButtonsComponent {
   readonly paused = input.required<boolean>();
   readonly sticky = input(false);
+  readonly reminderEnabled = input(true);
   readonly extensionMinutes = input(10);
 
   readonly pause = output<void>();

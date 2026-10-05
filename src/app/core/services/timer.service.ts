@@ -29,7 +29,11 @@ export class TimerService {
   }
 
   remainingSeconds(task: Task | undefined): number {
-    if (!task || (task.status !== 'active' && task.status !== 'paused')) {
+    if (
+      !task ||
+      task.reminderEnabled === false ||
+      (task.status !== 'active' && task.status !== 'paused')
+    ) {
       return 0;
     }
 

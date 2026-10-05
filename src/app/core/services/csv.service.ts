@@ -26,6 +26,7 @@ const TASK_HEADERS = [
   'completedAt',
   'nextReminderAt',
   'reminderAttemptsShown',
+  'reminderEnabled',
 ] as const;
 
 const HISTORY_HEADERS = ['id', 'type', 'taskId', 'occurredAt', 'summary', 'metadataJson'] as const;
@@ -59,8 +60,10 @@ export class CsvService {
       note: task.note,
       category: task.category,
       reminderAt: this.formatDateTime(task.reminderAt, dateTimeFormat),
-      reminderCount: String(task.reminderCount),
-      reminderIntervalMinutes: String(task.reminderIntervalMinutes),
+      reminderCount: task.reminderEnabled === false ? '' : String(task.reminderCount),
+      reminderIntervalMinutes:
+        task.reminderEnabled === false ? '' : String(task.reminderIntervalMinutes),
+      reminderEnabled: String(task.reminderEnabled !== false),
       allowConcurrentStart: String(task.allowConcurrentStart),
       deadlineAt: this.formatDateTime(task.deadlineAt, dateTimeFormat),
       deadlineMessage: task.deadlineMessage ?? '',
@@ -109,7 +112,12 @@ export class CsvService {
 
     if (parsed.data.length > 0) {
       const firstRow = parsed.data[0];
-      for (const header of REQUIRED_TASK_HEADERS) {
+      const requiredHeaders = parsed.data.some(
+        (row) => this.boolean(row['reminderEnabled']) !== false,
+      )
+        ? REQUIRED_TASK_HEADERS
+        : ['name'];
+      for (const header of requiredHeaders) {
         if (!(header in firstRow)) {
           errors.push(`Missing required column "${header}".`);
         }
@@ -143,14 +151,16 @@ export class CsvService {
 
       const requestedStatus = this.status(row['status']);
       const status = requestedStatus === 'completed' ? 'completed' : 'pending';
+      const reminderEnabled = this.boolean(row['reminderEnabled']) !== false;
       const task: Task = {
         id,
         name: this.text(row['name']),
         note: this.text(row['note']),
         category: this.text(row['category']),
-        reminderAt: new Date(this.text(row['reminderAt'])).toISOString(),
-        reminderCount: this.integer(row['reminderCount']),
-        reminderIntervalMinutes: this.integer(row['reminderIntervalMinutes']),
+        reminderAt: this.optionalIso(row['reminderAt']) ?? now,
+        reminderEnabled,
+        reminderCount: reminderEnabled ? this.integer(row['reminderCount']) : 0,
+        reminderIntervalMinutes: reminderEnabled ? this.integer(row['reminderIntervalMinutes']) : 0,
         allowConcurrentStart: this.boolean(row['allowConcurrentStart']) ?? false,
         deadlineAt: this.optionalIso(row['deadlineAt']),
         deadlineMessage: this.text(row['deadlineMessage']) || undefined,
@@ -166,7 +176,9 @@ export class CsvService {
         deadlineNotifiedAt: undefined,
         deadlineAcknowledgedAt: undefined,
         nextReminderAt: undefined,
-        reminderAttemptsShown: this.optionalInteger(row['reminderAttemptsShown']) ?? 0,
+        reminderAttemptsShown: reminderEnabled
+          ? (this.optionalInteger(row['reminderAttemptsShown']) ?? 0)
+          : 0,
       };
 
       importedTasks.push(task);
@@ -188,6 +200,8 @@ export class CsvService {
     const reminderInterval = this.integer(row['reminderIntervalMinutes']);
     const statusText = this.text(row['status']);
     const concurrentStartText = this.text(row['allowConcurrentStart']).toLowerCase();
+    const reminderEnabledText = this.text(row['reminderEnabled']).toLowerCase();
+    const reminderEnabled = this.boolean(row['reminderEnabled']) !== false;
     const deadlineAt = this.text(row['deadlineAt']);
     const deadlineMessage = this.text(row['deadlineMessage']);
 
@@ -195,15 +209,21 @@ export class CsvService {
       errors.push(`Row ${rowNumber}: Task name is required.`);
     }
 
-    if (!this.isIsoDate(reminderAt)) {
+    if ((reminderEnabled || reminderAt) && !this.isIsoDate(reminderAt)) {
       errors.push(`Row ${rowNumber}: reminderAt must be a valid date/time.`);
     }
 
-    if (!Number.isInteger(reminderCount) || reminderCount < 1 || reminderCount > 20) {
+    if (
+      reminderEnabled &&
+      (!Number.isInteger(reminderCount) || reminderCount < 1 || reminderCount > 20)
+    ) {
       errors.push(`Row ${rowNumber}: reminderCount must be between 1 and 20.`);
     }
 
-    if (!Number.isInteger(reminderInterval) || reminderInterval < 1 || reminderInterval > 240) {
+    if (
+      reminderEnabled &&
+      (!Number.isInteger(reminderInterval) || reminderInterval < 1 || reminderInterval > 240)
+    ) {
       errors.push(`Row ${rowNumber}: reminderIntervalMinutes must be between 1 and 240.`);
     }
 
@@ -213,6 +233,10 @@ export class CsvService {
 
     if (concurrentStartText && concurrentStartText !== 'true' && concurrentStartText !== 'false') {
       errors.push(`Row ${rowNumber}: allowConcurrentStart must be true or false.`);
+    }
+
+    if (reminderEnabledText && reminderEnabledText !== 'true' && reminderEnabledText !== 'false') {
+      errors.push(`Row ${rowNumber}: reminderEnabled must be true or false.`);
     }
 
     if (deadlineAt) {

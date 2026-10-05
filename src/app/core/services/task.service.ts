@@ -127,7 +127,17 @@ export class TaskService {
           (!current.allowConcurrentStart && draft.allowConcurrentStart))
           ? undefined
           : current.nextAutoStartAt,
-      nextReminderAt: current.status === 'active' ? draft.reminderAt : current.nextReminderAt,
+      nextReminderAt: !cleanedDraft.reminderEnabled
+        ? undefined
+        : current.status === 'active'
+          ? cleanedDraft.reminderAt
+          : current.nextReminderAt,
+      pausedRemainingSeconds: !cleanedDraft.reminderEnabled
+        ? undefined
+        : current.status === 'paused' && current.reminderEnabled === false
+          ? secondsUntil(cleanedDraft.reminderAt, new Date())
+          : current.pausedRemainingSeconds,
+      pendingReminder: cleanedDraft.reminderEnabled ? current.pendingReminder : undefined,
     };
 
     try {
@@ -224,7 +234,7 @@ export class TaskService {
       pausedRemainingSeconds: undefined,
       totalPausedSeconds: 0,
       nextAutoStartAt: undefined,
-      nextReminderAt: task.reminderAt,
+      nextReminderAt: task.reminderEnabled === false ? undefined : task.reminderAt,
       reminderAttemptsShown: 0,
       pendingReminder: undefined,
       updatedAt: startedAt,
@@ -258,7 +268,7 @@ export class TaskService {
       pausedRemainingSeconds: undefined,
       totalPausedSeconds: 0,
       nextAutoStartAt: undefined,
-      nextReminderAt: startedAt,
+      nextReminderAt: task.reminderEnabled === false ? undefined : startedAt,
       reminderAttemptsShown: 0,
       pendingReminder: undefined,
       updatedAt: startedAt,
@@ -351,7 +361,19 @@ export class TaskService {
   }
 
   async addTime(taskId: string, minutes: number, now = new Date()): Promise<boolean> {
-    const task = this.findTask(taskId);
+    let task = this.findTask(taskId);
+    if (task) {
+      try {
+        task = await this.repository.get(taskId);
+      } catch (error) {
+        this.captureError(error, 'Extra time could not be applied.');
+        return false;
+      }
+    }
+    if (task?.reminderEnabled === false) {
+      this.errorMessage.set('This task has no reminder to extend.');
+      return false;
+    }
     if (
       !task ||
       (task.status !== 'active' && task.status !== 'paused') ||
@@ -377,7 +399,7 @@ export class TaskService {
         ? Math.max(0, task.pausedRemainingSeconds ?? 0) + minutes * 60
         : undefined;
     const updated: Task = {
-      ...task,
+      ...this.normalizeTask(task),
       status: task.status,
       reminderAt: task.reminderAt,
       nextReminderAt,
@@ -412,13 +434,18 @@ export class TaskService {
     let updated: Task;
     try {
       const persistedTasks = await this.repository.list();
-      if (persistedTasks.some((task) => Boolean(task.pendingReminder))) {
+      if (
+        persistedTasks.some(
+          (task) => task.reminderEnabled !== false && Boolean(task.pendingReminder),
+        )
+      ) {
         return undefined;
       }
 
       const task = await this.repository.get(taskId);
       if (
         !task ||
+        task.reminderEnabled === false ||
         task.status !== 'active' ||
         task.pendingReminder ||
         task.reminderAttemptsShown >= task.reminderCount ||
@@ -555,7 +582,8 @@ export class TaskService {
       ...task,
       status: 'paused',
       pausedAt,
-      pausedRemainingSeconds: secondsUntil(task.nextReminderAt, now),
+      pausedRemainingSeconds:
+        task.reminderEnabled === false ? undefined : secondsUntil(task.nextReminderAt, now),
       pendingReminder: undefined,
       updatedAt: pausedAt,
     };
@@ -586,7 +614,10 @@ export class TaskService {
       pausedAt: undefined,
       pausedRemainingSeconds: undefined,
       totalPausedSeconds: task.totalPausedSeconds + pausedSeconds,
-      nextReminderAt: new Date(now.getTime() + remainingSeconds * 1000).toISOString(),
+      nextReminderAt:
+        task.reminderEnabled === false
+          ? undefined
+          : new Date(now.getTime() + remainingSeconds * 1000).toISOString(),
       updatedAt: resumedAt,
     };
 
@@ -623,14 +654,15 @@ export class TaskService {
     return this.tasks().reduce((highest, task) => Math.max(highest, task.order), -1) + 1;
   }
 
-  private cleanDraft(draft: TaskDraft): TaskDraft {
+  private cleanDraft(draft: TaskDraft): TaskDraft & { reminderEnabled: boolean } {
     return {
       name: draft.name.trim(),
       note: draft.note.trim(),
       category: draft.category.trim(),
-      reminderAt: draft.reminderAt,
-      reminderCount: draft.reminderCount,
-      reminderIntervalMinutes: draft.reminderIntervalMinutes,
+      reminderAt: draft.reminderAt || (draft.reminderEnabled === false ? nowIso() : ''),
+      reminderEnabled: draft.reminderEnabled !== false,
+      reminderCount: draft.reminderEnabled === false ? 0 : draft.reminderCount,
+      reminderIntervalMinutes: draft.reminderEnabled === false ? 0 : draft.reminderIntervalMinutes,
       allowConcurrentStart: draft.allowConcurrentStart,
       deadlineAt: draft.deadlineAt || undefined,
       deadlineMessage: draft.deadlineAt ? draft.deadlineMessage?.trim() || undefined : undefined,
@@ -640,6 +672,7 @@ export class TaskService {
   private normalizeTask(task: Task): Task {
     return {
       ...task,
+      reminderEnabled: task.reminderEnabled !== false,
       allowConcurrentStart: task.allowConcurrentStart ?? false,
       totalPausedSeconds: task.totalPausedSeconds ?? 0,
       reminderAttemptsShown: task.reminderAttemptsShown ?? 0,
@@ -647,7 +680,11 @@ export class TaskService {
       deadlineMessage: task.deadlineMessage ?? undefined,
       deadlineNotifiedAt: task.deadlineNotifiedAt ?? undefined,
       deadlineAcknowledgedAt: task.deadlineAcknowledgedAt ?? undefined,
-      pendingReminder: task.pendingReminder ?? undefined,
+      nextReminderAt: task.reminderEnabled === false ? undefined : task.nextReminderAt,
+      pausedRemainingSeconds:
+        task.reminderEnabled === false ? undefined : task.pausedRemainingSeconds,
+      pendingReminder:
+        task.reminderEnabled === false ? undefined : (task.pendingReminder ?? undefined),
     };
   }
 
