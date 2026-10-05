@@ -2,13 +2,28 @@ import { StickyNoteColor } from './app-settings';
 
 export type ReminderPresenter = 'main' | 'sticky' | 'none';
 
+export interface StartupLoginResult {
+  ok: boolean;
+  supported: boolean;
+  enabled: boolean | null;
+  reason?:
+    | 'platform'
+    | 'development'
+    | 'smoke-test'
+    | 'executable-unavailable'
+    | 'native-error'
+    | 'read-error'
+    | 'read-back-mismatch';
+  message?: string;
+}
+
 export interface AssistantTimeApi {
   platform: string;
   closeMainWindow?: () => Promise<boolean>;
   focusMainWindow: () => Promise<boolean>;
   getReminderPresenter?: () => Promise<ReminderPresenter>;
   getMainWindowMaximized?: () => Promise<boolean>;
-  getStartAtLogin?: () => Promise<boolean>;
+  getStartAtLogin?: () => Promise<StartupLoginResult>;
   hideStickyWindow?: () => Promise<boolean>;
   minimizeStickyWindow: () => Promise<boolean>;
   notify: (payload: { title: string; body: string }) => Promise<boolean>;
@@ -24,7 +39,7 @@ export interface AssistantTimeApi {
     filters?: FileDialogFilter[];
   }) => Promise<FileSaveResult>;
   resizeStickyWindow: (payload: { height: number; reason: StickyResizeReason }) => Promise<boolean>;
-  setStartAtLogin?: (enabled: boolean) => Promise<boolean>;
+  setStartAtLogin?: (enabled: boolean) => Promise<StartupLoginResult>;
   setStickyWindow: (options: {
     enabled: boolean;
     alwaysOnTop: boolean;

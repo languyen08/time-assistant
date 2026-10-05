@@ -148,7 +148,7 @@ Current implementation note:
 - Tray icon click restores/focuses Sticky Note only; Open Time Assistant explicitly opens Main.
 - Tray Quit destroys every application window and the Tray before quitting completely.
 - Desktop notifications, sticky-window controls, and explicit text-file dialogs are implemented through narrow preload/IPC APIs.
-- Windows startup-at-login configuration is implemented through narrow preload/IPC APIs; Windows login-item state is authoritative and portable builds resolve the original portable executable path.
+- Windows startup-at-login configuration uses narrow preload/IPC APIs with structured confirmed OS results. The existing capability supports NSIS installed executables and portable original launchers kept at their registered paths. Quoted executable identity avoids the pinned Electron path-with-spaces read-back defect. Development/smoke execution and unresolved portable launchers are explicitly unsupported.
 - No independent Electron main-process reminder scheduler is implemented.
 - Timer/reminder scheduling currently starts inside each Angular renderer, creating unresolved multi-window ownership risk.
 ---
@@ -322,7 +322,7 @@ Decision:
 - Prompt for Break only when completing the last active/paused task. Deletion never prompts.
 
 Consequences:
-- Multiple active/paused records may coexist and Main/Sticky must render task-specific cards.
+- Multiple active/paused records may coexist and Main/Sticky render task-specific cards. Main shows all current tasks; Sticky caps these at `stickyVisibleNotes` (1–5), prioritizes them over queued tasks, and reloads settings via invalidation on the existing task channel when another window saves/resets settings.
 - Singular mutation APIs are no longer valid business interfaces.
 - Several overdue concurrent tasks may start during one Scheduler evaluation in queue order.
 - Old IndexedDB records and old CSV files remain compatible through `false` normalization/defaults.

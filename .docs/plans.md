@@ -36,7 +36,7 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 2. The task starts automatically when its Start time arrives. The user may choose **Start now** to
    begin it early.
 
-3. App shows all active/paused tasks in the main window and optional sticky-note mode.
+3. App shows all active/paused tasks in Main. Sticky shows up to the configured visible-note maximum, prioritizing current tasks over queued tasks.
 
 4. When reminder time arrives, app shows a friendly visible notification with sound.
 
@@ -102,6 +102,7 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 - Provide a compact always-on-top window similar to Windows sticky notes.
 - Show current tasks, remaining time, and task-specific quick actions before queued tasks.
+- Sticky notes shown (`stickyVisibleNotes`, 1–5) is a maximum, not a fixed card count. Three current tasks with limit 5 show three current cards; with limit 2 they show two. Changing this setting updates an already-open Sticky window without restart. Paused tasks remain current cards.
 - Quick actions:
   - pause
   - resume
@@ -234,7 +235,7 @@ Settings should include:
 - Start app with Windows
 - privacy/local data options
 
-The Windows startup option controls the native Windows login item through Electron main. Windows is the source of truth; the value is not stored in IndexedDB.
+The Windows startup option controls the native Windows login item through Electron main. Windows is the source of truth; the value is not stored in IndexedDB. Settings queries Windows every time it opens and updates the checkbox only from confirmed read-back. Development/smoke runs explicitly disable this capability. NSIS uses the installed executable; portable uses the original portable launcher and requires it to stay at that path. Moving/removing a portable executable invalidates its startup target; enable startup again from its new location. An unresolved portable launcher is unsupported rather than registering a temporary executable.
 
 Current implementation: reminder, break, sound, sticky-note, CSV, and Windows startup settings are present. Privacy/local-data settings are not present, and the declared `settings_changed` history event is not currently recorded.
 
@@ -244,7 +245,7 @@ Development should produce small, reviewable milestones. Historical implementati
 
 ### Phase 1 — Foundation and Core Flow
 
-Goal: working local MVP with Angular, Electron, local storage, task CRUD, one active task, timer, and basic reminders.
+Goal: working local MVP with Angular, Electron, local storage, task CRUD, current active/paused tasks (with per-task concurrent start), timer, and basic reminders.
 
 Review target:
 - Can the user create a task?

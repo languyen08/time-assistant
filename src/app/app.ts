@@ -96,6 +96,8 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly settingsStatus = signal('');
   readonly startAtLoginEnabled = signal(false);
   readonly startAtLoginBusy = signal(true);
+  readonly startAtLoginSupported = signal(false);
+  readonly startAtLoginMessage = signal('');
   readonly settingsOpen = signal(false);
   readonly csvOpen = signal(false);
   readonly historyOpen = signal(true);
@@ -685,30 +687,32 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   async setStartAtLogin(event: Event): Promise<void> {
     const checkbox = event.target as HTMLInputElement;
     const requestedState = checkbox.checked;
+    checkbox.checked = this.startAtLoginEnabled();
     this.startAtLoginBusy.set(true);
 
     try {
-      const actualState = await this.electron.setStartAtLogin(requestedState);
-      this.startAtLoginEnabled.set(actualState);
-      checkbox.checked = actualState;
+      const result = await this.electron.setStartAtLogin(requestedState);
+      if (result.enabled !== null) this.startAtLoginEnabled.set(result.enabled);
+      this.startAtLoginSupported.set(result.supported);
+      checkbox.checked = this.startAtLoginEnabled();
       this.settingsStatus.set(
-        actualState === requestedState
-          ? actualState
+        result.ok
+          ? result.enabled
             ? 'Time Assistant will start when you sign in to Windows.'
             : 'Time Assistant will no longer start with Windows.'
-          : 'Windows startup could not be changed. The actual Windows setting was restored.',
+          : (result.message ?? 'Windows startup could not be changed. Please try again.'),
       );
-    } catch {
+    } catch (error) {
+      console.error('Windows startup IPC failed', error);
       try {
-        const actualState = await this.electron.getStartAtLogin();
-        this.startAtLoginEnabled.set(actualState);
-        checkbox.checked = actualState;
-      } catch {
+        const result = await this.electron.getStartAtLogin();
+        if (result.enabled !== null) this.startAtLoginEnabled.set(result.enabled);
+      } catch (readError) {
+        console.error('Windows startup recovery read failed', readError);
         // Keep the last confirmed value when Windows cannot be queried either.
       }
-      this.settingsStatus.set(
-        'Windows startup could not be changed. The actual Windows setting was restored.',
-      );
+      checkbox.checked = this.startAtLoginEnabled();
+      this.settingsStatus.set('Windows startup could not be changed. Please try again.');
     } finally {
       this.startAtLoginBusy.set(false);
     }
@@ -716,6 +720,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   openSettings(): void {
     this.settingsOpen.set(true);
+    void this.loadStartAtLogin();
   }
 
   closeSettings(): void {
@@ -1068,8 +1073,14 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   private async loadStartAtLogin(): Promise<void> {
     this.startAtLoginBusy.set(true);
     try {
-      this.startAtLoginEnabled.set(await this.electron.getStartAtLogin());
-    } catch {
+      const result = await this.electron.getStartAtLogin();
+      if (result.enabled !== null) this.startAtLoginEnabled.set(result.enabled);
+      this.startAtLoginSupported.set(result.supported);
+      this.startAtLoginMessage.set(
+        result.ok ? '' : (result.message ?? 'Windows startup status could not be read.'),
+      );
+    } catch (error) {
+      console.error('Windows startup IPC read failed', error);
       this.settingsStatus.set('Windows startup status could not be read.');
     } finally {
       this.startAtLoginBusy.set(false);

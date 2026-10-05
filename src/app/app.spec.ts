@@ -112,7 +112,7 @@ describe('App', () => {
     window.history.replaceState({}, '', '/?window=scheduler');
     const assistantTime = createAssistantTimeApi({
       getMainWindowMaximized: vi.fn().mockResolvedValue(false),
-      getStartAtLogin: vi.fn().mockResolvedValue(false),
+      getStartAtLogin: vi.fn().mockResolvedValue({ ok: true, supported: true, enabled: false }),
       onMainWindowMaximizedChanged: vi.fn(() => () => undefined),
       setReminderOverlayState: vi.fn().mockResolvedValue(true),
       setStickyWindow: vi.fn().mockResolvedValue(true),
@@ -617,7 +617,7 @@ describe('App', () => {
   });
 
   it('should show the confirmed Windows startup state in the Startup card', async () => {
-    const getStartAtLogin = vi.fn().mockResolvedValue(true);
+    const getStartAtLogin = vi.fn().mockResolvedValue({ ok: true, supported: true, enabled: true });
     window.assistantTime = createAssistantTimeApi({ getStartAtLogin });
 
     const fixture = TestBed.createComponent(App);
@@ -647,9 +647,13 @@ describe('App', () => {
   });
 
   it('should enable and disable Windows startup through the preload API', async () => {
-    const setStartAtLogin = vi.fn(async (enabled: boolean) => enabled);
+    const setStartAtLogin = vi.fn(async (enabled: boolean) => ({
+      ok: true,
+      supported: true,
+      enabled,
+    }));
     window.assistantTime = createAssistantTimeApi({
-      getStartAtLogin: vi.fn().mockResolvedValue(false),
+      getStartAtLogin: vi.fn().mockResolvedValue({ ok: true, supported: true, enabled: false }),
       setStartAtLogin,
     });
 
@@ -682,7 +686,7 @@ describe('App', () => {
   });
 
   it('should re-read and restore the actual Windows state when a startup update fails', async () => {
-    const getStartAtLogin = vi.fn().mockResolvedValue(true);
+    const getStartAtLogin = vi.fn().mockResolvedValue({ ok: true, supported: true, enabled: true });
     window.assistantTime = createAssistantTimeApi({
       getStartAtLogin,
       setStartAtLogin: vi.fn().mockRejectedValue(new Error('Windows rejected the update.')),
@@ -708,7 +712,108 @@ describe('App', () => {
     expect(getStartAtLogin).toHaveBeenCalledTimes(readsBeforeUpdate + 1);
     expect(app.startAtLoginEnabled()).toBe(true);
     expect(checkbox.checked).toBe(true);
-    expect(app.settingsStatus()).toContain('actual Windows setting was restored');
+    expect(app.settingsStatus()).toContain('Windows startup could not be changed');
+  });
+
+  it('restores the confirmed OS value for a structured startup read-back mismatch', async () => {
+    window.assistantTime = createAssistantTimeApi({
+      getStartAtLogin: vi.fn().mockResolvedValue({ ok: true, supported: true, enabled: false }),
+      setStartAtLogin: vi.fn().mockResolvedValue({
+        ok: false,
+        supported: true,
+        enabled: false,
+        reason: 'read-back-mismatch',
+        message: 'Windows did not confirm the startup change.',
+      }),
+    });
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const checkbox = document.createElement('input');
+    checkbox.checked = true;
+    await app.setStartAtLogin({ target: checkbox } as unknown as Event);
+    expect(checkbox.checked).toBe(false);
+    expect(app.startAtLoginEnabled()).toBe(false);
+    expect(app.settingsStatus()).toContain('did not confirm');
+    expect(app.settingsService.settings()).not.toHaveProperty('startAtLogin');
+  });
+
+  it('retains the last confirmed checkbox state if both IPC operations fail', async () => {
+    window.assistantTime = createAssistantTimeApi({
+      getStartAtLogin: vi.fn().mockRejectedValue(new Error('IPC read failed')),
+      setStartAtLogin: vi.fn().mockRejectedValue(new Error('IPC write failed')),
+    });
+    const app = TestBed.createComponent(App).componentInstance;
+    app.startAtLoginEnabled.set(true);
+    const checkbox = document.createElement('input');
+    checkbox.checked = false;
+    await app.setStartAtLogin({ target: checkbox } as unknown as Event);
+    expect(checkbox.checked).toBe(true);
+    expect(app.startAtLoginEnabled()).toBe(true);
+  });
+
+  it('queries Windows again every time Settings opens', async () => {
+    const getStartAtLogin = vi.fn().mockResolvedValue({ ok: true, supported: true, enabled: true });
+    window.assistantTime = createAssistantTimeApi({ getStartAtLogin });
+    const app = TestBed.createComponent(App).componentInstance;
+    app.openSettings();
+    await Promise.resolve();
+    expect(app.startAtLoginEnabled()).toBe(true);
+    app.closeSettings();
+    getStartAtLogin.mockResolvedValue({ ok: true, supported: true, enabled: false });
+    app.openSettings();
+    await Promise.resolve();
+    expect(app.startAtLoginEnabled()).toBe(false);
+    expect(getStartAtLogin).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows an explicit unsupported development state in Settings', async () => {
+    window.assistantTime = createAssistantTimeApi({
+      getStartAtLogin: vi.fn().mockResolvedValue({
+        ok: false,
+        supported: false,
+        enabled: false,
+        reason: 'development',
+        message: 'Startup is available in packaged Windows builds.',
+      }),
+    });
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    vi.spyOn(app, 'ngOnInit').mockResolvedValue();
+    app.loading.set(false);
+    app.openSettings();
+    await app['loadStartAtLogin']();
+    fixture.detectChanges();
+    const card = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="settings-startup-card"]',
+    );
+    expect(card?.querySelector<HTMLInputElement>('input')?.disabled).toBe(true);
+    expect(card?.textContent).toContain('packaged Windows builds');
+  });
+
+  it.each([
+    [1, 5, 1],
+    [3, 5, 3],
+    [3, 2, 2],
+    [5, 5, 5],
+    [7, 5, 5],
+  ])('renders %i current tasks at sticky limit %i as %i cards', async (count, limit, rendered) => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    vi.spyOn(app, 'ngOnInit').mockResolvedValue();
+    app.windowMode.set('sticky');
+    app.loading.set(false);
+    app.settingsService.settings.update((settings) => ({ ...settings, stickyVisibleNotes: limit }));
+    app.taskService.tasks.set(
+      Array.from({ length: count }, (_, order) =>
+        pendingTask(`task-${order}`, `Task ${order}`, order, { status: 'active' }),
+      ),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.sticky-focus-card:not(.empty)'),
+    ).toHaveLength(rendered);
+    expect(app.stickyVisibleCurrentTasks()).toEqual(app.currentTasks().slice(0, limit));
   });
 
   it('should size history pages from the available history list height', () => {

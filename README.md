@@ -2,7 +2,7 @@
 
 Local-first Windows desktop task reminder app built with Angular and Electron.
 
-Time Assistant helps you queue tasks, focus on one active task, receive gentle reminder prompts, take breaks between sessions, and review your recent work history without needing an account, backend, or cloud sync.
+Time Assistant helps you queue tasks, focus on current tasks with optional per-task concurrent start, receive gentle reminder prompts, take breaks between sessions, and review your recent work history without needing an account, backend, or cloud sync.
 
 ## Current Scope
 
@@ -162,3 +162,9 @@ npm.cmd run electron:smoke
 - Sync is still manual. There is no cloud sync or real-time multi-device storage.
 - CSV import currently covers tasks only. History is export-only.
 - Calendar integration, required accounts, and mobile push notifications are outside the current MVP.
+
+## Windows desktop settings
+
+Sticky notes shown is the maximum number of current active/paused cards (1–5). Main shows all current tasks; Sticky gives those cards priority over pending tasks. Changes propagate to open windows through the existing local BroadcastChannel.
+
+Start app with Windows reads Windows state each time Settings opens and confirms changes after writing. NSIS starts the installed executable; portable starts the original launcher, which must remain at its registered path. Re-enable startup after moving that launcher. Development and smoke runs cannot enable startup. The pinned Electron Windows API requires a quoted executable identity for accurate read-back of paths containing spaces.

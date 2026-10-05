@@ -328,7 +328,7 @@ Current implementation:
   exit is intentionally not supported: full Quit discards Scheduler retention plus prompt,
   running, and complete UI state, while a visible-window close/reload in the same process does not
   discard Scheduler's retained running-break block.
-- Settings and loaded history do not have comprehensive cross-window synchronization.
+- Settings saves and resets broadcast `settings-changed` on the existing `friendly-task-reminder` channel only after IndexedDB persistence succeeds. Other SettingsService instances reload without rebroadcasting. This updates an open Sticky renderer (including its count, color, and always-on-top preference) and Scheduler settings without polling. Loaded history still lacks comprehensive cross-window synchronization.
 - `Task.pendingReminder` is the authoritative normal-reminder occurrence. At most one task may have
   it. Task changes broadcast through the existing channel so renderer recreation and restart retain
   the occurrence without another attempt, history record, notification, or sound.
@@ -392,7 +392,7 @@ type AppSettings = {
 };
 ```
 
-Settings should be loaded at startup and cached by `SettingsService`.
+Settings load at startup, are cached by `SettingsService`, and reload on cross-window invalidation. Main and Sticky both derive current tasks from the ordered `TaskService.currentTasks` (status active or paused); `activeTasks` means active only. No extra paused/start-time filter is applied to Sticky. `stickyVisibleNotes` caps current cards after ordering; pending cards fill remaining slots only.
 
 Light, dark, and system theme selection and persistence are intentionally outside the MVP. Privacy/local-data controls are also not implemented.
 
@@ -407,7 +407,9 @@ Settings UI
   -> Windows Startup Apps
 ```
 
-Windows is authoritative. Reads and writes use the same executable identity. Packaged portable builds prefer Electron Builder's `PORTABLE_EXECUTABLE_FILE` so the login item points to the original portable executable rather than the temporary extracted Electron process. Normal packaged builds use `process.execPath`. Development and automated smoke execution never register a startup item.
+Windows is authoritative. Reads and writes use the same quoted executable identity and empty argument list. Electron 44.4.5 parses its lookup path as a command line, so an unquoted path with spaces can produce a false `executableWillLaunchAtLogin`; quoting avoids that defect without an Electron upgrade or native dependency. Explicit `enabled` updates Windows Startup Apps approval. Main returns a structured result with support, confirmed enabled state (null on unreadable state), success, and a short reason/message, and logs native errors/read-back mismatches. Settings re-queries on opening and retains the last confirmed value if state cannot be read.
+
+Packaged portable builds use Electron Builder's `PORTABLE_EXECUTABLE_FILE` so the login item points to the original portable executable rather than the temporary extracted Electron process. A portable environment without a valid original executable is explicitly unsupported. Portable startup requires retaining the launcher at its registered path; after moving it, re-enable from the new location. NSIS uses the installed `process.execPath` (the same executable exposed by `app.getPath('exe')`); no Squirrel updater stub is involved in this packaging. Development and automated smoke execution never register a startup item.
 
 ## Calendar Integration
 

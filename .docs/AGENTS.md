@@ -59,7 +59,7 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Do not expose broad filesystem or shell APIs to Angular.
 - Current BrowserWindow types are main, sticky-note, scheduler, and user-guide windows.
 - Electron main owns Windows startup-at-login configuration through narrow preload/IPC methods.
-- Windows login-item state is authoritative; do not persist a duplicate startup boolean in IndexedDB.
+- Windows login-item state is authoritative; do not persist a duplicate startup boolean in IndexedDB. Query it whenever Settings opens and apply only confirmed results. Quote the executable identity for the pinned Electron Windows API; portable startup targets the original launcher, never its extracted process. Development and smoke runs cannot enable startup.
 - Electron main owns the native Tray and BrowserWindow lifecycle. The Tray keeps the process
   available while the Sticky Note is temporarily hidden.
 - Main application X closes only the Main window. Sticky Note and Tray continue independently.
@@ -87,6 +87,7 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Tasks default to `allowConcurrentStart: false`. The incoming task's flag alone decides whether
   it may bypass existing active/paused tasks; break prompt/running state still blocks every
   automatic start.
+- `stickyVisibleNotes` is a maximum (1–5) for current active/paused cards; queued cards use only leftover space. Settings saves/reset invalidate other renderers through `settings-changed` on the existing task BroadcastChannel, after persistence, without polling.
 - Multiple active/paused tasks may coexist. Business logic uses ordered `activeTasks` and
   `currentTasks` collections, and every mutation targets an explicit task ID.
 - Completing one of several current tasks does not open a Break prompt. The prompt is published

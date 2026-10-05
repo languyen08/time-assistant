@@ -5,6 +5,7 @@ import {
   FileOpenResult,
   FileSaveResult,
   ReminderPresenter,
+  StartupLoginResult,
   StickyResizeReason,
 } from '../models/electron-api';
 import '../models/electron-api';
@@ -27,8 +28,8 @@ export class ElectronBridgeService {
     return window.assistantTime?.getReminderPresenter?.() ?? Promise.resolve('none');
   }
 
-  getStartAtLogin(): Promise<boolean> {
-    return window.assistantTime?.getStartAtLogin?.() ?? Promise.resolve(false);
+  getStartAtLogin(): Promise<StartupLoginResult> {
+    return window.assistantTime?.getStartAtLogin?.() ?? Promise.resolve(this.startupUnavailable());
   }
 
   minimizeStickyWindow(): Promise<boolean> {
@@ -73,8 +74,20 @@ export class ElectronBridgeService {
     return window.assistantTime?.resizeStickyWindow({ height, reason }) ?? Promise.resolve(false);
   }
 
-  setStartAtLogin(enabled: boolean): Promise<boolean> {
-    return window.assistantTime?.setStartAtLogin?.(enabled) ?? Promise.resolve(false);
+  setStartAtLogin(enabled: boolean): Promise<StartupLoginResult> {
+    return (
+      window.assistantTime?.setStartAtLogin?.(enabled) ?? Promise.resolve(this.startupUnavailable())
+    );
+  }
+
+  private startupUnavailable(): StartupLoginResult {
+    return {
+      ok: false,
+      supported: false,
+      enabled: false,
+      reason: 'platform',
+      message: 'Startup is available in the Windows desktop app.',
+    };
   }
 
   setStickyWindow(

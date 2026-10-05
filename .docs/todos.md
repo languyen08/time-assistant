@@ -41,7 +41,7 @@ Goal: create a stable project foundation with pinned versions.
 
 ## Phase 1 — Foundation and Core Flow
 
-Goal: working local MVP with task CRUD, one active task, timer, and basic reminders.
+Goal: working local MVP with task CRUD, current active/paused tasks (with per-task concurrent start), timer, and basic reminders.
 
 ### Milestone 1.1 — App Shell and Layout
 
@@ -89,7 +89,7 @@ Goal: working local MVP with task CRUD, one active task, timer, and basic remind
 - [x] Track remaining time until reminder.
 - [x] Complete active task.
 - [x] Move to next task candidate after completion.
-- [x] Prevent multiple active tasks.
+- [x] Block non-concurrent incoming tasks while active/paused tasks exist; allow explicitly concurrent incoming tasks (supersedes the original single-task restriction, ADR-014).
 
 ### Milestone 1.6 — Basic Reminder Flow
 
@@ -319,6 +319,13 @@ Goal: add optional convenience features and polish after the core app is stable.
 - [x] Reconcile the five canonical docs with the audited current local source state.
 - [x] Reconcile the packaging migration: retain Electron Builder as the sole packaging tool, remove Electron Forge, and accept ADR-012.
 - [x] Remove light/dark/system theme support and persistence from MVP scope through an explicit product decision and documentation update.
+- [x] Validate the requested Windows desktop bug fixes against packaged builds (2026-10-05).
+  - [x] Reuse the existing BroadcastChannel for persisted settings invalidation; preserve the shared current-task predicate and visible-note maximum.
+  - [x] Quote startup executable identity, return structured confirmed OS state, and diagnose native/read-back failures.
+  - [x] Validate portable and NSIS enable, Settings reopen, application restart, and disable against real Windows state; restore the prior Run/StartupApproved values afterward.
+  - [x] Verify three concurrent tasks, live Sticky limits 5/2/5, and completion from both packaged NSIS windows at the browser-regression viewport (1440 × 1200).
+  - [x] Pass 170 Angular tests, 38 Electron tests, six browser scenarios, production build, changed-file formatting, and diff whitespace checks.
+  - Validation limits: package commands required the local-only `--config.win.signAndEditExecutable=false` workaround for Windows symlink privileges. Repository-wide Prettier still reports 68 unchanged files. Compact Main controls can overlap at its default size; this separate layout issue was not changed. Windows sign-out/sign-in was not performed; native launch entries and packaged restarts were verified.
 - [x] Add Start app with Windows setting.
   - [x] Add a compact Startup card after Sticky note and before the action buttons.
   - [x] Read actual Windows login-item state.

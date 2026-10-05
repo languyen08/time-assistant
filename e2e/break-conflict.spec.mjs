@@ -107,8 +107,11 @@ test('starts a due persisted task through the dedicated Scheduler renderer', asy
   const schedulerPage = await context.newPage();
   await schedulerPage.goto('/?window=scheduler');
 
-  await expect(page.getByRole('button', { name: 'Complete task' })).toBeVisible();
-  await expect(page.getByText(taskName, { exact: true })).toBeVisible();
+  // A due task may also have its first reminder open; target the current card
+  // explicitly rather than an ambiguous heading or an overlay-dependent role.
+  await expect(page.locator('.current-task-active-note', { hasText: taskName })).toBeVisible({
+    timeout: 15_000,
+  });
   await schedulerPage.close();
 });
 

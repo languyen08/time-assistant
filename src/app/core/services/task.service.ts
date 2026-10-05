@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { Task, TaskDraft } from '../models/task';
 import { TaskRepository } from '../repositories/task.repository';
 import { toFriendlyErrorMessage } from '../utils/error-message.util';
@@ -32,6 +32,7 @@ export class TaskService {
       : new BroadcastChannel('friendly-task-reminder');
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.channel?.close());
     this.channel?.addEventListener('message', (event: MessageEvent<string>) => {
       if (event.data === 'tasks-changed') {
         void this.load();

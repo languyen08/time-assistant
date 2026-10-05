@@ -3563,13 +3563,16 @@
                   <input
                     type="checkbox"
                     [checked]="startAtLoginEnabled()"
-                    [disabled]="startAtLoginBusy()"
+                    [disabled]="startAtLoginBusy() || !startAtLoginSupported()"
                     (change)="setStartAtLogin($event)"
                   />
                   <span>Start app with Windows</span>
                 </label>
                 <p class="settings-startup-description">
                   Automatically open Time Assistant when you sign in to Windows.
+                  @if (startAtLoginMessage()) {
+                    <span>{{ startAtLoginMessage() }}</span>
+                  }
                 </p>
               </div>
             </section>
