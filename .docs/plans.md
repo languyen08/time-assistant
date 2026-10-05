@@ -52,6 +52,8 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
    - A break prompt or running break blocks automatic task starts.
    - Closing the window that started a running break does not cancel its automatic-scheduling
      block; Scheduler retains it until its end time or an explicit stop/completion transition.
+   - Full application Quit ends prompt, running, and complete BreakSession state. The next launch
+     starts without a restored break or a retained Scheduler break block.
    - When the break ends or is skipped, overdue work is reevaluated automatically.
 
 7. App logs every important action for history and charts.
@@ -168,6 +170,9 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 - User can change the duration.
 - Break screen should be calm and lightweight.
 - After break ends, acknowledge completion and automatically reevaluate overdue scheduled tasks.
+- BreakSession persistence across application exit is intentionally not supported. Closing or
+  reloading a visible window within the same Electron process may leave Scheduler's running-break
+  block active until expiry, but full application Quit discards prompt, running, and complete state.
 
 ### Visual Theme
 

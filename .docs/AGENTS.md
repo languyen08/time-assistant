@@ -81,7 +81,9 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
   Scheduler can coordinate without persisting live break sessions.
 - Scheduler retains a confirmed running break's session ID and absolute end time for the Electron
   process lifetime. Closing the originating BrowserWindow releases only its source, not the
-  running-break block. This does not persist or restore BreakSession UI across process exit.
+  running-break block. Full application Quit discards this process memory and all prompt, running,
+  or complete BreakSession UI; the next launch starts with no restored break. Do not persist live
+  BreakSession state or confuse visible-window close/hide with full process exit.
 - Tasks default to `allowConcurrentStart: false`. The incoming task's flag alone decides whether
   it may bypass existing active/paused tasks; break prompt/running state still blocks every
   automatic start.

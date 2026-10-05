@@ -348,7 +348,8 @@ Goal: add optional convenience features and polish after the core app is stable.
 - [ ] Add the missing Playwright coverage for add-more-time and pause/resume.
 - [ ] Decide whether to introduce semantic linting or rename the current Prettier-only `lint` command.
 - [x] Establish reliable multi-window reminder ownership/synchronization and eliminate the potential duplicate-processing race.
-- [ ] Decide whether full live break-session UI must persist across renderer reload/exit. Scheduler
-  already retains only the process-lifetime running-break block required for automatic scheduling.
+- [x] Decide that live BreakSession state is process-lifetime only. Scheduler retains the running
+  break block across visible-window close/reload within the same process, while full application
+  Quit intentionally discards prompt, running, complete, and retained Scheduler break state.
 - [ ] Record settings changes in history or remove the unused `settings_changed` event type through an explicit product decision.
 - [ ] Decide how ignored `.docs` files are versioned or distributed so canonical documentation changes remain recoverable.

@@ -229,7 +229,10 @@ Persisted state:
 Runtime-only or conceptual state:
 
 - `TaskRun` and `Reminder` models exist as domain concepts but do not have dedicated stores.
-- Break sessions are held in Angular memory and are lost when their renderer exits or reloads.
+- Full BreakSession prompt, running, and complete UI state is held only in visible-renderer memory
+  and is never stored. Scheduler separately retains only a running session ID and absolute end time
+  in process memory so a visible-window close or reload does not unblock automatic starts. Full
+  application Quit discards both forms of runtime state, and the next launch starts with no break.
 - Friendly message templates are constants, not persisted entities.
 
 Storage rules:
@@ -321,8 +324,10 @@ Current implementation:
   running break, Scheduler also retains the session ID and absolute end time independently of the
   source so closing Main or Sticky does not unblock scheduling. Prompt remains live-source scoped.
 - Retained running-break state is process-memory coordination only. It expires at its calculated
-  end or clears on an explicit terminal transition; full BreakSession UI restoration and
-  persistence across application exit remain unimplemented.
+  end or clears on an explicit terminal transition. BreakSession persistence across application
+  exit is intentionally not supported: full Quit discards Scheduler retention plus prompt,
+  running, and complete UI state, while a visible-window close/reload in the same process does not
+  discard Scheduler's retained running-break block.
 - Settings and loaded history do not have comprehensive cross-window synchronization.
 - `Task.pendingReminder` is the authoritative normal-reminder occurrence. At most one task may have
   it. Task changes broadcast through the existing channel so renderer recreation and restart retain
@@ -361,7 +366,9 @@ Default break duration: 10 minutes.
 
 Break history events are persisted. Scheduler retains only the minimum running-break block needed
 across visible renderer shutdown: session ID and end time. The full live countdown/session UI is
-still renderer-local and is not restored after renderer reload or application exit.
+renderer-local and is not restored after renderer reload. Full application Quit discards the
+Scheduler block and every live BreakSession UI state; the next launch starts unblocked unless a
+current-process renderer reports a break.
 
 ## Settings
 

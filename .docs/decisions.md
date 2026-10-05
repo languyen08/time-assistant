@@ -14,7 +14,9 @@ Context:
 The app should be useful without accounts, servers, or internet access. The first version should focus on proving the task transition workflow.
 
 Decision:
-Build the MVP as a local-first desktop application. Store tasks, settings, reminders, task runs, break sessions, and history events locally.
+Build the MVP as a local-first desktop application. Store tasks, settings, reminder processing
+state, and history events locally. Keep live BreakSession state process-lifetime only as formalized
+by ADR-017.
 
 Consequences:
 - Works offline.
@@ -421,3 +423,32 @@ Tradeoffs:
 - Presenter lifecycle adds a narrow Electron IPC/event surface and a Sticky interaction reset.
 - The fresh repository read materially reduces stale-renderer overwrite risk but is not a
   distributed transaction or mathematical compare-and-set across renderer processes.
+
+---
+
+## ADR-017: Break Sessions Are Process-Lifetime Only
+
+Status: Accepted
+
+Context:
+Scheduler retains a confirmed running break's session ID and absolute end time in process memory so
+closing or reloading a visible Main or Sticky window does not unblock automatic scheduling. The
+full BreakSession UI is not persisted. The product boundary for full application Quit was not
+previously explicit.
+
+Decision:
+- Live BreakSession state is process-lifetime only.
+- Same-process Scheduler retention of a running break remains in place until expiry or an explicit
+  terminal transition.
+- Full application exit discards prompt, running, and complete BreakSession state, including the
+  Scheduler's retained running-break block.
+- The next application launch starts with no restored break and is unblocked unless a
+  current-process renderer reports a break.
+- Do not add BreakSession persistence, a storage model/store, an Electron-main persisted copy, or
+  an IndexedDB version change.
+
+Consequences:
+- Window close or reload and full application Quit have intentionally different behavior.
+- Break behavior is simple and predictable without migration or storage complexity.
+- An accidental application restart ends the current break.
+- A user who wants to continue a break after restart must start a new break manually.

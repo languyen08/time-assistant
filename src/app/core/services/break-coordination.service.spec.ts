@@ -103,6 +103,24 @@ describe('BreakCoordinationService', () => {
     expect(scheduler.blocked()).toBe(true);
   });
 
+  it('starts a new runtime without a retained running break from the previous runtime', () => {
+    main.startVisible('running', runningSession('main-break'));
+    scheduler.startScheduler();
+    main.stop();
+
+    expect(scheduler.blocked()).toBe(true);
+
+    scheduler.stop();
+    const restartedScheduler = new BreakCoordinationService();
+    try {
+      restartedScheduler.startScheduler();
+
+      expect(restartedScheduler.blocked()).toBe(false);
+    } finally {
+      restartedScheduler.stop();
+    }
+  });
+
   it('requests and receives the current visible state when Scheduler starts later', () => {
     main.startVisible('running', runningSession('main-break'));
 
