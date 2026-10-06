@@ -1,3 +1,4 @@
+import { startupSpan, startupCount } from '../utils/startup-profile';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { RecurrenceEditScope, Task, TaskDraft } from '../models/task';
 import { TaskRepository } from '../repositories/task.repository';
@@ -44,32 +45,40 @@ export class TaskService {
     inject(DestroyRef).onDestroy(() => this.channel?.close());
     this.channel?.addEventListener('message', (event: MessageEvent<string>) => {
       if (event.data === 'tasks-changed') {
+        startupCount('tasks-broadcast-received');
         void this.load();
       }
     });
   }
 
   async load(): Promise<void> {
+    const profileEnd = startupSpan('tasks-load');
     try {
-      let tasks = await this.repository.list();
-      this.recurrenceTemplates.set(tasks.filter((task) => task.recurrenceTemplate));
-      if (tasks.some((task) => task.recurrenceTemplate && task.recurrence)) {
-        const created = await this.repository.ensureOccurrences();
-        if (created.length) {
-          await this.recordOccurrences(created);
-          tasks = await this.repository.list();
-          this.broadcastChange();
+      try {
+        let tasks = await this.repository.list();
+        this.recurrenceTemplates.set(tasks.filter((task) => task.recurrenceTemplate));
+        if (tasks.some((task) => task.recurrenceTemplate && task.recurrence)) {
+          const endRecurrence = startupSpan('recurrence-startup-reconciliation');
+          const created = await this.repository.ensureOccurrences();
+          endRecurrence(created.length);
+          if (created.length) {
+            await this.recordOccurrences(created);
+            tasks = await this.repository.list();
+            this.broadcastChange();
+          }
         }
+        this.recurrenceTemplates.set(tasks.filter((task) => task.recurrenceTemplate));
+        this.tasks.set(
+          tasks
+            .filter((task) => !task.recurrenceTemplate)
+            .map((task) => this.normalizeTask(task))
+            .sort((first, second) => first.order - second.order),
+        );
+      } catch (error) {
+        this.captureError(error, 'Tasks could not be loaded from local storage.');
       }
-      this.recurrenceTemplates.set(tasks.filter((task) => task.recurrenceTemplate));
-      this.tasks.set(
-        tasks
-          .filter((task) => !task.recurrenceTemplate)
-          .map((task) => this.normalizeTask(task))
-          .sort((first, second) => first.order - second.order),
-      );
-    } catch (error) {
-      this.captureError(error, 'Tasks could not be loaded from local storage.');
+    } finally {
+      profileEnd(this.tasks().length);
     }
   }
 
@@ -771,19 +780,24 @@ export class TaskService {
   }
 
   async ensureRecurrences(now = new Date(), onlyIfDateChanged = false): Promise<void> {
-    if (!this.recurrenceTemplates().some((task) => task.recurrence)) return;
-    const today = localDate(now);
-    if (onlyIfDateChanged && this.recurrenceCheckDate === today) return;
+    const profileEnd = startupSpan('recurrence-calendar-check');
     try {
-      const created = await this.repository.ensureOccurrences(now);
-      this.recurrenceCheckDate = today;
-      if (created.length) {
-        await this.recordOccurrences(created);
-        await this.load();
-        this.broadcastChange();
+      if (!this.recurrenceTemplates().some((task) => task.recurrence)) return;
+      const today = localDate(now);
+      if (onlyIfDateChanged && this.recurrenceCheckDate === today) return;
+      try {
+        const created = await this.repository.ensureOccurrences(now);
+        this.recurrenceCheckDate = today;
+        if (created.length) {
+          await this.recordOccurrences(created);
+          await this.load();
+          this.broadcastChange();
+        }
+      } catch (error) {
+        this.captureError(error, 'The next repeating task could not be created.');
       }
-    } catch (error) {
-      this.captureError(error, 'The next repeating task could not be created.');
+    } finally {
+      profileEnd();
     }
   }
 
@@ -936,6 +950,7 @@ export class TaskService {
   }
 
   private broadcastChange(): void {
+    startupCount('tasks-broadcast-sent');
     this.channel?.postMessage('tasks-changed');
   }
 

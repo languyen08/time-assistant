@@ -1,3 +1,4 @@
+import { startupMark, startupCount } from '../utils/startup-profile';
 import { Injectable, inject } from '@angular/core';
 import { BreakCoordinationService } from './break-coordination.service';
 import { TaskService } from './task.service';
@@ -15,6 +16,7 @@ export class AutomaticTaskSchedulerService {
   private checking = false;
 
   start(): void {
+    startupMark('AutomaticTaskScheduler-initialization');
     if (this.intervalId !== undefined) {
       return;
     }
@@ -41,6 +43,7 @@ export class AutomaticTaskSchedulerService {
   }
 
   async check(now = new Date()): Promise<void> {
+    startupCount('AutomaticTaskScheduler-check');
     if (this.checking || this.breakCoordination.blocked()) {
       return;
     }

@@ -1,3 +1,4 @@
+import { startupSpan } from '../utils/startup-profile';
 import { Injectable, inject, signal } from '@angular/core';
 import { HistoryEvent, HistoryEventType } from '../models/history-event';
 import { HistoryRepository } from '../repositories/history.repository';
@@ -12,20 +13,25 @@ export class HistoryService {
   readonly errorMessage = signal('');
 
   async load(): Promise<void> {
+    const profileEnd = startupSpan('history-load');
     try {
-      const events = this.sortNewestFirst(await this.repository.list());
-      const { kept, removed } = this.trimToCap(events);
-      if (removed.length > 0) {
-        await this.deleteEvents(removed);
-      }
+      try {
+        const events = this.sortNewestFirst(await this.repository.list());
+        const { kept, removed } = this.trimToCap(events);
+        if (removed.length > 0) {
+          await this.deleteEvents(removed);
+        }
 
-      this.events.set(kept);
-      this.errorMessage.set('');
-    } catch (error) {
-      this.errorMessage.set(
-        toFriendlyErrorMessage(error, 'History could not be loaded from local storage.'),
-      );
-      throw error;
+        this.events.set(kept);
+        this.errorMessage.set('');
+      } catch (error) {
+        this.errorMessage.set(
+          toFriendlyErrorMessage(error, 'History could not be loaded from local storage.'),
+        );
+        throw error;
+      }
+    } finally {
+      profileEnd(this.events().length);
     }
   }
 

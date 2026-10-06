@@ -1,3 +1,4 @@
+import { startupMark, startupCount } from '../utils/startup-profile';
 import { Injectable, inject } from '@angular/core';
 import { NotificationService } from './notification.service';
 import { TaskService } from './task.service';
@@ -12,6 +13,7 @@ export class DeadlineSchedulerService {
   private checking = false;
 
   start(): void {
+    startupMark('DeadlineScheduler-initialization');
     if (this.intervalId !== undefined) {
       return;
     }
@@ -28,6 +30,7 @@ export class DeadlineSchedulerService {
   }
 
   async check(now = new Date()): Promise<void> {
+    startupCount('DeadlineScheduler-check');
     if (this.checking) {
       return;
     }

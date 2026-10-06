@@ -1,3 +1,4 @@
+import { startupMark, startupCount } from '../utils/startup-profile';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActiveReminder } from '../models/reminder';
 import { isDue } from '../utils/date-time.util';
@@ -38,6 +39,7 @@ export class ReminderSchedulerService {
   private checking = false;
 
   start(): void {
+    startupMark('ReminderScheduler-initialization');
     if (this.intervalId !== undefined) {
       return;
     }
@@ -54,6 +56,7 @@ export class ReminderSchedulerService {
   }
 
   async check(now = new Date()): Promise<void> {
+    startupCount('ReminderScheduler-check');
     if (this.checking) {
       return;
     }

@@ -8,6 +8,7 @@ import {
   effect,
   inject,
   signal,
+  afterEveryRender,
 } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
@@ -36,6 +37,14 @@ import {
   toDatetimeLocalValue,
 } from './core/utils/date-time.util';
 import { TaskActionButtonsComponent } from './shared/components/task-action-buttons.component';
+import {
+  startupMark,
+  startupCount,
+  startupSpan,
+  startupRendered,
+  startupProfileEnabled,
+  finishStartupProfile,
+} from './core/utils/startup-profile';
 
 export type AppWindowMode = 'main' | 'sticky' | 'scheduler';
 
@@ -342,6 +351,17 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   });
 
   constructor() {
+    startupMark('root-constructed');
+    if (startupProfileEnabled) {
+      let renderedData = false;
+      afterEveryRender(() => {
+        startupCount('angular-render');
+        if (!this.loading() && !renderedData) {
+          renderedData = true;
+          startupRendered();
+        }
+      });
+    }
     effect(() => {
       if (this.isSchedulerMode()) {
         return;
@@ -439,6 +459,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   async ngOnInit(): Promise<void> {
+    startupMark('root-init-start');
     try {
       if (this.isSchedulerMode()) {
         await Promise.all([this.taskService.load(), this.settingsService.load()]);
@@ -487,10 +508,13 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       );
     } finally {
       this.loading.set(false);
+      startupMark('application-startup-complete');
+      finishStartupProfile();
     }
   }
 
   ngAfterViewInit(): void {
+    startupMark('root-view-init');
     if (this.isSchedulerMode()) {
       return;
     }
@@ -1179,29 +1203,39 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private syncStickyWindow(): Promise<boolean> {
-    const settings = this.settingsService.settings();
-    return this.electron.setStickyWindow(
-      settings.stickyNoteEnabled,
-      settings.stickyNoteAlwaysOnTop,
-      settings.stickyNoteColor,
-    );
+  private async syncStickyWindow(): Promise<boolean> {
+    const profileEnd = startupSpan('sticky-window-sync');
+    try {
+      const settings = this.settingsService.settings();
+      return await this.electron.setStickyWindow(
+        settings.stickyNoteEnabled,
+        settings.stickyNoteAlwaysOnTop,
+        settings.stickyNoteColor,
+      );
+    } finally {
+      profileEnd();
+    }
   }
 
   private async loadStartAtLogin(): Promise<void> {
-    this.startAtLoginBusy.set(true);
+    const profileEnd = startupSpan('startup-login-query');
     try {
-      const result = await this.electron.getStartAtLogin();
-      if (result.enabled !== null) this.startAtLoginEnabled.set(result.enabled);
-      this.startAtLoginSupported.set(result.supported);
-      this.startAtLoginMessage.set(
-        result.ok ? '' : (result.message ?? 'Windows startup status could not be read.'),
-      );
-    } catch (error) {
-      console.error('Windows startup IPC read failed', error);
-      this.settingsStatus.set('Windows startup status could not be read.');
+      this.startAtLoginBusy.set(true);
+      try {
+        const result = await this.electron.getStartAtLogin();
+        if (result.enabled !== null) this.startAtLoginEnabled.set(result.enabled);
+        this.startAtLoginSupported.set(result.supported);
+        this.startAtLoginMessage.set(
+          result.ok ? '' : (result.message ?? 'Windows startup status could not be read.'),
+        );
+      } catch (error) {
+        console.error('Windows startup IPC read failed', error);
+        this.settingsStatus.set('Windows startup status could not be read.');
+      } finally {
+        this.startAtLoginBusy.set(false);
+      }
     } finally {
-      this.startAtLoginBusy.set(false);
+      profileEnd();
     }
   }
 
@@ -1262,60 +1296,65 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private measureHistoryPageSize(): void {
-    const historyPanel = this.historyPanel();
-    const historyBody = this.historyPanelBody();
-    const historyList = this.historyList();
-    if (!historyPanel || !historyBody || !historyList) {
-      return;
-    }
+    const profileEnd = startupSpan('history-measure-layout');
+    try {
+      const historyPanel = this.historyPanel();
+      const historyBody = this.historyPanelBody();
+      const historyList = this.historyList();
+      if (!historyPanel || !historyBody || !historyList) {
+        return;
+      }
 
-    const renderedItems = Array.from(historyList.querySelectorAll('li'));
-    if (renderedItems.length === 0) {
-      return;
-    }
+      const renderedItems = Array.from(historyList.querySelectorAll('li'));
+      if (renderedItems.length === 0) {
+        return;
+      }
 
-    const historyHeader = this.historyHeader();
-    const historyPager = this.historyPager();
-    const panelHeight = Math.floor(
-      historyPanel.getBoundingClientRect().height || historyPanel.clientHeight,
-    );
-    const headerHeight = historyHeader
-      ? Math.ceil(historyHeader.getBoundingClientRect().height || historyHeader.clientHeight)
-      : 0;
-    const bodyStyles = getComputedStyle(historyBody);
-    const rowGap = parseFloat(bodyStyles.rowGap || bodyStyles.gap || '0') || 0;
-    const bodyPadding =
-      (parseFloat(bodyStyles.paddingTop || '0') || 0) +
-      (parseFloat(bodyStyles.paddingBottom || '0') || 0);
-    const pagerHeight = historyPager
-      ? Math.ceil(historyPager.getBoundingClientRect().height || historyPager.clientHeight)
-      : 0;
-    const listHeight = Math.floor(
-      historyList.clientHeight || historyList.getBoundingClientRect().height,
-    );
-    const availableHeight =
-      Math.max(0, panelHeight - headerHeight - bodyPadding - pagerHeight - rowGap) || listHeight;
-    const contentHeight = renderedItems.reduce(
-      (total, item) =>
-        total +
-        Math.ceil(item.getBoundingClientRect().height || item.scrollHeight || item.clientHeight),
-      0,
-    );
-    if (availableHeight <= 0 || contentHeight <= 0) {
-      return;
-    }
+      const historyHeader = this.historyHeader();
+      const historyPager = this.historyPager();
+      const panelHeight = Math.floor(
+        historyPanel.getBoundingClientRect().height || historyPanel.clientHeight,
+      );
+      const headerHeight = historyHeader
+        ? Math.ceil(historyHeader.getBoundingClientRect().height || historyHeader.clientHeight)
+        : 0;
+      const bodyStyles = getComputedStyle(historyBody);
+      const rowGap = parseFloat(bodyStyles.rowGap || bodyStyles.gap || '0') || 0;
+      const bodyPadding =
+        (parseFloat(bodyStyles.paddingTop || '0') || 0) +
+        (parseFloat(bodyStyles.paddingBottom || '0') || 0);
+      const pagerHeight = historyPager
+        ? Math.ceil(historyPager.getBoundingClientRect().height || historyPager.clientHeight)
+        : 0;
+      const listHeight = Math.floor(
+        historyList.clientHeight || historyList.getBoundingClientRect().height,
+      );
+      const availableHeight =
+        Math.max(0, panelHeight - headerHeight - bodyPadding - pagerHeight - rowGap) || listHeight;
+      const contentHeight = renderedItems.reduce(
+        (total, item) =>
+          total +
+          Math.ceil(item.getBoundingClientRect().height || item.scrollHeight || item.clientHeight),
+        0,
+      );
+      if (availableHeight <= 0 || contentHeight <= 0) {
+        return;
+      }
 
-    const averageItemHeight = contentHeight / renderedItems.length;
-    const nextPageSize = Math.max(
-      1,
-      Math.min(
-        this.historyService.events().length,
-        Math.floor(availableHeight / averageItemHeight),
-      ),
-    );
-    if (nextPageSize !== this.historyPageSize()) {
-      this.historyPageSize.set(nextPageSize);
-      this.scheduleHistoryPageSizeMeasurement();
+      const averageItemHeight = contentHeight / renderedItems.length;
+      const nextPageSize = Math.max(
+        1,
+        Math.min(
+          this.historyService.events().length,
+          Math.floor(availableHeight / averageItemHeight),
+        ),
+      );
+      if (nextPageSize !== this.historyPageSize()) {
+        this.historyPageSize.set(nextPageSize);
+        this.scheduleHistoryPageSizeMeasurement();
+      }
+    } finally {
+      profileEnd();
     }
   }
 
@@ -1367,47 +1406,52 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private measureAndResizeStickyWindow(reason: StickyResizeReason): void {
-    if (reason === 'content-change' && performance.now() < this.suppressStickyResizeUntil) {
-      return;
-    }
+    const profileEnd = startupSpan('sticky-measure-layout');
+    try {
+      if (reason === 'content-change' && performance.now() < this.suppressStickyResizeUntil) {
+        return;
+      }
 
-    const stickyContentRoot = this.stickyContentRoot();
-    if (!stickyContentRoot) {
-      return;
-    }
+      const stickyContentRoot = this.stickyContentRoot();
+      if (!stickyContentRoot) {
+        return;
+      }
 
-    const stickyHeight = Math.ceil(
-      Math.max(stickyContentRoot.getBoundingClientRect().height, stickyContentRoot.offsetHeight),
-    );
-    const height = Math.max(stickyHeight, this.stickyReminderHeight());
-    if (!Number.isFinite(height) || height <= 0) {
-      return;
-    }
+      const stickyHeight = Math.ceil(
+        Math.max(stickyContentRoot.getBoundingClientRect().height, stickyContentRoot.offsetHeight),
+      );
+      const height = Math.max(stickyHeight, this.stickyReminderHeight());
+      if (!Number.isFinite(height) || height <= 0) {
+        return;
+      }
 
-    const maxAllowedHeight = Math.max(
-      280,
-      window.screen.availHeight - this.stickyWindowVerticalPadding,
-    );
-    const overflow = Math.max(0, height - maxAllowedHeight);
-    const desiredTrim =
-      overflow === 0 ? 0 : Math.ceil(overflow / this.stickyQueueNoteEstimatedHeight);
-    const maxQueueCards = Math.max(
-      0,
-      this.stickyVisibleNotes() - this.stickyVisibleCurrentTasks().length,
-    );
-    const boundedTrim = Math.min(maxQueueCards, desiredTrim);
-    if (boundedTrim !== this.stickyQueueTrim()) {
-      this.stickyQueueTrim.set(boundedTrim);
-      return;
-    }
+      const maxAllowedHeight = Math.max(
+        280,
+        window.screen.availHeight - this.stickyWindowVerticalPadding,
+      );
+      const overflow = Math.max(0, height - maxAllowedHeight);
+      const desiredTrim =
+        overflow === 0 ? 0 : Math.ceil(overflow / this.stickyQueueNoteEstimatedHeight);
+      const maxQueueCards = Math.max(
+        0,
+        this.stickyVisibleNotes() - this.stickyVisibleCurrentTasks().length,
+      );
+      const boundedTrim = Math.min(maxQueueCards, desiredTrim);
+      if (boundedTrim !== this.stickyQueueTrim()) {
+        this.stickyQueueTrim.set(boundedTrim);
+        return;
+      }
 
-    const heightDelta = Math.abs(height - this.lastStickyMeasuredHeight);
-    if (this.lastStickyMeasuredHeight > 0 && heightDelta <= this.stickyResizeThresholdPx) {
-      return;
-    }
+      const heightDelta = Math.abs(height - this.lastStickyMeasuredHeight);
+      if (this.lastStickyMeasuredHeight > 0 && heightDelta <= this.stickyResizeThresholdPx) {
+        return;
+      }
 
-    this.lastStickyMeasuredHeight = height;
-    void this.electron.resizeStickyWindow(height, reason);
+      this.lastStickyMeasuredHeight = height;
+      void this.electron.resizeStickyWindow(height, reason);
+    } finally {
+      profileEnd();
+    }
   }
 
   private setupStickyResizeObserver(): void {

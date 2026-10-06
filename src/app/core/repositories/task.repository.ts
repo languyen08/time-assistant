@@ -1,3 +1,4 @@
+import { startupSpan } from '../utils/startup-profile';
 import { Injectable, inject } from '@angular/core';
 import { Task } from '../models/task';
 import { IndexedDbStorageAdapter } from '../storage/indexed-db-storage.adapter';
@@ -15,8 +16,13 @@ export class TaskRepository {
   private readonly storage = inject(IndexedDbStorageAdapter);
 
   async list(): Promise<Task[]> {
-    const tasks = await this.storage.getAll<Task>(TASK_STORE);
-    return tasks.sort((first, second) => first.order - second.order);
+    const profileEnd = startupSpan('task-repository-list');
+    try {
+      const tasks = await this.storage.getAll<Task>(TASK_STORE);
+      return tasks.sort((first, second) => first.order - second.order);
+    } finally {
+      profileEnd();
+    }
   }
 
   get(taskId: string): Promise<Task | undefined> {

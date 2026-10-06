@@ -1,3 +1,4 @@
+import { startupSpan, startupCount } from '../utils/startup-profile';
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { AppSettings, DEFAULT_APP_SETTINGS } from '../models/app-settings';
 import { SettingsRepository } from '../repositories/settings.repository';
@@ -18,6 +19,7 @@ export class SettingsService {
   constructor() {
     this.channel?.addEventListener('message', (event: MessageEvent<string>) => {
       if (event.data === 'settings-changed') {
+        startupCount('settings-broadcast-received');
         void this.load().catch(() => undefined); // load exposes the friendly storage error.
       }
     });
@@ -25,27 +27,37 @@ export class SettingsService {
   }
 
   async load(): Promise<void> {
+    const profileEnd = startupSpan('settings-load');
     try {
-      this.settings.set(await this.repository.get());
-      this.errorMessage.set('');
-    } catch (error) {
-      this.errorMessage.set(
-        toFriendlyErrorMessage(error, 'Settings could not be loaded from local storage.'),
-      );
-      throw error;
+      try {
+        this.settings.set(await this.repository.get());
+        this.errorMessage.set('');
+      } catch (error) {
+        this.errorMessage.set(
+          toFriendlyErrorMessage(error, 'Settings could not be loaded from local storage.'),
+        );
+        throw error;
+      }
+    } finally {
+      profileEnd();
     }
   }
 
   async update(changes: Partial<AppSettings>): Promise<void> {
-    const nextSettings: AppSettings = { ...this.settings(), ...changes };
+    const profileEnd = startupSpan('settings-save');
     try {
-      await this.repository.save(nextSettings);
-      this.settings.set(nextSettings);
-      this.channel?.postMessage('settings-changed');
-      this.errorMessage.set('');
-    } catch (error) {
-      this.errorMessage.set(toFriendlyErrorMessage(error, 'Settings could not be saved.'));
-      throw error;
+      const nextSettings: AppSettings = { ...this.settings(), ...changes };
+      try {
+        await this.repository.save(nextSettings);
+        this.settings.set(nextSettings);
+        this.channel?.postMessage('settings-changed');
+        this.errorMessage.set('');
+      } catch (error) {
+        this.errorMessage.set(toFriendlyErrorMessage(error, 'Settings could not be saved.'));
+        throw error;
+      }
+    } finally {
+      profileEnd();
     }
   }
 

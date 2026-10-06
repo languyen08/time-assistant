@@ -1,3 +1,4 @@
+import { startupMark, startupCount } from '../utils/startup-profile';
 import { Injectable, computed, signal } from '@angular/core';
 import { Task } from '../models/task';
 import { formatDuration, secondsBetween, secondsUntil } from '../utils/date-time.util';
@@ -9,7 +10,11 @@ export class TimerService {
   private intervalId: number | undefined;
 
   start(): void {
-    this.intervalId ??= window.setInterval(() => this.now.set(new Date()), 1000);
+    startupMark('timer-initialization');
+    this.intervalId ??= window.setInterval(() => {
+      startupCount('timer-tick');
+      this.now.set(new Date());
+    }, 1000);
   }
 
   stop(): void {

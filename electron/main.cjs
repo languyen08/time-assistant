@@ -1,3 +1,4 @@
+const startupProfile = require('./startup-profile.cjs');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs/promises');
@@ -144,13 +145,17 @@ function rendererEntry(windowMode) {
 }
 
 function loadRenderer(windowInstance, windowMode) {
+  const profileQuery = startupProfile.watchWindow(windowInstance, windowMode);
+  startupProfile.mark(`${windowMode}:load-start`);
   const entry = rendererEntry(windowMode);
   if (entry.type === 'url') {
-    windowInstance.loadURL(entry.value);
+    const url = new URL(entry.value);
+    for (const [key, value] of Object.entries(profileQuery)) url.searchParams.set(key, value);
+    windowInstance.loadURL(url.toString());
     return;
   }
 
-  windowInstance.loadFile(entry.value, { query: entry.query });
+  windowInstance.loadFile(entry.value, { query: { ...entry.query, ...profileQuery } });
 }
 
 function scheduleSchedulerRecovery(lostWindow) {
@@ -179,6 +184,7 @@ function scheduleSchedulerRecovery(lostWindow) {
 }
 
 function createSchedulerWindow() {
+  startupProfile.mark('scheduler:create-start');
   const createdWindow = createSchedulerBrowserWindow({
     BrowserWindow,
     loadRenderer,
@@ -304,6 +310,7 @@ function updateTrayMenu() {
 }
 
 function createTray() {
+  startupProfile.mark('tray:create-start');
   if (tray && !tray.isDestroyed()) {
     return tray;
   }
@@ -326,6 +333,7 @@ function createTray() {
 }
 
 function createMainWindow() {
+  startupProfile.mark('main-window:create-start');
   mainWindow = new BrowserWindow({
     width: 1120,
     height: 760,
@@ -462,6 +470,7 @@ function createStickyWindow(alwaysOnTop, color) {
     return stickyWindow;
   }
 
+  startupProfile.mark('sticky:create-start');
   stickyWindow = new BrowserWindow({
     width: STICKY_NOTE_WIDTH,
     height: 360,
@@ -705,7 +714,10 @@ ipcMain.handle('assistant-time:open-text-file', async () => {
   }
 });
 
+startupProfile.mark('main:whenReady-start');
 app.whenReady().then(() => {
+  startupProfile.mark('main:whenReady-end');
+  startupProfile.install(app, quitTimeAssistant);
   Menu.setApplicationMenu(null);
   ensureSchedulerWindow();
   createTray();

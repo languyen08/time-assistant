@@ -1,3 +1,4 @@
+import { startupSpan } from '../utils/startup-profile';
 import { Injectable } from '@angular/core';
 import { StorageAdapter } from './storage-adapter';
 
@@ -42,27 +43,32 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     storeName: string,
     plan: (records: T[]) => { save: T[]; remove?: string[]; result: R },
   ): Promise<R> {
-    const database = await this.openDatabase();
-    return new Promise<R>((resolve, reject) => {
-      const transaction = database.transaction(storeName, 'readwrite');
-      const store = transaction.objectStore(storeName);
-      let result: R;
-      const read = store.getAll();
-      read.onsuccess = () => {
-        try {
-          const changes = plan(read.result as T[]);
-          result = changes.result;
-          for (const id of changes.remove ?? []) store.delete(id);
-          for (const record of changes.save) store.put(record);
-        } catch (error) {
-          transaction.abort();
-          reject(error);
-        }
-      };
-      transaction.oncomplete = () => resolve(result);
-      transaction.onerror = transaction.onabort = () =>
-        reject(transaction.error ?? new Error('Local task transaction failed.'));
-    });
+    const profileEnd = startupSpan('idb-recurrence-transaction');
+    try {
+      const database = await this.openDatabase();
+      return await new Promise<R>((resolve, reject) => {
+        const transaction = database.transaction(storeName, 'readwrite');
+        const store = transaction.objectStore(storeName);
+        let result: R;
+        const read = store.getAll();
+        read.onsuccess = () => {
+          try {
+            const changes = plan(read.result as T[]);
+            result = changes.result;
+            for (const id of changes.remove ?? []) store.delete(id);
+            for (const record of changes.save) store.put(record);
+          } catch (error) {
+            transaction.abort();
+            reject(error);
+          }
+        };
+        transaction.oncomplete = () => resolve(result);
+        transaction.onerror = transaction.onabort = () =>
+          reject(transaction.error ?? new Error('Local task transaction failed.'));
+      });
+    } finally {
+      profileEnd();
+    }
   }
 
   private async withStore<T>(
@@ -70,12 +76,17 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     mode: IDBTransactionMode,
     action: (store: IDBObjectStore) => Promise<T>,
   ): Promise<T> {
-    const database = await this.openDatabase();
-    const transaction = database.transaction(storeName, mode);
-    const store = transaction.objectStore(storeName);
-    const result = await action(store);
-    await this.transactionDone(transaction);
-    return result;
+    const profileEnd = startupSpan(`idb-${storeName}-${mode}`);
+    try {
+      const database = await this.openDatabase();
+      const transaction = database.transaction(storeName, mode);
+      const store = transaction.objectStore(storeName);
+      const result = await action(store);
+      await this.transactionDone(transaction);
+      return result;
+    } finally {
+      profileEnd();
+    }
   }
 
   private openDatabase(): Promise<IDBDatabase> {
@@ -84,6 +95,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     }
 
     this.databasePromise ??= new Promise<IDBDatabase>((resolve, reject) => {
+      const endOpen = startupSpan('indexeddb-open');
       const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
 
       request.onupgradeneeded = (event) => {
@@ -92,7 +104,10 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
         this.runMigrations(database, request.transaction, oldVersion);
       };
 
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        endOpen();
+        resolve(request.result);
+      };
       request.onerror = () => reject(request.error ?? new Error('Failed to open IndexedDB.'));
     });
 
