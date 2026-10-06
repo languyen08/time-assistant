@@ -37,6 +37,34 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     });
   }
 
+  /** Synchronous planning inside one serialized read/write transaction. */
+  async mutate<T extends { id: string }, R>(
+    storeName: string,
+    plan: (records: T[]) => { save: T[]; remove?: string[]; result: R },
+  ): Promise<R> {
+    const database = await this.openDatabase();
+    return new Promise<R>((resolve, reject) => {
+      const transaction = database.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      let result: R;
+      const read = store.getAll();
+      read.onsuccess = () => {
+        try {
+          const changes = plan(read.result as T[]);
+          result = changes.result;
+          for (const id of changes.remove ?? []) store.delete(id);
+          for (const record of changes.save) store.put(record);
+        } catch (error) {
+          transaction.abort();
+          reject(error);
+        }
+      };
+      transaction.oncomplete = () => resolve(result);
+      transaction.onerror = transaction.onabort = () =>
+        reject(transaction.error ?? new Error('Local task transaction failed.'));
+    });
+  }
+
   private async withStore<T>(
     storeName: string,
     mode: IDBTransactionMode,

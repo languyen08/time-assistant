@@ -47,6 +47,7 @@ export class AutomaticTaskSchedulerService {
 
     this.checking = true;
     try {
+      await this.taskService.ensureRecurrences(now, true);
       const pendingTasks = [...this.taskService.pendingTasks()].sort(
         (first, second) => first.order - second.order,
       );

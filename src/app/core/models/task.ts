@@ -1,5 +1,15 @@
 export type TaskStatus = 'pending' | 'active' | 'paused' | 'completed';
 
+export interface RecurrenceRule {
+  type: 'daily' | 'weekdays' | 'custom';
+  /** JavaScript weekdays: Sunday = 0, Monday = 1. */
+  daysOfWeek?: number[];
+  rangeStart: string;
+  rangeEnd?: string;
+}
+
+export type RecurrenceEditScope = 'occurrence' | 'future';
+
 export interface PendingReminder {
   attemptNumber: number;
   maxAttempts: number;
@@ -8,6 +18,13 @@ export interface PendingReminder {
 }
 
 export interface Task {
+  recurrence?: RecurrenceRule;
+  recurrenceSeriesId?: string;
+  occurrenceDate?: string;
+  /** Hidden defaults record in the existing tasks store; never executable. */
+  recurrenceTemplate?: boolean;
+  /** Last allocated date, including deleted occurrences. */
+  recurrenceCursor?: string;
   id: string;
   name: string;
   note: string;
@@ -37,6 +54,7 @@ export interface Task {
 }
 
 export interface TaskDraft {
+  recurrence?: RecurrenceRule;
   name: string;
   note: string;
   category: string;

@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: ['break-conflict.spec.mjs', 'desktop-sync.spec.mjs'],
+  testMatch: ['break-conflict.spec.mjs', 'desktop-sync.spec.mjs', 'recurrence.spec.mjs'],
   fullyParallel: false,
   workers: 1,
   timeout: 90_000,

@@ -51,6 +51,7 @@ describe('AutomaticTaskSchedulerService', () => {
     deferAutomaticStart = vi.fn(async () => true);
 
     const taskService = {
+      ensureRecurrences: vi.fn(async () => undefined),
       pendingTasks: computed(() => tasks().filter((item) => item.status === 'pending')),
       currentTasks: computed(() =>
         tasks().filter((item) => item.status === 'active' || item.status === 'paused'),

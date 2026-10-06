@@ -25,7 +25,7 @@ describe('CsvService', () => {
     const csv = service.exportTasks([task]);
 
     expect(csv.split('\r\n')[0]).toBe(
-      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart,deadlineAt,deadlineMessage,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown,reminderEnabled',
+      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart,deadlineAt,deadlineMessage,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown,reminderEnabled,recurrenceType,recurrenceDays,recurrenceStartDate,recurrenceEndDate,recurrenceSeriesId,occurrenceDate,recurrenceTemplate,recurrenceCursor',
     );
     expect(csv).toContain('Study Angular');
   });
@@ -35,6 +35,81 @@ describe('CsvService', () => {
 
     expect(csv).not.toContain('2026-05-30T10:00:00.000Z');
     expect(csv).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
+  });
+
+  it('round-trips custom recurrence defaults separately from occurrence overrides', () => {
+    const template: Task = {
+      ...task,
+      id: 'series_1',
+      name: 'Default name',
+      recurrenceTemplate: true,
+      recurrenceSeriesId: 'series_1',
+      recurrence: {
+        type: 'custom',
+        daysOfWeek: [1, 3, 5],
+        rangeStart: '2026-10-06',
+        rangeEnd: '2026-12-31',
+      },
+      recurrenceCursor: '2026-10-07',
+    };
+    const occurrence: Task = {
+      ...template,
+      id: 'recurring:series_1:2026-10-07',
+      recurrenceTemplate: undefined,
+      recurrenceCursor: undefined,
+      occurrenceDate: '2026-10-07',
+      name: 'One day override',
+      reminderEnabled: false,
+    };
+    const result = service.importTasks(service.exportTasks([template, occurrence]), []);
+    expect(result.errors).toEqual([]);
+    expect(result.importedCount).toBe(1);
+    expect(result.tasks.find((item) => item.recurrenceTemplate)?.name).toBe('Default name');
+    expect(result.tasks.find((item) => !item.recurrenceTemplate)).toMatchObject({
+      name: 'One day override',
+      reminderEnabled: false,
+      occurrenceDate: '2026-10-07',
+      recurrence: template.recurrence,
+    });
+  });
+
+  it('remaps a repeated series import together, preserving deterministic occurrence IDs', () => {
+    const template: Task = {
+      ...task,
+      id: 'series_1',
+      recurrenceTemplate: true,
+      recurrenceSeriesId: 'series_1',
+      recurrence: { type: 'daily', rangeStart: '2026-10-06' },
+      recurrenceCursor: '2026-10-06',
+    };
+    const occurrence: Task = {
+      ...template,
+      id: 'recurring:series_1:2026-10-06',
+      recurrenceTemplate: undefined,
+      recurrenceCursor: undefined,
+      occurrenceDate: '2026-10-06',
+    };
+    const result = service.importTasks(service.exportTasks([template, occurrence]), [occurrence]);
+    expect(result.errors).toEqual([]);
+    const importedTemplate = result.tasks.find((item) => item.recurrenceTemplate)!;
+    expect(importedTemplate.recurrenceSeriesId).not.toBe('series_1');
+    expect(result.tasks.find((item) => !item.recurrenceTemplate)?.id).toBe(
+      `recurring:${importedTemplate.recurrenceSeriesId}:2026-10-06`,
+    );
+  });
+
+  it.each([
+    ['monthly', '', '2026-10-06', '', '2026-10-06'],
+    ['daily', '', '2026-02-30', '', '2026-10-06'],
+    ['daily', '', '2026-10-06', '2026-10-05', '2026-10-06'],
+    ['custom', '', '2026-10-06', '', '2026-10-06'],
+    ['custom', '1;7', '2026-10-06', '', '2026-10-06'],
+    ['daily', '', '2026-10-06', '', '06/10/2026'],
+  ])('rejects invalid CSV recurrence %s / %s / %s / %s / %s', (type, days, start, end, date) => {
+    const csv = `name,reminderEnabled,recurrenceType,recurrenceDays,recurrenceStartDate,recurrenceEndDate,recurrenceSeriesId,occurrenceDate\nRead,false,${type},${days},${start},${end},series_1,${date}`;
+    const result = service.importTasks(csv, []);
+    expect(result.importedCount).toBe(0);
+    expect(result.errors.length).toBeGreaterThan(0);
   });
 
   it('imports valid tasks and avoids duplicate ids', () => {
@@ -75,6 +150,7 @@ describe('CsvService', () => {
     );
     expect(result.errors).toEqual([]);
     expect(result.tasks[0].reminderEnabled).toBe(true);
+    expect(result.tasks[0].recurrence).toBeUndefined();
   });
 
   it('imports disabled rows without reminder-specific columns or timing values', () => {

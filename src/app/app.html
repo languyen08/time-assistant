@@ -2271,6 +2271,46 @@
                 </span>
               </label>
 
+              @if (editingRecurringTask()) {
+                <label>
+                  <span>Edit scope</span>
+                    <select aria-label="Edit scope" formControlName="editScope" (change)="onEditScopeChanged()">
+                    <option value="occurrence">This occurrence only</option>
+                    <option value="future">This and future occurrences</option>
+                  </select>
+                </label>
+              }
+              @if (!editingRecurringTask() || taskForm.controls.editScope.value === 'future') {
+                <div class="repeat-section">
+                  <label class="concurrent-start-control">
+                    <input type="checkbox" formControlName="repeatEnabled" />
+                    <span class="concurrent-start-copy"><strong>Enable repeat</strong><small>Repeat task on calendar days, with or without reminders.</small></span>
+                  </label>
+                  @if (taskForm.controls.repeatEnabled.value) {
+                    <label><span>Repeat</span>
+                      <select aria-label="Repeat" formControlName="repeatType">
+                        <option value="daily">Every day</option>
+                        <option value="weekdays">Weekdays</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    @if (taskForm.controls.repeatType.value === 'custom') {
+                      <fieldset class="repeat-weekdays"><legend>Repeat on</legend>
+                        @for (weekday of weekdays; track weekday.day) {
+                          <button type="button" [attr.aria-pressed]="taskForm.controls.repeatDays.value.includes(weekday.day)" (click)="toggleRepeatDay(weekday.day)">{{ weekday.label }}</button>
+                        }
+                      </fieldset>
+                    }
+                    <fieldset class="repeat-period"><legend>Repeat period</legend>
+                      <label><span>Repeat start date</span><input type="date" formControlName="repeatStart" /></label>
+                      <span aria-hidden="true">→</span>
+                      <label><span>Repeat end date (optional)</span><input type="date" formControlName="repeatEnd" [min]="taskForm.controls.repeatStart.value" /></label>
+                    </fieldset>
+                    <small>Both dates are included. Leave the end date empty to keep repeating. Start time supplies the time of day for each occurrence.</small>
+                  }
+                </div>
+              }
+
               <label class="concurrent-start-control deadline-toggle-control">
                 <input
                   type="checkbox"

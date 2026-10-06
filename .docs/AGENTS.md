@@ -117,6 +117,18 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
   preserves processing state.
 
 ## Coding Rules
+
+- Recurrence rules/defaults and independently executable occurrences live in the existing tasks
+  store. Filter recurrenceTemplate records out of task presentation and scheduling; never reset a
+  completed occurrence to pending. Keep calculation in recurrence.util and use local calendar days.
+- Allocate deterministic recurring series/date IDs and advance the template cursor inside one
+  IndexedDB readwrite transaction. Only its committed creator emits task_created. Do not replace
+  this with a read-then-put race. ReminderSchedulerService consumes concrete occurrences only.
+- Occurrence-only edits must not change defaults. Future edits must preserve completed/past work
+  and future records with timing or alert activity. Deleting a recurring task removes its template
+  and all unfinished series occurrences in one transaction; preserve completed work/history. CSV
+  must include independent defaults rows and allocation cursors; optional properties require no
+  IndexedDB v2 schema change.
 - Use Angular standalone components where appropriate.
 - Keep components small and focused.
 - Put business logic in services, not templates.

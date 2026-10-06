@@ -197,6 +197,51 @@ Current background behavior:
 
 ## Local Storage
 
+### Recurring task records
+
+Recurrence remains in the existing `tasks` store. An optional `recurrence` object contains
+`type: daily | weekdays | custom`, optional `daysOfWeek` (Sunday=0), `rangeStart`, and optional
+`rangeEnd`, with local YYYY-MM-DD dates. Executable records add `recurrenceSeriesId` and
+`occurrenceDate`. One hidden Task record per series has `recurrenceTemplate=true` and holds
+independent future defaults plus a `recurrenceCursor` allocation watermark. TaskService filters
+templates out of all lists, schedulers, timers, and charts; CSV alone exports them explicitly.
+This avoids an extra executable template and prevents occurrence-only overrides from propagating.
+The cursor retains deleted allocations. No store, index, migration, or database version changes.
+
+The independently tested recurrence utility uses local calendar constructors/setDate, never
+24-hour timestamp increments. It searches at most seven days from max(today, start, allocation
+cursor + one calendar day). Each series has at most one lazily generated unfinished occurrence;
+unfinished past tasks remain. Creation/checks happen on load, completion, deletion, series editing,
+and calendar rollover in the existing Scheduler's automatic task loop. Visible renderers may also
+check on load/lifecycle actions. A synchronous plan in one IndexedDB readwrite transaction reads
+the latest series state, creates `recurring:<seriesId>:<YYYY-MM-DD>`, and advances the cursor.
+Transactions serialize competing renderer checks. Only the committed creator records task_created.
+History is recorded after task persistence, following the existing convention; a crash between
+commit and history can omit an event but cannot create a duplicate occurrence.
+
+Future-scope edits transact against fresh persisted records: replace the template, update selected
+current/future work, and reconcile only pending unstarted future rows with no timing/reminder/deadline
+activity. Past and completed records remain unchanged. Excluded unstarted future rows use normal
+deletion events, and removed allocations release the cursor for the changed schedule. Occurrence-only
+edits retain the independent template. Deleting a recurring task transactionally removes the
+template and all non-completed records with its series ID. Completed records and history events
+remain, but no recurrence source or allocation cursor remains for any renderer to use. Stopping
+Repeat under future scope disables generation without deleting past history.
+The effective start for a future edit cannot precede the selected occurrence date, even if that
+selected date is removed by the new weekday rule. A stale selected task is rejected for reopening
+before a future-scope write rather than overwriting newer task lifecycle state.
+
+New occurrences reset runtime fields and derive reminder/start timestamps from local clock time.
+Finish-by derivation preserves the calendar-day offset from Start time (including next-day targets).
+Once created, existing reminder and deadline schedulers see only concrete Task timestamps and need
+no recurrence knowledge. Existing concurrent-start eligibility and final-task Break rules remain.
+
+CSV has explicit recurrenceType, recurrenceDays, recurrenceStartDate, recurrenceEndDate,
+recurrenceSeriesId, occurrenceDate, recurrenceTemplate, and recurrenceCursor columns, with no opaque
+recurrence JSON. Export defaults independently of overrides. Existing-series imports remap all IDs
+together; standalone valid recurrence occurrence rows can seed a template. Missing recurrence data
+leaves old tasks unchanged and missing reminderEnabled still normalizes to true.
+
 Local-first MVP.
 
 Current storage:
@@ -356,8 +401,10 @@ Current implementation:
   active normal reminder or break decision/completion modal.
 
 Reminder actions target the occurrence's `taskId`. Add time, pause, and complete clear that task's
-pending occurrence in `TaskService`; delete removes it; dismiss clears only `pendingReminder` and
-leaves the already-calculated `nextReminderAt` intact. Resume never restores an old occurrence.
+pending occurrence in `TaskService`; a recurring-task delete atomically removes its template plus
+all unfinished series occurrences, while a non-recurring delete removes just its task. Dismiss
+clears only `pendingReminder` and leaves the already-calculated `nextReminderAt` intact. Resume
+never restores an old occurrence.
 
 ## Break Flow
 

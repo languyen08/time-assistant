@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import Papa from 'papaparse';
 import { HistoryEvent } from '../models/history-event';
-import { Task, TaskStatus } from '../models/task';
+import { RecurrenceRule, Task, TaskStatus } from '../models/task';
 import { createId, nowIso } from '../utils/date-time.util';
+import { isCalendarDate, occurrenceId, recurrenceErrors } from '../utils/recurrence.util';
 
 const TASK_HEADERS = [
   'id',
@@ -27,6 +28,14 @@ const TASK_HEADERS = [
   'nextReminderAt',
   'reminderAttemptsShown',
   'reminderEnabled',
+  'recurrenceType',
+  'recurrenceDays',
+  'recurrenceStartDate',
+  'recurrenceEndDate',
+  'recurrenceSeriesId',
+  'occurrenceDate',
+  'recurrenceTemplate',
+  'recurrenceCursor',
 ] as const;
 
 const HISTORY_HEADERS = ['id', 'type', 'taskId', 'occurredAt', 'summary', 'metadataJson'] as const;
@@ -64,6 +73,14 @@ export class CsvService {
       reminderIntervalMinutes:
         task.reminderEnabled === false ? '' : String(task.reminderIntervalMinutes),
       reminderEnabled: String(task.reminderEnabled !== false),
+      recurrenceType: task.recurrence?.type ?? '',
+      recurrenceDays: task.recurrence?.daysOfWeek?.join(';') ?? '',
+      recurrenceStartDate: task.recurrence?.rangeStart ?? '',
+      recurrenceEndDate: task.recurrence?.rangeEnd ?? '',
+      recurrenceSeriesId: task.recurrenceSeriesId ?? '',
+      occurrenceDate: task.occurrenceDate ?? '',
+      recurrenceTemplate: task.recurrenceTemplate ? 'true' : '',
+      recurrenceCursor: task.recurrenceCursor ?? '',
       allowConcurrentStart: String(task.allowConcurrentStart),
       deadlineAt: this.formatDateTime(task.deadlineAt, dateTimeFormat),
       deadlineMessage: task.deadlineMessage ?? '',
@@ -107,6 +124,10 @@ export class CsvService {
     const existingIds = new Set(existingTasks.map((task) => task.id));
     const importedIds = new Set<string>();
     const importedTasks: Task[] = [];
+    const seriesIds = new Map<string, string>();
+    const existingSeries = new Set(
+      existingTasks.map((task) => task.recurrenceSeriesId).filter(Boolean),
+    );
     const baseOrder =
       existingTasks.reduce((highest, task) => Math.max(highest, task.order), -1) + 1;
 
@@ -143,16 +164,41 @@ export class CsvService {
 
       const now = nowIso();
       const originalId = this.text(row['id']);
-      const id =
+      let id =
         originalId && !existingIds.has(originalId) && !importedIds.has(originalId)
           ? originalId
           : createId('task');
+      const originalSeries = this.text(row['recurrenceSeriesId']);
+      let seriesId: string | undefined;
+      if (originalSeries) {
+        seriesId = seriesIds.get(originalSeries);
+        if (!seriesId) {
+          seriesId =
+            existingSeries.has(originalSeries) || existingIds.has(originalSeries)
+              ? createId('series')
+              : originalSeries;
+          seriesIds.set(originalSeries, seriesId);
+        }
+      }
+      const template = this.boolean(row['recurrenceTemplate']) === true;
+      const occurrenceDate = this.text(row['occurrenceDate']) || undefined;
+      if (template) id = seriesId!;
+      else if (seriesId && occurrenceDate) id = occurrenceId(seriesId, occurrenceDate);
+      if (importedIds.has(id)) {
+        errors.push(`Row ${rowNumber}: Duplicate recurring occurrence or template.`);
+        return;
+      }
       importedIds.add(id);
 
       const requestedStatus = this.status(row['status']);
       const status = requestedStatus === 'completed' ? 'completed' : 'pending';
       const reminderEnabled = this.boolean(row['reminderEnabled']) !== false;
       const task: Task = {
+        recurrence: this.rowRecurrence(row),
+        recurrenceSeriesId: seriesId,
+        recurrenceTemplate: template || undefined,
+        recurrenceCursor: this.text(row['recurrenceCursor']) || undefined,
+        occurrenceDate,
         id,
         name: this.text(row['name']),
         note: this.text(row['note']),
@@ -184,16 +230,75 @@ export class CsvService {
       importedTasks.push(task);
     });
 
+    // A single externally authored occurrence can seed its defaults. Our exports include
+    // explicit template rows so occurrence-only changes never become future defaults.
+    for (const seriesId of new Set(
+      importedTasks.map((task) => task.recurrenceSeriesId).filter(Boolean),
+    )) {
+      if (
+        importedTasks.some(
+          (task) => task.recurrenceTemplate && task.recurrenceSeriesId === seriesId,
+        )
+      )
+        continue;
+      const first = importedTasks.find(
+        (task) => task.recurrenceSeriesId === seriesId && task.recurrence,
+      );
+      if (first) {
+        const dates = importedTasks
+          .filter((task) => task.recurrenceSeriesId === seriesId)
+          .map((task) => task.occurrenceDate ?? '')
+          .sort();
+        importedTasks.push({
+          ...first,
+          id: seriesId!,
+          recurrenceTemplate: true,
+          occurrenceDate: undefined,
+          recurrenceCursor: dates.at(-1),
+          status: 'pending',
+          completedAt: undefined,
+          totalPausedSeconds: 0,
+          reminderAttemptsShown: 0,
+        });
+      }
+    }
+
     return {
       tasks: importedTasks,
       errors,
-      importedCount: importedTasks.length,
-      skippedCount: parsed.data.length - importedTasks.length,
+      importedCount: importedTasks.filter((task) => !task.recurrenceTemplate).length,
+      skippedCount: parsed.data.length - importedIds.size,
     };
   }
 
   private validateTaskRow(row: RawCsvRow, rowNumber: number): string[] {
     const errors: string[] = [];
+    const rule = this.rowRecurrence(row);
+    const series = this.text(row['recurrenceSeriesId']);
+    const date = this.text(row['occurrenceDate']);
+    const templateText = this.text(row['recurrenceTemplate']);
+    if (templateText && !['true', 'false'].includes(templateText))
+      errors.push(`Row ${rowNumber}: recurrenceTemplate must be true or false.`);
+    const template = templateText === 'true';
+    if (rule) errors.push(...recurrenceErrors(rule).map((error) => `Row ${rowNumber}: ${error}`));
+    if ((rule || date || template) && !series)
+      errors.push(`Row ${rowNumber}: recurrenceSeriesId is required.`);
+    if (series && !template && !date) errors.push(`Row ${rowNumber}: occurrenceDate is required.`);
+    if (date && !isCalendarDate(date))
+      errors.push(`Row ${rowNumber}: occurrenceDate must be YYYY-MM-DD.`);
+    if (template && date) errors.push(`Row ${rowNumber}: Templates cannot have an occurrenceDate.`);
+    const cursor = this.text(row['recurrenceCursor']);
+    if (cursor && (!template || !isCalendarDate(cursor)))
+      errors.push(
+        `Row ${rowNumber}: recurrenceCursor requires a template and a valid calendar date.`,
+      );
+    if (
+      !rule &&
+      ['recurrenceDays', 'recurrenceStartDate', 'recurrenceEndDate'].some((key) =>
+        this.text(row[key]),
+      )
+    )
+      errors.push(`Row ${rowNumber}: recurrenceType is required for repeat settings.`);
     const name = this.text(row['name']);
     const reminderAt = this.text(row['reminderAt']);
     const reminderCount = this.integer(row['reminderCount']);
@@ -265,6 +370,20 @@ export class CsvService {
 
   private text(value: string | undefined): string {
     return value?.trim() ?? '';
+  }
+
+  private rowRecurrence(row: RawCsvRow): RecurrenceRule | undefined {
+    const type = this.text(row['recurrenceType']);
+    if (!type) return undefined;
+    const days = this.text(row['recurrenceDays']);
+    return {
+      type: type as RecurrenceRule['type'],
+      daysOfWeek: days
+        ? days.split(';').map((value) => (value.trim() ? Number(value) : NaN))
+        : undefined,
+      rangeStart: this.text(row['recurrenceStartDate']),
+      rangeEnd: this.text(row['recurrenceEndDate']) || undefined,
+    };
   }
 
   private status(value: string | undefined): TaskStatus {

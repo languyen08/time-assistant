@@ -15,7 +15,8 @@ import { ChartConfiguration } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
 import { StickyNoteColor } from './core/models/app-settings';
 import { ReminderPresenter, StickyResizeReason } from './core/models/electron-api';
-import { Task, TaskDraft } from './core/models/task';
+import { RecurrenceEditScope, RecurrenceRule, Task, TaskDraft } from './core/models/task';
+import { localDate, onOccurrenceDate, recurrenceErrors } from './core/utils/recurrence.util';
 import { BreakService } from './core/services/break.service';
 import { BreakCoordinationService } from './core/services/break-coordination.service';
 import { AutomaticTaskSchedulerService } from './core/services/automatic-task-scheduler.service';
@@ -90,6 +91,19 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   readonly loading = signal(true);
   readonly editingTaskId = signal<string | undefined>(undefined);
+  readonly editingRecurringTask = computed(
+    () =>
+      this.taskService.tasks().find((task) => task.id === this.editingTaskId())?.recurrenceSeriesId,
+  );
+  readonly weekdays = [
+    { day: 1, label: 'Mon' },
+    { day: 2, label: 'Tue' },
+    { day: 3, label: 'Wed' },
+    { day: 4, label: 'Thu' },
+    { day: 5, label: 'Fri' },
+    { day: 6, label: 'Sat' },
+    { day: 0, label: 'Sun' },
+  ];
   readonly exportStatus = signal('');
   readonly importStatus = signal('');
   readonly importErrors = signal<string[]>([]);
@@ -308,6 +322,12 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     return this.deadlineAlertTask();
   });
   readonly taskForm = this.formBuilder.nonNullable.group({
+    repeatEnabled: [false],
+    repeatType: ['daily' as RecurrenceRule['type']],
+    repeatDays: [[] as number[]],
+    repeatStart: [localDate()],
+    repeatEnd: [''],
+    editScope: ['occurrence' as RecurrenceEditScope],
     name: ['', [Validators.required, Validators.maxLength(120)]],
     reminderEnabled: [true],
     reminderAt: [toDatetimeLocalValue(addMinutes(new Date(), 30)), Validators.required],
@@ -505,9 +525,22 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const draft = this.formToDraft();
+    if (draft.recurrence) {
+      const errors = recurrenceErrors(draft.recurrence);
+      if (errors.length) {
+        this.taskService.errorMessage.set(errors[0]);
+        return;
+      }
+    }
     const editingTaskId = this.editingTaskId();
     const saved = editingTaskId
-      ? await this.taskService.update(editingTaskId, draft)
+      ? this.editingRecurringTask()
+        ? await this.taskService.update(
+            editingTaskId,
+            draft,
+            this.taskForm.controls.editScope.value,
+          )
+        : await this.taskService.update(editingTaskId, draft)
       : await this.taskService.create(draft);
 
     if (saved) {
@@ -519,6 +552,12 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     this.editingTaskId.set(task.id);
     this.taskService.clearError();
     this.taskForm.setValue({
+      repeatEnabled: Boolean(task.recurrence),
+      repeatType: task.recurrence?.type ?? 'daily',
+      repeatDays: task.recurrence?.daysOfWeek ?? [],
+      repeatStart: task.recurrence?.rangeStart ?? localDate(),
+      repeatEnd: task.recurrence?.rangeEnd ?? '',
+      editScope: 'occurrence',
       name: task.name,
       reminderEnabled: task.reminderEnabled !== false,
       reminderAt: toDatetimeLocalValue(new Date(task.reminderAt)),
@@ -544,6 +583,12 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   resetForm(): void {
     this.editingTaskId.set(undefined);
     this.taskForm.reset({
+      repeatEnabled: false,
+      repeatType: 'daily',
+      repeatDays: [],
+      repeatStart: localDate(),
+      repeatEnd: '',
+      editScope: 'occurrence',
       name: '',
       reminderEnabled: true,
       reminderAt: toDatetimeLocalValue(addMinutes(new Date(), 30)),
@@ -569,6 +614,50 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
     this.breakConflictTaskId.set(undefined);
     await this.beginTask(taskId);
+  }
+
+  toggleRepeatDay(day: number): void {
+    const control = this.taskForm.controls.repeatDays;
+    control.setValue(
+      control.value.includes(day)
+        ? control.value.filter((item) => item !== day)
+        : [...control.value, day],
+    );
+  }
+
+  onEditScopeChanged(): void {
+    const task = this.taskService.tasks().find((item) => item.id === this.editingTaskId());
+    if (!task) return;
+    const scope = this.taskForm.controls.editScope.value;
+    const template =
+      scope === 'future'
+        ? this.taskService
+            .recurrenceTemplates()
+            .find((item) => item.recurrenceSeriesId === task.recurrenceSeriesId)
+        : task;
+    if (!template) return;
+    // Future edits start from the series defaults, never an occurrence-only override.
+    this.editTask({
+      ...template,
+      id: task.id,
+      recurrenceTemplate: undefined,
+      reminderAt: onOccurrenceDate(template.reminderAt, task.occurrenceDate!),
+      deadlineAt: template.deadlineAt
+        ? onOccurrenceDate(
+            template.deadlineAt,
+            task.occurrenceDate!,
+            localDate(new Date(template.reminderAt)),
+          )
+        : undefined,
+    });
+    this.taskForm.controls.editScope.setValue(scope);
+    if (
+      scope === 'future' &&
+      task.occurrenceDate &&
+      this.taskForm.controls.repeatStart.value < task.occurrenceDate
+    ) {
+      this.taskForm.controls.repeatStart.setValue(task.occurrenceDate);
+    }
   }
 
   async completeTask(taskId: string): Promise<void> {
@@ -939,7 +1028,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     await this.saveCsvFile(
       `friendly-task-reminder-tasks-${this.dateStamp()}.csv`,
       this.csv.exportTasks(
-        this.taskService.tasks(),
+        [...this.taskService.recurrenceTemplates(), ...this.taskService.tasks()],
         this.settingsService.settings().csvDateTimeFormat,
       ),
       'Tasks CSV exported.',
@@ -1406,7 +1495,10 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private async importTasksFromCsvText(content: string): Promise<void> {
-    const result = this.csv.importTasks(content, this.taskService.tasks());
+    const result = this.csv.importTasks(content, [
+      ...this.taskService.recurrenceTemplates(),
+      ...this.taskService.tasks(),
+    ]);
     if (result.tasks.length > 0) {
       await this.taskService.importTasks(result.tasks);
     }
@@ -1439,6 +1531,14 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     const unchangedStart =
       editingTask && value.reminderAt === toDatetimeLocalValue(new Date(editingTask.reminderAt));
     return {
+      recurrence: value.repeatEnabled
+        ? {
+            type: value.repeatType,
+            daysOfWeek: value.repeatType === 'custom' ? value.repeatDays : undefined,
+            rangeStart: value.repeatStart,
+            rangeEnd: value.repeatEnd || undefined,
+          }
+        : undefined,
       name: value.name,
       reminderEnabled: value.reminderEnabled,
       reminderAt: unchangedStart

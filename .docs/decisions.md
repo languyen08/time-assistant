@@ -308,6 +308,13 @@ Phase 2.2 implementation note:
 
 ## ADR-014: Per-Task Concurrent Start and Multiple Current Tasks
 
+Implementation consistency note (recurring tasks, 2026-10-06): normal task occurrences use the
+same incoming allowConcurrentStart eligibility and final-current-task Break rules. Recurrence
+adds optional task metadata and hidden defaults records to the existing IndexedDB v2 tasks store;
+it does not introduce another scheduler/store or change the accepted ownership boundary. Deleting
+a recurring task transactionally removes its defaults record and all unfinished series records,
+while completed occurrences and their historical evidence remain.
+
 Status: Accepted
 
 Context:

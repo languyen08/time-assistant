@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { TaskDraft } from '../models/task';
+import { recurrenceErrors } from '../utils/recurrence.util';
 
 export interface TaskValidationResult {
   valid: boolean;
@@ -15,6 +16,7 @@ export class TaskValidationService {
     existingDeadlineAt?: string,
   ): TaskValidationResult {
     const errors: string[] = [];
+    if (draft.recurrence) errors.push(...recurrenceErrors(draft.recurrence));
 
     if (!draft.name.trim()) {
       errors.push('Task name is required.');
@@ -26,6 +28,7 @@ export class TaskValidationService {
       errors.push('Start time must be a valid date and time.');
     } else if (
       draft.reminderAt &&
+      !draft.recurrence &&
       reminderDate.getTime() <= now.getTime() &&
       draft.reminderAt !== existingReminderAt
     ) {
@@ -38,7 +41,11 @@ export class TaskValidationService {
       if (Number.isNaN(deadlineDate.getTime())) {
         errors.push('Finish-by time must be a valid date and time.');
       } else {
-        if (deadlineDate.getTime() <= now.getTime() && draft.deadlineAt !== existingDeadlineAt) {
+        if (
+          !draft.recurrence &&
+          deadlineDate.getTime() <= now.getTime() &&
+          draft.deadlineAt !== existingDeadlineAt
+        ) {
           errors.push('Finish-by time must be in the future.');
         }
         if (

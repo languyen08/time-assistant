@@ -63,6 +63,27 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 
 ### Task Management
 
+Recurring tasks support Every day, Weekdays (Monday–Friday), and Custom weekdays. Repeat has its
+own toggle, independent of Enable reminder, and a required inclusive start date plus an optional
+inclusive end date. Custom requires at least one weekday. Start time supplies the local clock time;
+for no-reminder tasks it remains optional.
+
+Each generated occurrence is independently executable and retains normal timer, pause/resume,
+completion, reminder, history, chart, and final-current-task Break behavior. Keep one unfinished
+occurrence per series; generate lazily at startup, calendar rollover, completion, deletion, and
+series edits. Skip missed unallocated dates on reopening and retain already-created unfinished work.
+Main/Sticky do not show the internal defaults record or recurrence controls inside compact cards.
+
+Editing supports This occurrence only and This and future occurrences. Future editing loads the
+series defaults rather than an occurrence-only override. Reconcile only unstarted future records;
+preserve completed/past and history-bearing future work. Delete on any recurring occurrence removes
+the complete recurring task: its hidden defaults record and every unfinished occurrence. Completed
+past occurrences and their existing history remain, and no future occurrence can be generated.
+Disable Repeat under the future scope also stops later generation without deleting current/past work.
+Reminder-enabled occurrences and optional Finish by receive concrete local timestamps, preserving
+clock time and any calendar-day deadline offset. Existing absolute deadline semantics then apply.
+No monthly/yearly recurrence, holiday exceptions, or bulk series-management screen is included.
+
 - Create, edit, delete, and reorder tasks.
 - Creation/editing supports optional reminders. Disabling **Enable reminder** hides attempts and
   repeat interval and skips their validation. Start time is still the automatic-start schedule;
@@ -103,7 +124,9 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 - Send normal reminder notification/sound once from Scheduler after persisting the occurrence.
 - Present the in-app occurrence only in Main when Main exists, otherwise in Sticky when Sticky
   exists. Do not create/show a window solely because a reminder is due.
-- Persist Dismiss for now. Add time, Pause, Complete, and Delete clear only the targeted occurrence.
+- Persist Dismiss for now. Add time, Pause, and Complete clear only the targeted occurrence.
+  Deleting a recurring occurrence removes that series' template and all unfinished occurrences;
+  deleting a non-recurring task remains targeted.
 
 ### Sticky Notes Mode
 
@@ -201,6 +224,13 @@ Angular is the UI framework. Electron packages the Angular UI as a real Windows 
 - Future calendar integration requires a new ADR.
 
 ### CSV Import / Export
+
+- Recurrence CSV uses explicit type/days/start/end/series/date/template/cursor columns. Days use
+  semicolon-separated Sunday=0 through Saturday=6; calendar dates use YYYY-MM-DD. Export hidden
+  defaults rows so occurrence-only overrides and deleted-date allocation survive a round-trip.
+- Validate recurrence types, custom weekdays, real calendar dates, ordered ranges, and occurrence
+  identity. Importing an existing series remaps it as a coherent new series. Old files without
+  recurrence columns remain ordinary tasks. Existing reminderEnabled compatibility remains intact.
 
 - Export tasks to CSV.
 - Import tasks from CSV.

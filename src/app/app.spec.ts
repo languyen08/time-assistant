@@ -109,6 +109,100 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
+  it('shows repeat controls conditionally and saves without requiring reminders', async () => {
+    vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    vi.spyOn(app, 'ngOnInit').mockResolvedValue();
+    app.loading.set(false);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.repeat-period')).toBeNull();
+    app.taskForm.patchValue({
+      name: 'Read',
+      repeatEnabled: true,
+      repeatType: 'custom',
+      repeatDays: [1, 3, 5],
+      repeatStart: '2026-10-06',
+      repeatEnd: '2026-12-31',
+      reminderEnabled: false,
+      reminderAt: '',
+    });
+    app.onReminderEnabledChanged();
+    fixture.detectChanges();
+    expect(host.querySelectorAll('.repeat-weekdays button')).toHaveLength(7);
+    expect(host.querySelectorAll('.repeat-period input[type="date"]')).toHaveLength(2);
+    expect(host.querySelector('[formControlName="reminderCount"]')).toBeNull();
+    const create = vi.spyOn(app.taskService, 'create').mockResolvedValue(true);
+    await app.saveTask();
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reminderEnabled: false,
+        recurrence: {
+          type: 'custom',
+          daysOfWeek: [1, 3, 5],
+          rangeStart: '2026-10-06',
+          rangeEnd: '2026-12-31',
+        },
+      }),
+    );
+    expect(app.taskForm.controls.repeatEnabled.value).toBe(false);
+    fixture.destroy();
+  });
+
+  it('rejects empty custom weekdays and reversed repeat dates before saving', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.taskForm.patchValue({
+      name: 'Read',
+      repeatEnabled: true,
+      repeatType: 'custom',
+      repeatDays: [],
+      repeatStart: '2026-10-06',
+    });
+    const create = vi.spyOn(app.taskService, 'create').mockResolvedValue(true);
+    await app.saveTask();
+    expect(create).not.toHaveBeenCalled();
+    expect(app.taskService.errorMessage()).toContain('weekday');
+    app.toggleRepeatDay(1);
+    app.taskForm.controls.repeatEnd.setValue('2026-10-05');
+    await app.saveTask();
+    expect(create).not.toHaveBeenCalled();
+    expect(app.taskService.errorMessage()).toContain('end date');
+    fixture.destroy();
+  });
+
+  it('starts future editing from series defaults and retains the selected occurrence date', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const recurrence = { type: 'daily' as const, rangeStart: '2026-10-06' };
+    const task = pendingTask('recurring:series:2026-10-07', 'One-day override', 0, {
+      recurrenceSeriesId: 'series',
+      occurrenceDate: '2026-10-07',
+      recurrence,
+      reminderAt: new Date(2026, 9, 7, 9, 30).toISOString(),
+    });
+    app.taskService.tasks.set([task]);
+    app.taskService.recurrenceTemplates.set([
+      {
+        ...task,
+        id: 'series',
+        name: 'Series default',
+        recurrenceTemplate: true,
+        occurrenceDate: undefined,
+        reminderAt: new Date(2026, 9, 6, 9, 30).toISOString(),
+      },
+    ]);
+    app.editTask(task);
+    expect(app.taskForm.controls.editScope.value).toBe('occurrence');
+    app.taskForm.controls.editScope.setValue('future');
+    app.onEditScopeChanged();
+    expect(app.taskForm.controls.name.value).toBe('Series default');
+    expect(app.taskForm.controls.reminderAt.value).toBe('2026-10-07T09:30');
+    expect(app.taskForm.controls.editScope.value).toBe('future');
+    fixture.destroy();
+  });
+
   it('defaults reminders on, hides disabled settings, and saves without reminder timing', async () => {
     vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
     const fixture = TestBed.createComponent(App);

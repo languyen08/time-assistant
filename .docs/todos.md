@@ -316,6 +316,46 @@ Goal: add optional convenience features and polish after the core app is stable.
 
 ## Current Reconciliation / Stabilization
 
+- [x] Implement recurring task occurrences (2026-10-06).
+  - [x] Phase 1: optional Task recurrence metadata, independently tested calendar calculator,
+    hidden defaults in the existing tasks store, lazy next-date allocation, deterministic IDs,
+    and serialized IndexedDB generation. Internal checkpoint: 65 focused tests passed before UI.
+  - [x] Phase 2: Repeat toggle, daily/weekdays/custom modes, weekday buttons, coordinated inclusive
+    date inputs, validation, and occurrence-only/future edit scopes. Focused form/lifecycle/CSV
+    checkpoint: 99 tests passed.
+  - [x] Phase 3: startup/calendar rollover/completion/deletion checks; no missed-date backlog;
+    retain unfinished work; concrete reminder and Finish-by derivation; reconcile only untouched
+    future records; preserve normal elapsed/pause/completion/Break and optional reminders.
+  - [x] Phase 4: explicit compatible CSV columns and defaults rows; two focused Playwright
+    scenarios (real UI lifecycle and simultaneous renderer allocation); README and all five
+    canonical docs updated, with an existing decision consistency note and no new ADR.
+  - [x] Recurrence deletion fix (2026-10-06): Delete now removes the template and all unfinished
+    occurrences atomically, preserves completed records/history, and cannot generate a next day.
+    The focused browser regression reloads both Main and Sticky after deletion.
+  - [x] Pass 231 Angular tests, 38 Electron tests, three focused recurring browser scenarios, and
+    a production build,
+    and a separate 17-test America/New_York run exercising DST wall-clock behavior.
+  - [x] Preserve IndexedDB version 2, its three stores, and all existing indexes; no migration.
+  - [x] Build a Windows directory package with Electron Builder and launch it in the isolated
+    --smoke-test profile (exit 0). The local signAndEditExecutable=false workaround is used;
+    portable and NSIS artifacts were not rebuilt/tested for this feature.
+  - [x] Verify changed-file Prettier and git diff whitespace checks. The full Prettier-only lint
+    check still reports 51 unchanged files; no unrelated formatting debt was changed.
+  - Changed files: app.ts/app.html/app.css/app.spec.ts; core/models/task.ts;
+    core/utils/recurrence.util.ts and its spec; core/repositories/task.repository.ts and its spec;
+    core/storage/indexed-db-storage.adapter.ts; core/services/task.service.ts,
+    task-recurrence.service.spec.ts, task-validation.service.ts, automatic-task-scheduler.service.ts
+    and its spec, csv.service.ts and its spec; e2e/recurrence.spec.mjs and the existing Playwright
+    config; README.md and all five canonical .docs files. Paths under core/app are in src/app.
+  - Delete means delete the recurring task: remove the template and all unfinished occurrences in
+    one transaction while retaining completed historical records and history events. Stopping
+    Repeat under future editing ends later generation without deleting past history. Past/started/
+    history-bearing future tasks survive series edits. History follows existing persistence-then-record ordering, so a process crash
+    between those writes can omit a creation event but cannot duplicate the occurrence.
+  - Validation runs use available Node 25.6.0/npm 11.8.0; canonical Node 26.2.0 is unavailable.
+    Repository-wide lint is Prettier-only and retains unrelated formatting debt. Production build
+    retains bundle/CSS warning budgets; no semantic linting or unrelated formatting cleanup added.
+
 - [x] Implement optional task reminders (2026-10-05).
   - [x] Add `reminderEnabled`, default enabled for new drafts and missing legacy records without a
     storage schema/version change.

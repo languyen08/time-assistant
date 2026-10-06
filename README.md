@@ -139,6 +139,40 @@ The guide preview scripts use [docs/user-guide.html](/c:/Where%20I%20improve%20m
 
 ## Data and CSV Behavior
 
+### Recurring tasks
+
+Enable **Repeat** when creating a task, choose Every day, Weekdays, or Custom weekdays, and set
+the Repeat period. The start date is required; the optional end date is inclusive. Custom needs
+at least one selected weekday. Start time supplies the local time of day for each occurrence.
+An empty Start time is still allowed when reminders are disabled. Repeat and reminders are
+independent.
+
+Each occurrence is a normal task with its own elapsed time, pauses, completion, reminder attempts,
+history, and chart contribution. The app keeps one unfinished occurrence per series and creates
+the next applicable date after completion. On reopening it skips dates that were never created,
+retains existing unfinished tasks, and never builds a missed-date backlog.
+
+When editing, **This occurrence only** leaves future defaults intact. **This and future occurrences**
+loads the series defaults, updates the selected current/future task, and reconciles future tasks
+that have not started. Completed and past tasks, and future tasks with timing or alert activity,
+are preserved. Disable Repeat in this scope to stop the series after the selected task. Delete on
+any recurring occurrence removes the recurring task: its hidden defaults and all unfinished
+occurrences are removed, so future tasks cannot be generated. Completed occurrences and their
+existing history remain available for charts and review.
+
+Sticky cards remain compact, with no Reminder or +10m controls when reminders are disabled.
+Finish by keeps its time of day and calendar-day offset from Start time on each new occurrence;
+pause, extensions, and Break still do not move an occurrence's concrete deadline.
+
+Task CSV adds `recurrenceType`, `recurrenceDays` (semicolon-separated JavaScript weekdays:
+Sunday 0 through Saturday 6), `recurrenceStartDate`, `recurrenceEndDate`, `recurrenceSeriesId`,
+`occurrenceDate`, `recurrenceTemplate`, and `recurrenceCursor`. Calendar dates are `YYYY-MM-DD`.
+Exports include hidden defaults rows (`recurrenceTemplate=true`) so occurrence-only overrides and
+deleted-date allocation state survive transfer. Keep those rows when editing a CSV. Reimporting
+an existing series clones it with a new series ID. Files without recurrence columns remain ordinary
+tasks; files without `reminderEnabled` still enable reminders. Import retains the existing behavior
+of restoring unfinished tasks as pending. IndexedDB stays at version 2 with the same three stores.
+
 The app stores all data locally in IndexedDB. Core workflows work offline and do not require login, calendar integration, or cloud services.
 
 - Task CSV import validates required columns and reminder values before saving.

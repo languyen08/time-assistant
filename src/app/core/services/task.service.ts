@@ -1,10 +1,17 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
-import { Task, TaskDraft } from '../models/task';
+import { RecurrenceEditScope, Task, TaskDraft } from '../models/task';
 import { TaskRepository } from '../repositories/task.repository';
 import { toFriendlyErrorMessage } from '../utils/error-message.util';
 import { createId, isDue, nowIso, secondsBetween, secondsUntil } from '../utils/date-time.util';
 import { HistoryService } from './history.service';
 import { TaskValidationService } from './task-validation.service';
+import {
+  includesRecurrenceDate,
+  localDate,
+  makeOccurrence,
+  nextOccurrenceDate,
+  onOccurrenceDate,
+} from '../utils/recurrence.util';
 
 @Injectable({ providedIn: 'root' })
 export class TaskService {
@@ -13,6 +20,8 @@ export class TaskService {
   private readonly validator = inject(TaskValidationService);
 
   readonly tasks = signal<Task[]>([]);
+  readonly recurrenceTemplates = signal<Task[]>([]);
+  private recurrenceCheckDate = '';
   readonly errorMessage = signal('');
   readonly activeTasks = computed(() => this.tasks().filter((task) => task.status === 'active'));
   readonly currentTasks = computed(() =>
@@ -42,9 +51,20 @@ export class TaskService {
 
   async load(): Promise<void> {
     try {
-      const tasks = await this.repository.list();
+      let tasks = await this.repository.list();
+      this.recurrenceTemplates.set(tasks.filter((task) => task.recurrenceTemplate));
+      if (tasks.some((task) => task.recurrenceTemplate && task.recurrence)) {
+        const created = await this.repository.ensureOccurrences();
+        if (created.length) {
+          await this.recordOccurrences(created);
+          tasks = await this.repository.list();
+          this.broadcastChange();
+        }
+      }
+      this.recurrenceTemplates.set(tasks.filter((task) => task.recurrenceTemplate));
       this.tasks.set(
         tasks
+          .filter((task) => !task.recurrenceTemplate)
           .map((task) => this.normalizeTask(task))
           .sort((first, second) => first.order - second.order),
       );
@@ -57,6 +77,11 @@ export class TaskService {
     const validation = this.validator.validate(draft);
     if (!validation.valid) {
       this.errorMessage.set(validation.errors[0]);
+      return false;
+    }
+
+    if (draft.recurrence && !nextOccurrenceDate(draft.recurrence, localDate())) {
+      this.errorMessage.set('The repeat period has no remaining occurrence.');
       return false;
     }
 
@@ -73,6 +98,30 @@ export class TaskService {
     };
 
     try {
+      if (draft.recurrence) {
+        const seriesId = createId('series');
+        const date = nextOccurrenceDate(draft.recurrence, localDate())!;
+        const template: Task = {
+          ...task,
+          id: seriesId,
+          recurrenceTemplate: true,
+          recurrenceSeriesId: seriesId,
+          recurrenceCursor: date,
+        };
+        const occurrence = await this.repository.mutate((tasks) => {
+          const created = makeOccurrence(template, date);
+          created.order = tasks.reduce((highest, item) => Math.max(highest, item.order), -1) + 1;
+          return { save: [template, created], result: created };
+        });
+        this.recurrenceTemplates.update((templates) => [...templates, template]);
+        this.tasks.update((tasks) =>
+          [...tasks, occurrence].sort((first, second) => first.order - second.order),
+        );
+        this.broadcastChange();
+        await this.recordOccurrences([occurrence]);
+        this.errorMessage.set('');
+        return true;
+      }
       await this.repository.save(task);
       this.tasks.update((tasks) =>
         [...tasks, task].sort((first, second) => first.order - second.order),
@@ -87,18 +136,35 @@ export class TaskService {
     }
   }
 
-  async update(taskId: string, draft: TaskDraft): Promise<boolean> {
+  async update(
+    taskId: string,
+    draft: TaskDraft,
+    scope: RecurrenceEditScope = 'occurrence',
+  ): Promise<boolean> {
     const current = this.findTask(taskId);
     if (!current || current.status === 'completed') {
       this.errorMessage.set('Only pending, active, or paused tasks can be edited.');
       return false;
     }
 
+    if (current.occurrenceDate && scope === 'future' && draft.recurrence) {
+      draft = {
+        ...draft,
+        recurrence: {
+          ...draft.recurrence,
+          rangeStart:
+            draft.recurrence.rangeStart > current.occurrenceDate
+              ? draft.recurrence.rangeStart
+              : current.occurrenceDate,
+        },
+      };
+    }
+
     const validation = this.validator.validate(
       draft,
       new Date(),
-      current.reminderAt,
-      current.deadlineAt,
+      current.recurrenceSeriesId ? draft.reminderAt : current.reminderAt,
+      current.recurrenceSeriesId ? draft.deadlineAt : current.deadlineAt,
     );
     if (!validation.valid) {
       this.errorMessage.set(validation.errors[0]);
@@ -106,6 +172,27 @@ export class TaskService {
     }
 
     const cleanedDraft = this.cleanDraft(draft);
+    if (current.recurrenceSeriesId && current.occurrenceDate) {
+      const anchor = localDate(new Date(cleanedDraft.reminderAt));
+      if (cleanedDraft.deadlineAt)
+        cleanedDraft.deadlineAt = onOccurrenceDate(
+          cleanedDraft.deadlineAt,
+          current.occurrenceDate,
+          anchor,
+        );
+      cleanedDraft.reminderAt = onOccurrenceDate(cleanedDraft.reminderAt, current.occurrenceDate);
+    }
+    if (
+      !current.recurrenceSeriesId &&
+      draft.recurrence &&
+      current.status !== 'pending' &&
+      !includesRecurrenceDate(draft.recurrence, localDate(new Date(current.reminderAt)))
+    ) {
+      this.errorMessage.set(
+        'The current task date must be included in the repeat period and weekdays.',
+      );
+      return false;
+    }
     const deadlineChanged = cleanedDraft.deadlineAt !== current.deadlineAt;
     const updated: Task = {
       ...current,
@@ -141,7 +228,40 @@ export class TaskService {
     };
 
     try {
-      await this.saveAndReplace(updated);
+      if (current.recurrenceSeriesId && scope === 'future') {
+        await this.updateSeries(current, updated, cleanedDraft);
+        this.errorMessage.set('');
+        return true;
+      }
+      if (!current.recurrenceSeriesId && draft.recurrence) {
+        const seriesId = createId('series');
+        const date =
+          current.status === 'pending' && !current.activeStartedAt
+            ? nextOccurrenceDate(draft.recurrence, localDate())
+            : localDate(new Date(updated.reminderAt));
+        if (!date) throw new Error('The repeat period has no remaining occurrence.');
+        const template: Task = {
+          ...updated,
+          id: seriesId,
+          recurrenceTemplate: true,
+          recurrenceSeriesId: seriesId,
+          recurrenceCursor: date,
+        };
+        const occurrence =
+          current.status === 'pending' && !current.activeStartedAt
+            ? {
+                ...makeOccurrence(template, date),
+                id: current.id,
+                order: current.order,
+                createdAt: current.createdAt,
+              }
+            : { ...updated, recurrenceSeriesId: seriesId, occurrenceDate: date };
+        await this.repository.mutate(() => ({ save: [template, occurrence], result: undefined }));
+        await this.load();
+        this.broadcastChange();
+      } else {
+        await this.saveAndReplace(updated);
+      }
       await this.history.record('task_edited', `Updated "${updated.name}".`, updated.id);
       this.errorMessage.set('');
       return true;
@@ -158,8 +278,16 @@ export class TaskService {
     }
 
     try {
-      await this.repository.delete(taskId);
-      this.tasks.update((tasks) => tasks.filter((item) => item.id !== taskId));
+      if (task.recurrenceSeriesId) {
+        const removedTaskIds = await this.repository.deleteSeries(task.recurrenceSeriesId);
+        this.recurrenceTemplates.update((templates) =>
+          templates.filter((item) => item.recurrenceSeriesId !== task.recurrenceSeriesId),
+        );
+        this.tasks.update((tasks) => tasks.filter((item) => !removedTaskIds.includes(item.id)));
+      } else {
+        await this.repository.delete(taskId);
+        this.tasks.update((tasks) => tasks.filter((item) => item.id !== taskId));
+      }
       this.broadcastChange();
     } catch (error) {
       this.captureError(error, 'Task could not be deleted.');
@@ -167,7 +295,13 @@ export class TaskService {
     }
 
     try {
-      await this.history.record('task_deleted', `Deleted "${task.name}".`, task.id);
+      await this.history.record(
+        'task_deleted',
+        task.recurrenceSeriesId
+          ? `Deleted recurring task "${task.name}" and stopped future occurrences.`
+          : `Deleted "${task.name}".`,
+        task.id,
+      );
       this.errorMessage.set('');
     } catch (error) {
       this.captureError(error, 'The task was deleted, but its history could not be saved.');
@@ -182,11 +316,10 @@ export class TaskService {
 
     try {
       await Promise.all(importedTasks.map((task) => this.repository.save(task)));
-      this.tasks.update((tasks) =>
-        [...tasks, ...importedTasks].sort((first, second) => first.order - second.order),
-      );
+      await this.load();
       this.broadcastChange();
       for (const task of importedTasks) {
+        if (task.recurrenceTemplate) continue;
         await this.history.record('task_created', `Imported "${task.name}" from CSV.`, task.id);
       }
     } catch (error) {
@@ -353,6 +486,7 @@ export class TaskService {
 
     try {
       await this.history.record('task_completed', `Completed "${completed.name}".`, completed.id);
+      if (completed.recurrenceSeriesId) await this.ensureRecurrences();
       this.errorMessage.set('');
     } catch (error) {
       this.captureError(error, 'The task was completed, but its history could not be saved.');
@@ -636,6 +770,118 @@ export class TaskService {
     this.errorMessage.set('');
   }
 
+  async ensureRecurrences(now = new Date(), onlyIfDateChanged = false): Promise<void> {
+    if (!this.recurrenceTemplates().some((task) => task.recurrence)) return;
+    const today = localDate(now);
+    if (onlyIfDateChanged && this.recurrenceCheckDate === today) return;
+    try {
+      const created = await this.repository.ensureOccurrences(now);
+      this.recurrenceCheckDate = today;
+      if (created.length) {
+        await this.recordOccurrences(created);
+        await this.load();
+        this.broadcastChange();
+      }
+    } catch (error) {
+      this.captureError(error, 'The next repeating task could not be created.');
+    }
+  }
+
+  private async recordOccurrences(tasks: Task[]): Promise<void> {
+    for (const task of tasks)
+      await this.history.record('task_created', `Created "${task.name}".`, task.id);
+  }
+
+  private async updateSeries(current: Task, updated: Task, draft: TaskDraft): Promise<void> {
+    const today = localDate();
+    const changes = await this.repository.mutate((tasks) => {
+      const template = tasks.find(
+        (task) => task.recurrenceTemplate && task.recurrenceSeriesId === current.recurrenceSeriesId,
+      );
+      if (!template) throw new Error('The repeat defaults are missing.');
+      const replacement = { ...template, ...draft, updatedAt: nowIso() };
+      const save: Task[] = [replacement];
+      const removed: Task[] = [];
+      for (const task of tasks) {
+        if (
+          task.recurrenceTemplate ||
+          task.recurrenceSeriesId !== current.recurrenceSeriesId ||
+          !task.occurrenceDate ||
+          task.occurrenceDate < current.occurrenceDate! ||
+          task.status === 'completed'
+        )
+          continue;
+        const untouched =
+          task.status === 'pending' &&
+          !task.activeStartedAt &&
+          !task.totalPausedSeconds &&
+          !task.reminderAttemptsShown &&
+          !task.deadlineNotifiedAt;
+        const selected = task.id === current.id && task.occurrenceDate >= today;
+        if (selected && task.updatedAt !== current.updatedAt)
+          throw new Error('This occurrence changed in another window. Reopen it before saving.');
+        if (!selected && !(untouched && task.occurrenceDate >= today)) continue;
+        if (
+          untouched &&
+          task.occurrenceDate > current.occurrenceDate! &&
+          (!draft.recurrence || !includesRecurrenceDate(draft.recurrence, task.occurrenceDate))
+        ) {
+          removed.push(task);
+          continue;
+        }
+        if (
+          untouched &&
+          draft.recurrence &&
+          !includesRecurrenceDate(draft.recurrence, task.occurrenceDate)
+        ) {
+          removed.push(task);
+          continue;
+        }
+        // Reconcile unstarted future records; preserve all timing on the selected current task.
+        save.push(
+          selected
+            ? updated
+            : {
+                ...makeOccurrence(replacement, task.occurrenceDate),
+                id: task.id,
+                order: task.order,
+                createdAt: task.createdAt,
+              },
+        );
+      }
+      if (removed.length) {
+        // Removed future allocations must not suppress earlier dates in the new schedule.
+        replacement.recurrenceCursor = tasks
+          .filter(
+            (task) =>
+              !task.recurrenceTemplate &&
+              task.recurrenceSeriesId === current.recurrenceSeriesId &&
+              !removed.some((item) => item.id === task.id),
+          )
+          .reduce(
+            (last, task) =>
+              task.occurrenceDate && task.occurrenceDate > last ? task.occurrenceDate : last,
+            '',
+          );
+      }
+      return {
+        save,
+        remove: removed.map((task) => task.id),
+        result: { edited: save.slice(1), removed },
+      };
+    });
+    for (const task of changes.edited)
+      await this.history.record('task_edited', `Updated "${task.name}".`, task.id);
+    for (const task of changes.removed)
+      await this.history.record(
+        'task_deleted',
+        `Deleted "${task.name}" after repeat change.`,
+        task.id,
+      );
+    await this.load();
+    this.broadcastChange();
+  }
+
   private async saveAndReplace(task: Task): Promise<void> {
     await this.repository.save(task);
     this.tasks.update((tasks) =>
@@ -656,6 +902,7 @@ export class TaskService {
 
   private cleanDraft(draft: TaskDraft): TaskDraft & { reminderEnabled: boolean } {
     return {
+      recurrence: draft.recurrence,
       name: draft.name.trim(),
       note: draft.note.trim(),
       category: draft.category.trim(),
