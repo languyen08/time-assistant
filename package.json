@@ -28,8 +28,7 @@
     "electron": "node scripts/run-electron.cjs",
     "electron:smoke": "ng build && node scripts/run-electron.cjs --smoke-test",
     "package:dir": "npm run build && electron-builder --dir",
-    "package:win": "npm run build && electron-builder --win portable",
-    "package:installer": "npm run build && electron-builder --win nsis"
+    "package:win": "npm run build && electron-builder --win portable"
   },
   "private": true,
   "packageManager": "npm@11.16.0",

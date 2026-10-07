@@ -69,13 +69,14 @@ npm.cmd run lint
 npm.cmd run electron:smoke
 npm.cmd run package:dir
 npm.cmd run package:win
-npm.cmd run package:installer
 npm.cmd run release:patch
 npm.cmd run release:minor
 npm.cmd run release:major
 ```
 
-`npm.cmd run package:win` builds a portable [Time Assistant.exe](</c:/Where I improve myself/time assistant/release/Time Assistant.exe>) that you can launch immediately. `npm.cmd run package:dir` builds the unpacked app folder, and `npm.cmd run package:installer` creates the Windows installer.
+`npm.cmd run package:win` builds `release/Time Assistant.exe`, the sole user-facing Windows distribution artifact. Launch it directly; no installable setup or uninstall workflow is shipped. `npm.cmd run package:dir` retains `release/win-unpacked/` only for development, debugging, profiling, and packaging diagnostics.
+
+Electron Builder remains the sole packaging tool. Its portable target uses NSIS internally to build the self-extracting launcher; those internal tools are retained. Artifact naming, signing behavior, compression, and extraction settings are unchanged.
 
 This repository includes [.github/workflows/release-windows.yml](/c:/Where%20I%20improve%20myself/time%20assistant/.github/workflows/release-windows.yml),
 which builds and publishes `Time Assistant.exe` to a GitHub Release.
@@ -204,4 +205,4 @@ npm.cmd run electron:smoke
 
 Sticky notes shown is the maximum number of current active/paused cards (1–5). Main shows all current tasks; Sticky gives those cards priority over pending tasks. Changes propagate to open windows through the existing local BroadcastChannel.
 
-Start app with Windows reads Windows state each time Settings opens and confirms changes after writing. NSIS starts the installed executable; portable starts the original launcher, which must remain at its registered path. Re-enable startup after moving that launcher. Development and smoke runs cannot enable startup. The pinned Electron Windows API requires a quoted executable identity for accurate read-back of paths containing spaces.
+Start app with Windows reads Windows state each time Settings opens and confirms changes after writing. Portable starts the original launcher, which must remain at its registered path. Re-enable startup after moving that launcher. Development and smoke runs cannot enable startup. The pinned Electron Windows API requires a quoted executable identity for accurate read-back of paths containing spaces.

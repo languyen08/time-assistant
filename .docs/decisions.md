@@ -19,6 +19,7 @@ state, and history events locally. Keep live BreakSession state process-lifetime
 by ADR-017.
 
 Consequences:
+
 - Works offline.
 - Faster to build and test.
 - No backend, authentication, billing, or hosting required.
@@ -26,6 +27,7 @@ Consequences:
 - Real sync can be added later only after a new ADR.
 
 Current implementation note:
+
 - IndexedDB v2 currently persists `tasks`, `settings`, and `history` stores.
 - Task timing/reminder state is embedded in task records rather than separate task-run or reminder stores.
 - Live break-session state is runtime-only; only break history events are persisted.
@@ -43,6 +45,7 @@ Decision:
 Use desktop notifications by default. When the app is open, also show an in-app friendly reminder overlay with clear actions.
 
 Consequences:
+
 - Reminders are visible even when the main app is not focused.
 - In-app overlay allows richer actions than native notifications alone.
 - Notification sound must be soft and configurable.
@@ -67,6 +70,7 @@ Decision:
 Do not include mobile push notifications in the MVP. Treat mobile push as optional future work.
 
 Consequences:
+
 - MVP remains simpler.
 - No mobile app required.
 - No push provider required.
@@ -85,6 +89,7 @@ Decision:
 Do not require paid third-party services. Free local tools and optional free APIs are acceptable only if they do not block offline usage.
 
 Consequences:
+
 - Lower cost.
 - Better privacy.
 - Fewer external dependencies.
@@ -103,6 +108,7 @@ Decision:
 Use a simple Angular + Electron + local storage architecture. Avoid complex backend, distributed sync, global state libraries, and plugin systems until needed.
 
 Consequences:
+
 - Easier implementation.
 - Easier debugging.
 - Lower risk of overengineering.
@@ -121,6 +127,7 @@ Decision:
 Use Angular `21.2.15` for the frontend. Do not use React for this project.
 
 Consequences:
+
 - Angular services, routing, components, forms, and testing patterns are the default.
 - Documentation and examples should use Angular.
 - Codex/agents must not generate React components.
@@ -138,6 +145,7 @@ Decision:
 Use Electron `44.4.5` as the desktop shell. Angular remains the frontend UI. Electron owns native desktop behavior through main process code, BrowserWindow configuration, preload scripts, and safe IPC.
 
 Consequences:
+
 - The app runs as a real Windows desktop executable instead of a browser-only web app.
 - Sticky-note mode can use a small always-on-top BrowserWindow.
 - Electron makes desktop notifications, tray behavior, background scheduler support, and file dialogs possible; this consequence describes capability, not completed implementation.
@@ -146,6 +154,7 @@ Consequences:
 - A future desktop-shell migration can be considered only after MVP stability and with a new ADR.
 
 Current implementation note:
+
 - Main, sticky-note, and user-guide BrowserWindows are implemented.
 - A native Tray owns background availability and explicit Quit; it can open the main window or
   show an existing hidden Sticky Note.
@@ -154,9 +163,10 @@ Current implementation note:
 - Tray icon click restores/focuses Sticky Note only; Open Time Assistant explicitly opens Main.
 - Tray Quit destroys every application window and the Tray before quitting completely.
 - Desktop notifications, sticky-window controls, and explicit text-file dialogs are implemented through narrow preload/IPC APIs.
-- Windows startup-at-login configuration uses narrow preload/IPC APIs with structured confirmed OS results. The existing capability supports NSIS installed executables and portable original launchers kept at their registered paths. Quoted executable identity avoids the pinned Electron path-with-spaces read-back defect. Development/smoke execution and unresolved portable launchers are explicitly unsupported.
+- Windows startup-at-login configuration uses narrow preload/IPC APIs with structured confirmed OS results. The distributed portable build targets its original launcher kept at the registered path; the existing executable fallback remains for unpacked diagnostics. Quoted executable identity avoids the pinned Electron path-with-spaces read-back defect. Development/smoke execution and unresolved portable launchers are explicitly unsupported.
 - No independent Electron main-process reminder scheduler is implemented.
 - Timer/reminder scheduling currently starts inside each Angular renderer, creating unresolved multi-window ownership risk.
+
 ---
 
 ## ADR-008: Phase-Based Implementation With Review Gates
@@ -170,6 +180,7 @@ Decision:
 Implement the app phase-by-phase. Stop after each phase for human review before continuing.
 
 Consequences:
+
 - Better review control.
 - Less scope creep.
 - Easier to catch UX problems early.
@@ -192,6 +203,7 @@ Decision:
 Use CSV import/export for tasks and history in the MVP.
 
 Consequences:
+
 - Simple and transparent.
 - Works with spreadsheet tools.
 - Easy backup/sharing.
@@ -211,6 +223,7 @@ Decision:
 Use the configured UI/UX and skeuomorphism skills from `.codex/skills` when designing the interface.
 
 Consequences:
+
 - UI should use tactile cards, soft depth, sticky-note-like surfaces, and warm interactions.
 - Design must remain accessible and not decorative at the cost of usability.
 - Reminder UX should be calm and encouraging.
@@ -231,6 +244,7 @@ Decision:
 Add optional Google Calendar OAuth for the desktop app. Use the system browser, desktop OAuth with PKCE, and a loopback callback handled by Electron main. Store OAuth tokens locally in Electron `userData`. Keep Google Calendar sync user-triggered and scoped to calendar event creation/update. Do not add a backend.
 
 Consequences:
+
 - Calendar sync is easier to use than `.ics` files.
 - The core task flow still works offline without Google Calendar.
 - A Google Cloud OAuth desktop client ID is required.
@@ -242,21 +256,37 @@ Calendar integration was removed from the current MVP after review. Future calen
 
 ---
 
-## ADR-012: Consolidate Packaging on Electron Builder
+## ADR-012: Electron Builder With Portable-Only Windows Distribution
 
 Status: Accepted
 
 Context:
-The repository previously used Electron Forge alongside Electron Builder, creating two packaging paths to maintain. Electron Builder already provides the directory, portable Windows, and NSIS installer outputs used by the project and its release automation.
+The repository previously used Electron Forge alongside Electron Builder, creating two packaging
+paths to maintain. Consolidation removed Forge. The accepted product decision on 2026-10-07 removes
+installable Windows distribution as well. GitHub release automation already publishes only the
+portable executable. Electron Builder's portable implementation still relies on NSIS internally.
 
 Decision:
-Use Electron Builder as the sole packaging tool. Remove `forge.config.cjs`, Electron Forge dependencies, and Forge commands or documentation.
+
+- Electron Builder remains the sole packaging tool; Electron Forge stays removed.
+- The portable Windows executable is the sole user-facing distribution artifact.
+- `npm run package:win` produces `release/Time Assistant.exe` with the existing artifact naming.
+- `npm run package:dir` retains unpacked output only for development, debugging, profiling, and
+  packaging diagnostics.
+- Remove the installable/NSIS installer product, its script, and installer-only release artifacts.
+  No installer artifact should be produced or maintained.
+- Preserve NSIS/compiler/template/resource dependencies used internally by Builder's portable
+  target. This decision does not claim NSIS is completely removed.
 
 Consequences:
+
 - One packaging path is easier to maintain and document.
-- The canonical packaging commands are the Electron Builder-backed `package:dir`, `package:win`, and `package:installer` scripts.
+- The only canonical packaging scripts are `package:dir` (diagnostics) and `package:win` (distribution).
 - Windows release automation uses `package:win` and publishes the resulting portable executable.
 - Electron Forge is no longer installed or configured.
+- No install/uninstall flow, install directory policy, or installed shortcuts are shipped.
+- Shared icons, app identity, signing behavior, compression, ASAR, and portable extraction behavior
+  are unchanged. Startup-performance optimization is a separate task.
 
 ---
 
@@ -281,6 +311,7 @@ normal window synchronization. Existing `ReminderSchedulerService` ownership is 
 this ADR.
 
 Consequences:
+
 - Future automatic task starts have one authoritative owner that survives visible-window
   lifecycle changes.
 - The current IndexedDB repositories remain usable without a storage technology migration.
@@ -292,6 +323,7 @@ Consequences:
   starts and retries without changing that ownership decision.
 
 Phase 2.2 implementation note:
+
 - The Scheduler now runs `AutomaticTaskSchedulerService` as the sole automatic-start owner.
 - `reminderAt` remains the user-authored scheduled Start time, while optional `nextAutoStartAt`
   stores system-managed 30-minute retry state.
@@ -323,6 +355,7 @@ paused task. The product now requires selected incoming tasks to run concurrentl
 the existing deterministic queue, automatic retry, reminder, and break behavior.
 
 Decision:
+
 - Add user-owned `allowConcurrentStart`, defaulting and normalizing to `false` without an IndexedDB
   version change.
 - Expose ordered `activeTasks` and `currentTasks` collections from `TaskService` and require an
@@ -335,6 +368,7 @@ Decision:
 - Prompt for Break only when completing the last active/paused task. Deletion never prompts.
 
 Consequences:
+
 - Multiple active/paused records may coexist and Main/Sticky render task-specific cards. Main shows all current tasks; Sticky caps these at `stickyVisibleNotes` (1–5), prioritizes them over queued tasks, and reloads settings via invalidation on the existing task channel when another window saves/resets settings.
 - Singular mutation APIs are no longer valid business interfaces.
 - Several overdue concurrent tasks may start during one Scheduler evaluation in queue order.
@@ -355,6 +389,7 @@ without allowing Main and Sticky to independently send duplicate native notifica
 Scheduler previously had no native-notification bridge.
 
 Decision:
+
 - The dedicated Scheduler renderer is the sole owner of deadline triggering through
   `DeadlineSchedulerService`.
 - One-time trigger and acknowledgement state are persisted on Task as `deadlineNotifiedAt` and
@@ -371,12 +406,14 @@ Decision:
 Consequences:
 
 Positive:
+
 - One authoritative deadline trigger owner prevents Main/Sticky native-notification duplication.
 - Persistent processing state deduplicates notifications across renderer or application restart.
 - Deadline triggering continues while only Tray/Scheduler remain, with no storage technology or
   IndexedDB version migration.
 
 Tradeoffs:
+
 - Scheduler gains one narrow native capability.
 - A native notification failure after the trigger is persisted is not retried; the persisted in-app
   alert remains available.
@@ -400,6 +437,7 @@ final stored task looked valid. The hidden Scheduler already owns automatic star
 deadlines, while the active normal reminder previously existed only in renderer memory.
 
 Decision:
+
 - Scheduler is the sole normal-reminder timing and notification owner. Main and Sticky never start
   reminder loops.
 - Persist the pending occurrence on Task as optional `pendingReminder` containing `attemptNumber`,
@@ -422,6 +460,7 @@ Decision:
 Consequences:
 
 Positive:
+
 - Removes the Main/Sticky duplicate-processing race.
 - Pending reminder UI survives renderer recreation and application restart.
 - Friendly message, shown time, and attempt identity remain stable across presenter transitions.
@@ -429,6 +468,7 @@ Positive:
 - Reminder timing, native notification, and sound have a clear process-lifetime owner.
 
 Tradeoffs:
+
 - Task gains optional runtime reminder processing state.
 - One pending reminder blocks later due reminders until it is acted on or dismissed.
 - Persistence-before-notification means native notification failure is not automatically retried;
@@ -450,6 +490,7 @@ full BreakSession UI is not persisted. The product boundary for full application
 previously explicit.
 
 Decision:
+
 - Live BreakSession state is process-lifetime only.
 - Same-process Scheduler retention of a running break remains in place until expiry or an explicit
   terminal transition.
@@ -461,6 +502,7 @@ Decision:
   an IndexedDB version change.
 
 Consequences:
+
 - Window close or reload and full application Quit have intentionally different behavior.
 - Break behavior is simple and predictable without migration or storage complexity.
 - An accidental application restart ends the current break.

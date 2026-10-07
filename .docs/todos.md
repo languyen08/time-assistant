@@ -316,31 +316,60 @@ Goal: add optional convenience features and polish after the core app is stable.
 
 ## Current Reconciliation / Stabilization
 
+- [x] Adopt portable-only Windows distribution (2026-10-07, amended ADR-012).
+  - [x] Remove the installable packaging script; retain `package:win` for the sole user-facing
+        portable executable and `package:dir` only for development/debugging/profiling diagnostics.
+  - [x] Audit release automation: it already builds/uploads only `Time Assistant.exe`; preserve
+        tagging, versioning, artifact naming, release metadata, and signing behavior.
+  - [x] Retain Builder's internal NSIS compiler/templates/resources and shared icons/dependencies.
+        There was no installer-only NSIS configuration block to remove.
+  - [x] Remove stale local Setup executable, its blockmap, and installer-only `latest.yml`;
+        remove installer test modes and current installer distribution instructions.
+  - [x] Synchronize README and all five canonical docs; withdraw the installed-distribution
+        alternative from the startup-performance recommendations. Historical validation below records
+        the packaging modes used at that time, not current release support.
+  - [x] Validate changed-file formatting, whitespace, Electron tests, production build, both
+        canonical package commands, portable launch/window behavior, and persisted IndexedDB reads.
+  - Validation: 231 Angular tests and 38 Electron tests passed; production build, `package:dir`,
+    and `package:win` succeeded without configuration overrides. The existing workspace-local
+    Builder resource-tool cache was reused. Both actual portable launch checks exited 0 and
+    verified Angular UI, Sticky hide/restore, Main close preserving Sticky, Settings interaction,
+    and the same persisted IndexedDB v2 task/settings/history across restart. No installer prompt
+    or install/uninstall flow appeared; no Setup executable, blockmap, uninstaller, or installer
+    update metadata remains in release output. Screenshots and logs are in `artifacts/portable-only`.
+  - The packaged startup test now selects windows by rendered DOM instead of initial URL queries
+    that Angular can normalize, and allows the known slow portable launch. Application routing
+    and startup-performance instrumentation are unchanged.
+  - Environment: Node 25.6.0/npm 11.8.0; canonical Node 26.2.0 is unavailable. Existing bundle/CSS
+    warning budgets remain. Signing behavior and the full Builder configuration are unchanged.
+  - Scope: no startup optimization, compression/ASAR/extraction/signing changes, or runtime
+    architecture changes. No other stabilization item is started.
+
 - [x] Implement recurring task occurrences (2026-10-06).
   - [x] Phase 1: optional Task recurrence metadata, independently tested calendar calculator,
-    hidden defaults in the existing tasks store, lazy next-date allocation, deterministic IDs,
-    and serialized IndexedDB generation. Internal checkpoint: 65 focused tests passed before UI.
+        hidden defaults in the existing tasks store, lazy next-date allocation, deterministic IDs,
+        and serialized IndexedDB generation. Internal checkpoint: 65 focused tests passed before UI.
   - [x] Phase 2: Repeat toggle, daily/weekdays/custom modes, weekday buttons, coordinated inclusive
-    date inputs, validation, and occurrence-only/future edit scopes. Focused form/lifecycle/CSV
-    checkpoint: 99 tests passed.
+        date inputs, validation, and occurrence-only/future edit scopes. Focused form/lifecycle/CSV
+        checkpoint: 99 tests passed.
   - [x] Phase 3: startup/calendar rollover/completion/deletion checks; no missed-date backlog;
-    retain unfinished work; concrete reminder and Finish-by derivation; reconcile only untouched
-    future records; preserve normal elapsed/pause/completion/Break and optional reminders.
+        retain unfinished work; concrete reminder and Finish-by derivation; reconcile only untouched
+        future records; preserve normal elapsed/pause/completion/Break and optional reminders.
   - [x] Phase 4: explicit compatible CSV columns and defaults rows; two focused Playwright
-    scenarios (real UI lifecycle and simultaneous renderer allocation); README and all five
-    canonical docs updated, with an existing decision consistency note and no new ADR.
+        scenarios (real UI lifecycle and simultaneous renderer allocation); README and all five
+        canonical docs updated, with an existing decision consistency note and no new ADR.
   - [x] Recurrence deletion fix (2026-10-06): Delete now removes the template and all unfinished
-    occurrences atomically, preserves completed records/history, and cannot generate a next day.
-    The focused browser regression reloads both Main and Sticky after deletion.
+        occurrences atomically, preserves completed records/history, and cannot generate a next day.
+        The focused browser regression reloads both Main and Sticky after deletion.
   - [x] Pass 231 Angular tests, 38 Electron tests, three focused recurring browser scenarios, and
-    a production build,
-    and a separate 17-test America/New_York run exercising DST wall-clock behavior.
+        a production build,
+        and a separate 17-test America/New_York run exercising DST wall-clock behavior.
   - [x] Preserve IndexedDB version 2, its three stores, and all existing indexes; no migration.
   - [x] Build a Windows directory package with Electron Builder and launch it in the isolated
-    --smoke-test profile (exit 0). The local signAndEditExecutable=false workaround is used;
-    portable and NSIS artifacts were not rebuilt/tested for this feature.
+        --smoke-test profile (exit 0). The local signAndEditExecutable=false workaround is used;
+        portable and NSIS artifacts were not rebuilt/tested for this feature.
   - [x] Verify changed-file Prettier and git diff whitespace checks. The full Prettier-only lint
-    check still reports 51 unchanged files; no unrelated formatting debt was changed.
+        check still reports 51 unchanged files; no unrelated formatting debt was changed.
   - Changed files: app.ts/app.html/app.css/app.spec.ts; core/models/task.ts;
     core/utils/recurrence.util.ts and its spec; core/repositories/task.repository.ts and its spec;
     core/storage/indexed-db-storage.adapter.ts; core/services/task.service.ts,
@@ -358,7 +387,7 @@ Goal: add optional convenience features and polish after the core app is stable.
 
 - [x] Implement optional task reminders (2026-10-05).
   - [x] Add `reminderEnabled`, default enabled for new drafts and missing legacy records without a
-    storage schema/version change.
+        storage schema/version change.
   - [x] Add create/edit toggle and conditional validation; allow a disabled task with no entered timing.
   - [x] Guard scheduler selection/presentation, reminder processing and extensions in services.
   - [x] Compact Main/Sticky cards to elapsed time and pause/resume/complete when disabled.
@@ -367,7 +396,7 @@ Goal: add optional convenience features and polish after the core app is stable.
   - [x] Add focused service/component tests and a small multi-window Playwright regression.
   - [x] Synchronize the canonical docs; clarify existing ADRs without adding a new ADR.
   - [x] Pass 196 Angular tests, 38 Electron tests, seven Playwright scenarios, production build,
-    changed-file Prettier and diff whitespace checks.
+        changed-file Prettier and diff whitespace checks.
   - Validation limits: repository-wide `lint` is still a Prettier-only check and reports 54
     unchanged files (68 before this feature). Production build retains bundle/CSS budget warnings.
     Commands ran with the available Node 25.6.0; packaged Windows builds were not retested for this feature.
@@ -390,20 +419,20 @@ Goal: add optional convenience features and polish after the core app is stable.
   - [x] Add focused renderer and Electron-main tests.
 - [x] Complete Phase 1 of the desktop-window foundation product change.
   - [x] Add native main-window Maximize/Restore with Electron-authoritative state and title-bar
-    double-click behavior.
+        double-click behavior.
   - [x] Add a native Windows Tray with Open Time Assistant, Show Sticky Note, and explicit Quit
-    actions.
+        actions.
   - [x] Keep Main and Sticky lifecycles independent: Main X closes Main, Sticky X hides Sticky,
-    Tray click restores Sticky, and Tray Quit performs complete shutdown.
+        Tray click restores Sticky, and Tray Quit performs complete shutdown.
   - [x] Make Sticky Note X temporarily hide the sticky window without changing
-    `stickyNoteEnabled`.
+        `stickyNoteEnabled`.
   - [x] Preserve deterministic smoke-test shutdown and Windows startup-at-login behavior.
 - [x] Phase 2 — Automatic and concurrent task lifecycle.
   - [x] Establish one dedicated hidden Scheduler renderer as the sole owner for automatic
-    task lifecycle scheduling.
+        task lifecycle scheduling.
   - [x] Automatically start tasks at their scheduled Start time.
   - [x] Coordinate break prompt/running state across visible renderers and reevaluate when breaks
-    unblock scheduling.
+        unblock scheduling.
   - [x] Support per-task concurrent start / multiple active tasks.
   - [x] Reschedule blocked automatic starts in repeated 30-minute increments.
   - [x] Finish-by/deadline + custom message.
@@ -412,7 +441,7 @@ Goal: add optional convenience features and polish after the core app is stable.
 - [ ] Decide whether to introduce semantic linting or rename the current Prettier-only `lint` command.
 - [x] Establish reliable multi-window reminder ownership/synchronization and eliminate the potential duplicate-processing race.
 - [x] Decide that live BreakSession state is process-lifetime only. Scheduler retains the running
-  break block across visible-window close/reload within the same process, while full application
-  Quit intentionally discards prompt, running, complete, and retained Scheduler break state.
+      break block across visible-window close/reload within the same process, while full application
+      Quit intentionally discards prompt, running, complete, and retained Scheduler break state.
 - [ ] Record settings changes in history or remove the unused `settings_changed` event type through an explicit product decision.
 - [ ] Decide how ignored `.docs` files are versioned or distributed so canonical documentation changes remain recoverable.

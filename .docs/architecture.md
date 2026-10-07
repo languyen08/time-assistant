@@ -10,22 +10,27 @@ Build a practical local-first Windows desktop app for friendly task transition r
 
 Verified for this repo. Do not use `latest`, `^`, or `~` in package files.
 
-| Area | Choice | Version |
-|---|---:|---:|
-| Runtime | Node.js Current | 26.2.0 |
-| Package manager | npm | 11.16.0 |
-| Frontend | Angular | 21.2.15 |
-| Angular CLI | `@angular/cli` | 21.2.13 |
-| Language | TypeScript | 5.9.3 |
-| Desktop shell | Electron | 44.4.5 |
-| Electron Builder | `electron-builder` | 26.8.1 |
-| Charts | Chart.js | 4.5.1 |
-| Angular charts wrapper | ng2-charts | 8.0.0 |
-| CSV parsing | Papa Parse | 5.5.3 |
-| Testing | Vitest | 4.1.7 |
-| E2E testing | Playwright | 1.60.0 |
+| Area                   |             Choice | Version |
+| ---------------------- | -----------------: | ------: |
+| Runtime                |    Node.js Current |  26.2.0 |
+| Package manager        |                npm | 11.16.0 |
+| Frontend               |            Angular | 21.2.15 |
+| Angular CLI            |     `@angular/cli` | 21.2.13 |
+| Language               |         TypeScript |   5.9.3 |
+| Desktop shell          |           Electron |  44.4.5 |
+| Electron Builder       | `electron-builder` |  26.8.1 |
+| Charts                 |           Chart.js |   4.5.1 |
+| Angular charts wrapper |         ng2-charts |   8.0.0 |
+| CSV parsing            |         Papa Parse |   5.5.3 |
+| Testing                |             Vitest |   4.1.7 |
+| E2E testing            |         Playwright |  1.60.0 |
 
-Packaging and release use Electron Builder exclusively; see accepted ADR-012. The canonical commands are `npm run package:dir` for an unpacked application, `npm run package:win` for the portable Windows executable used by the release workflow, and `npm run package:installer` for an NSIS installer. Electron Forge configuration and dependencies have been removed.
+Packaging and release use Electron Builder exclusively; see accepted ADR-012. `npm run package:win`
+produces `release/Time Assistant.exe`, the sole user-facing Windows distribution artifact. The
+unpacked `npm run package:dir` output is retained only for development, debugging, profiling, and
+packaging diagnostics. No installable setup target or artifact is maintained. The portable target
+still uses Electron Builder's internal NSIS compiler, templates, and resources; these are build
+implementation dependencies, not an installable product. Electron Forge remains removed.
 
 ## High-Level Architecture
 
@@ -58,7 +63,6 @@ Electron main
 ```
 
 Electron main does not currently own timer or reminder scheduling.
-
 
 ## Angular + Electron Desktop Model
 
@@ -469,7 +473,7 @@ Settings UI
 
 Windows is authoritative. Reads and writes use the same quoted executable identity and empty argument list. Electron 44.4.5 parses its lookup path as a command line, so an unquoted path with spaces can produce a false `executableWillLaunchAtLogin`; quoting avoids that defect without an Electron upgrade or native dependency. Explicit `enabled` updates Windows Startup Apps approval. Main returns a structured result with support, confirmed enabled state (null on unreadable state), success, and a short reason/message, and logs native errors/read-back mismatches. Settings re-queries on opening and retains the last confirmed value if state cannot be read.
 
-Packaged portable builds use Electron Builder's `PORTABLE_EXECUTABLE_FILE` so the login item points to the original portable executable rather than the temporary extracted Electron process. A portable environment without a valid original executable is explicitly unsupported. Portable startup requires retaining the launcher at its registered path; after moving it, re-enable from the new location. NSIS uses the installed `process.execPath` (the same executable exposed by `app.getPath('exe')`); no Squirrel updater stub is involved in this packaging. Development and automated smoke execution never register a startup item.
+Packaged portable builds use Electron Builder's `PORTABLE_EXECUTABLE_FILE` so the login item points to the original portable executable rather than the temporary extracted Electron process. A portable environment without a valid original executable is explicitly unsupported. Portable startup requires retaining the launcher at its registered path; after moving it, re-enable from the new location. The existing `process.execPath` fallback remains for unpacked packaging diagnostics; it is not an installer distribution path. No Squirrel updater stub is involved. Development and automated smoke execution never register a startup item.
 
 ## Calendar Integration
 

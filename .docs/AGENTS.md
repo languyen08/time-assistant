@@ -1,9 +1,11 @@
 # AGENTS.md
 
 ## Project Overview
+
 Local-first Windows desktop productivity app for friendly task transition reminders. The app helps users start, pause, resume, extend, complete, break between, and review tasks without stressful interruptions.
 
 ## Required Reading Order
+
 1. Read `AGENTS.md` completely.
 2. Read `plans.md` for product behavior.
 3. Read `architecture.md` for system constraints.
@@ -11,6 +13,7 @@ Local-first Windows desktop productivity app for friendly task transition remind
 5. Read `todos.md` and implement only the current phase/task.
 
 ## Current Verified Stack
+
 - Angular `21.2.15`
 - Angular CLI/build `21.2.13`
 - TypeScript `5.9.3`
@@ -26,7 +29,14 @@ Local-first Windows desktop productivity app for friendly task transition remind
 
 Electron Builder `26.8.1` is the canonical and sole packaging tool. Electron Forge configuration and dependencies have been removed. `date-fns` and repo-local `.codex/skills` are not present in the current working tree.
 
+Accepted ADR-012 makes the portable Windows executable the sole user-facing distribution artifact.
+`npm run package:win` produces `release/Time Assistant.exe`; `npm run package:dir` is retained only
+for development, debugging, profiling, and packaging diagnostics. Do not add or maintain an
+installable setup target or artifact. Preserve Electron Builder's internal NSIS machinery required
+by the portable target; removal of the installer product does not remove NSIS internals.
+
 ## Package Rules
+
 - Do not use `latest`.
 - Do not use `^` or `~` version ranges.
 - Pin exact versions.
@@ -50,6 +60,7 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Prefer boring, maintainable code over clever abstractions.
 
 ## Electron Rules
+
 - Angular runs in Electron renderer windows.
 - Electron main process owns native desktop features.
 - Use preload scripts for safe IPC bridges.
@@ -141,6 +152,7 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Do not introduce NgRx or another global state library unless an ADR approves it.
 
 ## Local-First Constraints
+
 - App must work offline.
 - Store user data locally.
 - No login required.
@@ -149,6 +161,7 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Mobile push notification is optional and not part of MVP.
 
 ## UI/UX Rules
+
 - Preserve the existing calm, subtle skeuomorphic direction without assuming repo-local design skills are installed.
 - Keep skeuomorphism subtle, calm, and usable.
 - Use tactile cards, soft shadows, sticky-note-like surfaces, and clear controls.
@@ -157,6 +170,7 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Preserve the existing visual design. Light, dark, and system theme selection and persistence are intentionally outside the MVP.
 
 ## Testing Expectations
+
 - Add unit tests for services that contain business logic.
 - Add tests for timer/reminder calculations.
 - Add tests for CSV import/export validation.
@@ -166,6 +180,7 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - The current `lint` command is a Prettier check, not semantic linting; do not describe it otherwise.
 
 ## Forbidden Overengineering
+
 - No backend in MVP.
 - No authentication in MVP.
 - No real-time sync in MVP.
@@ -176,13 +191,16 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - No implementing future phases while working on the current phase.
 
 ## How To Use The Docs
+
 - `plans.md`: product requirements and UX behavior.
 - `architecture.md`: technical design and boundaries.
 - `decisions.md`: accepted architecture decisions.
 - `todos.md`: corrected current work state and next milestone; historical checkboxes must still be verified against source.
 
 ## End-of-Phase Report
+
 At the end of every phase, report:
+
 1. What changed.
 2. Completed checkboxes.
 3. Tradeoffs.

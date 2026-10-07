@@ -75,7 +75,7 @@ describe('startup login controller', () => {
     expect(electronApp.getLoginItemSettings).toHaveBeenCalledWith(identity);
   });
 
-  it.each(['nsis', 'portable'])(
+  it.each(['unpacked', 'portable'])(
     'enables/disables %s with quoted, identical read/write targets',
     (packaging) => {
       const { controller, electronApp } = setup(

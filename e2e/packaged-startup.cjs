@@ -1,4 +1,4 @@
-// Run after packaging: node e2e/packaged-startup.cjs <executable> <portable|nsis>
+// Run after packaging: node e2e/packaged-startup.cjs <portable-executable>
 // Uses the packaged preload/IPC and real Windows APIs. Restores the exact previous
 // app-specific Run/StartupApproved values, even when an assertion fails.
 const { chromium, expect: baseExpect } = require('@playwright/test');
@@ -8,7 +8,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 
 const executablePath = path.resolve(process.argv[2]);
-const packaging = process.argv[3];
+const packaging = 'portable';
 const profile = path.resolve('artifacts', `startup-${packaging}-${Date.now()}-profile`);
 fs.mkdirSync(profile, { recursive: true });
 const registryName = 'local.assistant-time.time-assistant';
@@ -71,7 +71,7 @@ async function connectInspector(port) {
           return false;
         }
       },
-      { timeout: 60_000 },
+      { timeout: 180_000 },
     )
     .toBe(true);
   const socket = new WebSocket(targets[0].webSocketDebuggerUrl);
@@ -165,17 +165,25 @@ async function launch() {
   console.log(packaging, 'runtime', runtime);
   expect(runtime.packaged).toBe(true);
   expect(path.resolve(runtime.userData)).toBe(profile);
-  if (packaging === 'portable') {
-    expect(runtime.portable).toBe(executablePath);
-    expect(runtime.exe).not.toBe(executablePath);
-  } else {
-    expect(runtime.portable).toBeUndefined();
-    expect(runtime.exe).toBe(executablePath);
-  }
+  expect(runtime.portable).toBe(executablePath);
+  expect(runtime.exe).not.toBe(executablePath);
+  // Angular can normalize the file URL after bootstrap. Identify the rendered
+  // window rather than depending on its initial query string surviving routing.
+  let sticky;
   await expect
-    .poll(() => application.windows().find((page) => page.url().includes('window=sticky')))
-    .toBeTruthy();
-  const sticky = application.windows().find((page) => page.url().includes('window=sticky'));
+    .poll(
+      async () => {
+        for (const page of application.windows()) {
+          if (await page.locator('.sticky-shell').count()) {
+            sticky = page;
+            return true;
+          }
+        }
+        return false;
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
   await sticky.waitForFunction(() => Boolean(window.assistantTime));
   await sticky.evaluate(() => window.assistantTime.focusMainWindow());
   console.log(
@@ -187,10 +195,21 @@ async function launch() {
   // Chromium's generic CDP connection does not discover later Electron windows
   // consistently. A fresh connection enumerates the newly created Main target.
   browsers.push(await chromium.connectOverCDP(`http://127.0.0.1:${browserPort}`));
+  let main;
   await expect
-    .poll(() => application.windows().find((page) => page.url().includes('window=main')))
-    .toBeTruthy();
-  const main = application.windows().find((page) => page.url().includes('window=main'));
+    .poll(
+      async () => {
+        for (const page of application.windows()) {
+          if (await page.getByLabel('Task name').count()) {
+            main = page;
+            return true;
+          }
+        }
+        return false;
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
   await main.getByRole('button', { name: 'Settings', exact: true }).click();
   const checkbox = main.getByLabel('Start app with Windows');
   await expect(checkbox).toBeEnabled();

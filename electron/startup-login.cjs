@@ -40,7 +40,8 @@ function createStartupLoginController({
     platform: 'Startup is available on Windows.',
     development: 'Startup is available in packaged Windows builds.',
     'smoke-test': 'Startup is disabled during smoke tests.',
-    'executable-unavailable': 'The startup executable could not be found. Try the installer build.',
+    'executable-unavailable':
+      'The portable launcher could not be found. Run the original Time Assistant.exe and try again.',
     'native-error': 'Windows startup could not be changed. Please try again.',
     'read-error': 'Windows startup status could not be read. Please try again.',
     'read-back-mismatch': 'Windows did not confirm the startup change. Check Windows Startup Apps.',

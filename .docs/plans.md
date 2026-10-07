@@ -19,6 +19,8 @@ current task, and move to the next task.
 - Runtime/tooling: Node.js `26.2.0`, npm `11.16.0`.
 - Storage: local-first IndexedDB for the MVP.
 - Sync: manual CSV import/export for MVP.
+- Distribution: Electron Builder portable Windows executable only. Unpacked directory output is
+  retained for development/debugging/profiling diagnostics; no installable setup is shipped.
 
 Angular is the UI framework. Electron packages the Angular UI as a real Windows desktop app with native windows, notifications, file dialogs, sticky-note mode, and a Windows system tray. A hidden Scheduler renderer owns automatic starts, Finish-by processing, and normal reminder timing. The MVP should not be implemented as a browser-only web app.
 
@@ -277,7 +279,7 @@ Settings should include:
 - Start app with Windows
 - privacy/local data options
 
-The Windows startup option controls the native Windows login item through Electron main. Windows is the source of truth; the value is not stored in IndexedDB. Settings queries Windows every time it opens and updates the checkbox only from confirmed read-back. Development/smoke runs explicitly disable this capability. NSIS uses the installed executable; portable uses the original portable launcher and requires it to stay at that path. Moving/removing a portable executable invalidates its startup target; enable startup again from its new location. An unresolved portable launcher is unsupported rather than registering a temporary executable.
+The Windows startup option controls the native Windows login item through Electron main. Windows is the source of truth; the value is not stored in IndexedDB. Settings queries Windows every time it opens and updates the checkbox only from confirmed read-back. Development/smoke runs explicitly disable this capability. Portable uses the original portable launcher and requires it to stay at that path. Moving/removing a portable executable invalidates its startup target; enable startup again from its new location. An unresolved portable launcher is unsupported rather than registering a temporary executable.
 
 Current implementation: reminder, break, sound, sticky-note, CSV, and Windows startup settings are present. Privacy/local-data settings are not present, and the declared `settings_changed` history event is not currently recorded.
 
@@ -290,6 +292,7 @@ Development should produce small, reviewable milestones. Historical implementati
 Goal: working local MVP with Angular, Electron, local storage, task CRUD, current active/paused tasks (with per-task concurrent start), timer, and basic reminders.
 
 Review target:
+
 - Can the user create a task?
 - Can the user start and complete a task?
 - Does the timer/reminder flow work?
@@ -300,6 +303,7 @@ Review target:
 Goal: make the core app pleasant for daily use.
 
 Includes:
+
 - sticky-note mode
 - pause/resume
 - break prompt before next task
@@ -308,6 +312,7 @@ Includes:
 - visual polish using the existing theme
 
 Review target:
+
 - Is the reminder experience friendly?
 - Is sticky-note mode useful?
 - Does pause/resume behave naturally?
@@ -318,12 +323,14 @@ Review target:
 Goal: make the app useful for reflection and cross-device manual sharing.
 
 Includes:
+
 - action history
 - CSV import/export
 - basic charts
 - settings export/import if useful
 
 Review target:
+
 - Is history complete enough?
 - Are CSV files understandable?
 - Are charts useful without being overbuilt?
@@ -333,6 +340,7 @@ Review target:
 Goal: add optional convenience features without increasing MVP complexity too much.
 
 Includes:
+
 - voice input: deferred and not part of the current MVP
 - calendar integration: deferred and requires a new ADR before reconsideration
 - better settings
@@ -342,6 +350,7 @@ Includes:
 Current scope note: voice input and calendar integration were reviewed and deferred. Accessibility and settings polish are partial; reduced-motion support remains incomplete.
 
 Review target:
+
 - Are optional features worth keeping?
 - Does the app remain simple?
 - Is it ready for a private beta?
@@ -363,6 +372,7 @@ Use a calm, friendly, productivity-focused interface.
 Use available design guidance when present, but do not assume repo-local `.codex/skills` exist. They are absent from the current working tree.
 
 Prefer subtle skeuomorphic touches:
+
 - soft cards
 - tactile buttons
 - warm surfaces
