@@ -35,6 +35,11 @@ for development, debugging, profiling, and packaging diagnostics. Do not add or 
 installable setup target or artifact. Preserve Electron Builder's internal NSIS machinery required
 by the portable target; removal of the installer product does not remove NSIS internals.
 
+The measured 2026-10-07 configuration excludes `electron/**/*.spec.mjs`, keeps default normal
+compression/ASAR, and uses Builder 26.8.1's `portable.useZip=true` direct extraction with
+`unpackDirName=false`. Recheck these pinned-version options on Builder upgrades. Extraction
+still happens every launch; there is no retained runtime cache. See `docs/startup-performance.md`.
+
 ## Package Rules
 
 - Do not use `latest`.
@@ -135,6 +140,9 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Allocate deterministic recurring series/date IDs and advance the template cursor inside one
   IndexedDB readwrite transaction. Only its committed creator emits task_created. Do not replace
   this with a read-then-put race. ReminderSchedulerService consumes concrete occurrences only.
+- Bulk occurrence history retains one row per occurrence, appends/prunes in one history-store
+  transaction, and publishes once after commit. Keep the 10,000-row cap and local load/write/clear
+  ordering. The existing separate task/history commits are not a cross-store atomic operation.
 - Occurrence-only edits must not change defaults. Future edits must preserve completed/past work
   and future records with timing or alert activity. Deleting a recurring task removes its template
   and all unfinished series occurrences in one transaction; preserve completed work/history. CSV

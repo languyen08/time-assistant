@@ -43,7 +43,9 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     storeName: string,
     plan: (records: T[]) => { save: T[]; remove?: string[]; result: R },
   ): Promise<R> {
-    const profileEnd = startupSpan('idb-recurrence-transaction');
+    const profileEnd = startupSpan(
+      storeName === 'tasks' ? 'idb-recurrence-transaction' : `idb-${storeName}-batch-transaction`,
+    );
     try {
       const database = await this.openDatabase();
       return await new Promise<R>((resolve, reject) => {
@@ -64,7 +66,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
         };
         transaction.oncomplete = () => resolve(result);
         transaction.onerror = transaction.onabort = () =>
-          reject(transaction.error ?? new Error('Local task transaction failed.'));
+          reject(transaction.error ?? new Error('Local storage transaction failed.'));
       });
     } finally {
       profileEnd();

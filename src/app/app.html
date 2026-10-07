@@ -2800,6 +2800,8 @@
           </div>
 
           <div class="chart-grid" style="gap: 18px; margin-top: 18px">
+            <!-- Nested idle blocks mount one chart per idle turn after the task workspace. -->
+            @defer (on idle) {
             <section
               class="chart-box"
               aria-labelledby="completed-chart-title"
@@ -2847,6 +2849,7 @@
                 [options]="insightsChartOptions"
               ></canvas>
             </section>
+            @defer (on idle) {
             <section
               class="chart-box"
               aria-labelledby="focus-chart-title"
@@ -2894,6 +2897,7 @@
                 [options]="insightsChartOptions"
               ></canvas>
             </section>
+            @defer (on idle) {
             <section
               class="chart-box"
               aria-labelledby="category-chart-title"
@@ -2941,6 +2945,7 @@
                 [options]="insightsChartOptions"
               ></canvas>
             </section>
+            @defer (on idle) {
             <section
               class="chart-box"
               aria-labelledby="reminder-chart-title"
@@ -2988,6 +2993,12 @@
                 [options]="insightsChartOptions"
               ></canvas>
             </section>
+            }
+            }
+            }
+            } @placeholder {
+              <p class="empty-state" role="status">Loading insights…</p>
+            }
           </div>
         </article>
       </section>

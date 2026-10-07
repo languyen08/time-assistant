@@ -76,7 +76,7 @@ npm.cmd run release:major
 
 `npm.cmd run package:win` builds `release/Time Assistant.exe`, the sole user-facing Windows distribution artifact. Launch it directly; no installable setup or uninstall workflow is shipped. `npm.cmd run package:dir` retains `release/win-unpacked/` only for development, debugging, profiling, and packaging diagnostics.
 
-Electron Builder remains the sole packaging tool. Its portable target uses NSIS internally to build the self-extracting launcher; those internal tools are retained. Artifact naming, signing behavior, compression, and extraction settings are unchanged.
+Electron Builder remains the sole packaging tool. Its portable target uses NSIS internally to build the self-extracting launcher. The pinned Builder 26.8.1 uses direct NSIS file extraction (`portable.useZip=true`) into a unique per-launch plugin directory (`unpackDirName=false`), with default normal compression and ASAR enabled. This reduces peak temporary disk use; it still extracts every launch and cleans up on exit. Electron test files are excluded from distribution. See [the startup measurements](docs/startup-performance.md) for timing, tradeoffs, and reproducible benchmarks. Recheck these Builder-specific options on upgrades.
 
 This repository includes [.github/workflows/release-windows.yml](/c:/Where%20I%20improve%20myself/time%20assistant/.github/workflows/release-windows.yml),
 which builds and publishes `Time Assistant.exe` to a GitHub Release.

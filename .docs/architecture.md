@@ -32,6 +32,13 @@ packaging diagnostics. No installable setup target or artifact is maintained. Th
 still uses Electron Builder's internal NSIS compiler, templates, and resources; these are build
 implementation dependencies, not an installable product. Electron Forge remains removed.
 
+The pinned Builder 26.8.1 uses `portable.useZip=true` to embed runtime files directly in NSIS,
+bypassing its embedded-7z staging/copy path. `unpackDirName=false` selects a unique per-launch
+plugin directory. Both branches extract every launch, wait for the application, and clean up on
+exit; neither reuses a previous extraction. Default normal compression and ASAR remain enabled.
+Only Electron test specs are explicitly excluded. Revalidate these private Builder options on
+upgrades; see `docs/startup-performance.md` for measured costs and tradeoffs.
+
 ## High-Level Architecture
 
 ```txt
@@ -222,6 +229,15 @@ the latest series state, creates `recurring:<seriesId>:<YYYY-MM-DD>`, and advanc
 Transactions serialize competing renderer checks. Only the committed creator records task_created.
 History is recorded after task persistence, following the existing convention; a crash between
 commit and history can omit an event but cannot create a duplicate occurrence.
+
+For multiple committed occurrences, HistoryRepository appends individual rows and prunes to
+10,000 in one history-store readwrite transaction against fresh persisted state. HistoryService
+publishes once after commit and serializes its local load, record, batch, and clear operations.
+History failure rolls back the entire batch/prune transaction; it does not roll back the preceding
+task allocation. Single-occurrence recording keeps its existing path. Successful startup checks
+mark the checked local day so Scheduler avoids an immediate duplicate calendar check; rollover
+still reconciles. Main mounts its four chart sections in successive Angular idle defer blocks
+after the task workspace. Sticky skips Main-only history geometry work.
 
 Future-scope edits transact against fresh persisted records: replace the template, update selected
 current/future work, and reconcile only pending unstarted future rows with no timing/reminder/deadline

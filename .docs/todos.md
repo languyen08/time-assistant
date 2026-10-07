@@ -316,6 +316,26 @@ Goal: add optional convenience features and polish after the core app is stable.
 
 ## Current Reconciliation / Stabilization
 
+- [x] Complete the portable startup optimization experiments (2026-10-07).
+  - [x] Preserve the prior investigation; re-establish fresh-profile plus three-repeat portable and
+        unpacked baselines, audit ASAR/runtime contents, and decide each packaging experiment alone.
+  - [x] Retain only proven Electron test exclusions, direct NSIS extraction and per-launch plugin
+        directories. Revert both store trials; retain normal compression, ASAR and normal security.
+  - [x] Reduce sampled TEMP from about 835 to 368 MiB; accept the larger roughly 151 MiB artifact.
+  - [x] Mount Main charts at successive idle turns; batch occurrence history append/prune/publication
+        without dropping individual rows or changing task allocation/reminder ownership.
+  - [x] Verify batch failure rollback, 10,000-row retention, concurrent renderer allocation and
+        local load/write/clear ordering. Preserve the existing separate task/history commit boundary.
+  - [x] Pass 236 Angular tests, 38 Electron tests, 12 Playwright scenarios, production build,
+        both canonical package commands, and full portable launch/restart persistence smoke.
+  - Measured rebuilt repeat mean: 54.92 → 34.86 s, with a broad 25.69–52.62 s final repeat range;
+    preferred <15 s remains unmet. Native/cache variability prevents causal attribution of the full
+    observed gain. Main passive long task 103 ms → none recorded; allocation renders 107 → 12,
+    history transactions 200 → 1. Initial bundle increases about 64 kB; existing budgets still warn.
+  - Final post-smoke measurements, exact sizes, tradeoffs and reproduction are recorded in
+    `docs/startup-performance.md`. Node 25.6.0/npm 11.8.0 used; canonical versions unavailable.
+    Amend ADR-012 factually; no new architecture decision or unrelated follow-up is implemented.
+
 - [x] Adopt portable-only Windows distribution (2026-10-07, amended ADR-012).
   - [x] Remove the installable packaging script; retain `package:win` for the sole user-facing
         portable executable and `package:dir` only for development/debugging/profiling diagnostics.

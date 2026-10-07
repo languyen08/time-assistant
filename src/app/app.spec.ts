@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { DeferBlockState, TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { App } from './app';
 import { HistoryEvent } from './core/models/history-event';
@@ -107,6 +107,26 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
     expect(app).toBeTruthy();
+  });
+
+  it('shows the task workspace before mounting charts one idle block at a time', async () => {
+    const render = vi.spyOn(BaseChartDirective.prototype, 'render').mockReturnValue({} as never);
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    vi.spyOn(app, 'ngOnInit').mockResolvedValue();
+    app.loading.set(false);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('[formControlName="name"]')).toBeTruthy();
+    expect(host.querySelectorAll('canvas')).toHaveLength(0);
+    let [block] = await fixture.getDeferBlocks();
+    for (let count = 1; count <= 4; count++) {
+      await block.render(DeferBlockState.Complete);
+      expect(host.querySelectorAll('canvas')).toHaveLength(count);
+      if (count < 4) [block] = await block.getDeferBlocks();
+    }
+    expect(render).toHaveBeenCalledTimes(4);
+    fixture.destroy();
   });
 
   it('shows repeat controls conditionally and saves without requiring reminders', async () => {

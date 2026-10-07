@@ -15,6 +15,90 @@ function historyEvent(index: number): HistoryEvent {
 }
 
 describe('HistoryService', () => {
+  it('keeps every batch row private until commit, then publishes once', async () => {
+    let commit!: (events: HistoryEvent[]) => void;
+    const appendBatch = vi.fn(
+      (_events: HistoryEvent[], _maxEvents: number) =>
+        new Promise<HistoryEvent[]>((resolve) => {
+          commit = resolve;
+        }),
+    );
+    TestBed.configureTestingModule({
+      providers: [{ provide: HistoryRepository, useValue: { appendBatch } }],
+    });
+    const service = TestBed.inject(HistoryService);
+    const publish = vi.spyOn(service.events, 'set');
+    const pending = service.recordBatch(
+      Array.from({ length: 100 }, (_, index) => ({
+        type: 'task_created' as const,
+        summary: `Created ${index}`,
+        taskId: `task-${index}`,
+      })),
+    );
+    await Promise.resolve();
+    expect(publish).not.toHaveBeenCalled();
+    const rows = appendBatch.mock.calls[0][0] as HistoryEvent[];
+    expect(rows).toHaveLength(100);
+    expect(new Set(rows.map((row) => row.id)).size).toBe(100);
+    expect(rows.map((row) => row.taskId)).toEqual(
+      Array.from({ length: 100 }, (_, index) => `task-${index}`),
+    );
+    expect(appendBatch).toHaveBeenCalledWith(rows, MAX_HISTORY_EVENTS);
+    commit(rows);
+    await pending;
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(rows);
+  });
+
+  it('preserves state on a failed batch and allows a later operation', async () => {
+    const appendBatch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Transaction aborted'))
+      .mockResolvedValueOnce([historyEvent(1)]);
+    TestBed.configureTestingModule({
+      providers: [{ provide: HistoryRepository, useValue: { appendBatch } }],
+    });
+    const service = TestBed.inject(HistoryService);
+    service.events.set([historyEvent(0)]);
+    await expect(
+      service.recordBatch([{ type: 'task_created', summary: 'Failed' }]),
+    ).rejects.toThrow('Transaction aborted');
+    expect(service.events()).toEqual([historyEvent(0)]);
+    expect(service.errorMessage()).toBeTruthy();
+    await service.recordBatch([{ type: 'task_created', summary: 'Next' }]);
+    expect(service.events()).toEqual([historyEvent(1)]);
+    expect(service.errorMessage()).toBe('');
+  });
+
+  it('orders a load, batch and clear so stale reads cannot undo publication or clearing', async () => {
+    let finishLoad!: (events: HistoryEvent[]) => void;
+    const list = vi.fn(
+      () =>
+        new Promise<HistoryEvent[]>((resolve) => {
+          finishLoad = resolve;
+        }),
+    );
+    const appendBatch = vi.fn(async () => [historyEvent(1)]);
+    const clear = vi.fn(async () => undefined);
+    TestBed.configureTestingModule({
+      providers: [{ provide: HistoryRepository, useValue: { list, appendBatch, clear } }],
+    });
+    const service = TestBed.inject(HistoryService);
+    const loading = service.load();
+    const writing = service.recordBatch([{ type: 'task_created', summary: 'New' }]);
+    const clearing = service.clear();
+    await Promise.resolve();
+    expect(appendBatch).not.toHaveBeenCalled();
+    expect(clear).not.toHaveBeenCalled();
+    finishLoad([historyEvent(0)]);
+    await loading;
+    await writing;
+    await clearing;
+    expect(service.events()).toEqual([]);
+    expect(appendBatch).toHaveBeenCalledOnce();
+    expect(clear).toHaveBeenCalledOnce();
+  });
+
   it('prunes the oldest stored events when loading history above the cap', async () => {
     const deleteEvent = vi.fn(async () => undefined);
     TestBed.configureTestingModule({

@@ -1,5 +1,259 @@
 # Windows startup investigation — 2026-10-06
 
+## Optimization experiments — 2026-10-07
+
+The earlier investigation below is preserved. This follow-up uses the portable-only configuration,
+Electron Builder 26.8.1, and the existing opt-in profiler. Local tooling remains Node 25.6.0 /
+npm 11.8.0; the canonical 26.2.0 / 11.16.0 is unavailable. Each comparison uses one new isolated
+userData profile and three sequential repetitions, normal security settings, the same SSD/TEMP
+root, and no DevTools. Fresh-profile measurements are **not OS cold-cache measurements**.
+`scripts/benchmark-startup.cjs` runs these comparisons and records inventory and all readiness
+checkpoints in ignored `artifacts/startup-optimization/`; original raw profiling output stays in
+`artifacts/startup-profile/`. Builds and measurements never overlap.
+
+| Experiment                                      | Artifact MiB | Runtime MiB | Fresh s | Repeat 1 s | Repeat 2 s | Repeat 3 s | Decision                   |
+| ----------------------------------------------- | -----------: | ----------: | ------: | ---------: | ---------: | ---------: | -------------------------- |
+| Current portable-only baseline                  |       98.647 |     368.192 |   73.51 |      63.34 |      55.95 |      45.46 | baseline                   |
+| Unpacked diagnostic baseline                    |  234.643 exe |     368.192 |   25.26 |       8.09 |       9.19 |       5.71 | diagnostic                 |
+| Exclude only Electron test files                |       98.642 |     368.169 |   65.80 |      33.17 |      34.36 |      33.48 | KEEP: hygiene only         |
+| 7z path, compression store                      |      368.777 |     368.169 |   94.82 |      40.26 |      40.36 |      40.00 | REVERT                     |
+| Direct NSIS extraction, normal                  |      150.643 |     368.067 |   74.44 |      34.84 |      35.13 |      34.45 | KEEP: lower TEMP only      |
+| Direct NSIS extraction, store                   |      368.253 |     368.067 |   86.43 |      36.93 |      40.27 |      38.37 | REVERT                     |
+| Direct normal, per-launch plugin directory      |      150.643 |     368.067 |   76.85 |      39.64 |      28.80 |      29.56 | KEEP: modest observed gain |
+| Final rebuilt portable, including renderer work |      150.665 |     368.129 |   72.78 |      52.62 |      26.26 |      25.69 | KEEP, target unmet         |
+| Final portable after full launch/restart smoke  |      150.665 |     368.129 |   22.64 |      32.48 |      25.75 |      23.15 | final validation           |
+| Final unpacked diagnostic                       |  234.643 exe |     368.129 |   26.49 |       6.47 |       6.60 |       4.90 | diagnostic                 |
+
+The requested final **post-smoke** benchmark repeats average **27.128 s**, an observed
+**27.790 s / 50.6%** reduction against the 54.918 s baseline. This is the same already-warmed
+final artifact, with a new userData profile; its 22.64 s first-profile launch is **not** a
+first-after-rebuild result. Repeats range 23.15–32.48 s. Preserve the immediately-after-rebuild
+set below alongside it to expose native/cache variability rather than selecting only faster runs.
+Post-smoke native creation: 10.091 / 14.321 / 12.677 / 10.949 s; main entry:
+15.853 / 24.650 / 19.647 / 17.145 s; ready-to-show: 22.368 / 32.365 / 25.705 / 23.098 s;
+show: 22.414 / 32.452 / 25.714 / 23.108 s; Angular/data complete:
+22.417 / 32.458 / 25.718 / 23.113 s. All four launches exited 0 with no load errors and zero
+sampled TEMP bytes remaining. No builds or tests overlapped either final timing sequence.
+
+The rebuilt final portable repeat mean is **34.859 s**, an observed **20.060 s / 36.5%**
+reduction from the re-established 54.918 s mean. Fresh-profile readiness is effectively unchanged:
+73.51 to 72.78 s. The 25.69–52.62 s repeat range and the exclusion experiment's disproportionate
+timing drop prevent assigning the full improvement to implementation changes. The preferred
+**sub-15-second target is not achieved**. These experiments do not prove a universal Builder floor.
+The final unpacked repeat mean is 5.990 s and remains diagnostic output only.
+
+Final portable/native creation: 59.212 / 38.602 / 11.451 / 10.717 s; main entry:
+65.062 / 45.083 / 18.702 / 17.854 s; ready-to-show: 72.556 / 52.595 / 26.209 / 25.645 s;
+show: 72.567 / 52.604 / 26.227 / 25.656 s; Angular/data complete:
+72.570 / 52.607 / 26.231 / 25.660 s. UI proxy values are in the matrix.
+Every diagnostic launch exited 0 with Sticky/Scheduler reports and no load errors.
+
+Artifact: **103,438,513 → 157,984,196 bytes** (98.647 → 150.665 MiB, +52.018 MiB).
+Runtime: **386,076,856 → 386,011,140 bytes** (368.192 → 368.129 MiB, −65,716 bytes).
+Final ASAR: **870,931 bytes / 18 files**, enabled, no unpacked files; 72 external runtime files.
+Peak sampled TEMP: **835.231 → 368.247 MiB**, approximately 467 MiB / 55.9% less.
+TEMP sampling every 200 ms records a logical footprint, not total physical writes. Cleanup
+leaves zero sampled bytes after exit. The main footprint benefit is removal of staging/copy,
+not the small test-content exclusion. Electron runtime files and normal security remain intact.
+
+Portable baseline repeat mean: **54.918 s**. Unpacked repeat mean: **7.663 s**.
+The historical portable repeat range was 51.60–59.48 s, fresh 70.17 s; the new portable
+baseline remains close in average, with substantial run-to-run variability (45.46–63.34 s).
+Portable native creation: 57.526 / 49.447 / 42.790 / 28.780 s; main JS entry:
+63.853 / 55.204 / 48.664 / 36.840 s. Ready-to-show: 73.079 / 63.312 / 55.910 / 45.427 s;
+show: 73.071 / 63.305 / 55.906 / 45.419 s; Angular/data initialization complete:
+73.076 / 63.309 / 55.909 / 45.424 s. UI proxy values appear in the matrix.
+Peak TEMP: 835.231 MiB / 152 sampled files; residual files consume zero bytes after exit.
+All four normal diagnostic launches exited 0 with Sticky and Scheduler reports and no load errors.
+
+The narrow test exclusion removed 22,485 bytes of file content (23,285 ASAR/runtime bytes including
+header changes); executable size fell only 5,158 bytes. Its repeat mean is 33.670 s, native repeat
+creation 19.039 / 20.484 / 19.072 s, with the same staging/copy path and 835.182 MiB TEMP peak.
+**The large observed timing drop cannot confidently be attributed to 22 KB of exclusions.**
+OS/security caching and native launch variability are uncontrolled; this is packaging hygiene,
+not evidence that packaged test code caused the primary bottleneck. The subsequent compression
+comparison uses this measured configuration as its immediate baseline.
+The complete portable first-launch/restart smoke passed (`exclude-tests-smoke-3/result.json`):
+Sticky/Main, task creation, no-reminder recurrence allocation, pause/resume, completion,
+series deletion preserving completed history, reminder-enabled task timing, settings persistence,
+and IndexedDB restart persistence. Two earlier harness attempts exposed raw file-URL reload
+failure and destroyed-window polling; verification uses normal full application restart and
+filters destroyed native windows. Neither issue was masked by application changes.
+
+7z store repeat mean: **40.208 s**, 6.538 s / 19.4% worse than its immediate 33.670 s baseline.
+Fresh profile: 94.824 s versus 65.804 s. TEMP peak: **1,105.041 MiB**, unchanged staged/copy
+algorithm and file count. The runtime is identical in size; the archive is much larger. Reverted
+`build.compression=store` before the next experiment. No retained-change smoke is required for
+this rejected variant; all four diagnostic launches themselves exited 0 without load errors.
+
+Direct extraction with normal compression: repeat mean **34.806 s**, versus 33.670 s before it.
+Native repeat creation falls to 14.312 / 14.782 / 14.983 s, but main entry is 25.126 / 25.648 /
+25.919 s and renderer readiness remains delayed. **No UI startup improvement is established.**
+TEMP peak falls to **368.185 MiB / 76 files**, a 467 MiB reduction, with zero residual bytes.
+There is one direct runtime extraction rather than archive + staging + destination. Builder also
+omits its 107,520-byte `elevate.exe` helper on this branch (72 external files); the application
+runtime/ASAR content is otherwise unchanged. Portable execution level remains `user`.
+The artifact grows to 157,961,067 bytes; ASAR remains 805,842 bytes / 16 files, with no unpacking.
+Full first-launch/restart functional smoke passed (`direct-smoke/result.json`), with no renderer
+errors. Retain the branch for its substantial TEMP reduction, without claiming a startup gain;
+now change **only compression** to store on this measured direct-extraction baseline. The final
+choice still prioritizes measured UI startup over executable size or an early native checkpoint.
+Direct store repeat mean: **38.523 s**, 3.717 s / 10.7% worse than direct normal; fresh 86.426 s
+versus 74.436 s. TEMP remains 368.185 MiB, so removing decompression provides no measured win.
+All four diagnostic launches exited 0 without load errors. Reverted store before changing the
+single remaining directory option: `portable.unpackDirName=false`, using the unique per-launch
+plugin directory. This tests directory identity/cleanup only; it does not add a cache or retain files.
+Per-launch directory mean: **32.667 s**, 2.139 s / 6.1% below direct normal, with a broad
+28.80–39.64 s repeat range. Its footprint is unchanged. Directory identity changes on every run,
+so retention required a restart/persistence smoke.
+The full first-launch/restart smoke passed (`plugin-dir-smoke/result.json`), including identical
+persisted tasks/settings/history across different extracted executable paths. Retain the option,
+but do not claim the modest difference is immune to the observed native timing variability.
+
+An environmental cross-check before renderer changes: previous comparisons redirect
+TEMP into the project workspace. `TIME_ASSISTANT_PROFILE_TEMP` now permits the same profiler to
+use an isolated namespace under normal Windows TEMP, without changing the packaged application
+or Windows security. These diagnostic results will be reported separately, not mixed with the
+workspace-TEMP comparison or described as cold-cache launches.
+
+Normal Windows TEMP diagnostic (same already-warmed plugin-directory artifact): fresh data
+25.987 s; repeats 27.816 / 30.980 / 30.858 s, mean **29.885 s**. Native creation in repetitions:
+12.227 / 13.050 / 13.311 s; main JS entry 19.713 / 22.093 / 22.539 s. Peak TEMP remains
+368.185 MiB. The much faster first-profile value is **not** a first-after-rebuild or OS cold-cache
+result; the executable was already benchmarked. Directory placement alone does not reach 15 s.
+No Windows security setting or antivirus exclusion was changed. Native waits and physical disk/
+security attribution remain unquantified; footprint sampling is not an ETW disk-I/O trace.
+
+### Renderer baseline and retained work
+
+The pre-change synthetic Main baseline reproduced 107 root render callbacks and 200 individual
+history write transactions when allocating 100 occurrences against 10,000 existing events.
+Task load took 225.2 ms; the initial workspace long task was 119 ms. The passive populated restart
+had four render callbacks and a 103 ms initial workspace long task. Seed interaction has additional
+Settings/geometry frame gaps, so passive and allocation cases remain separate.
+
+Retained changes:
+
+- Nested Angular idle defer blocks mount one chart at a time after the useful task workspace.
+  The charts and their data remain available; no artificial timer delay or chart redesign.
+- Bulk recurrence keeps one `task_created` row per committed occurrence, appends/prunes in one
+  serialized IndexedDB history transaction, and publishes the complete history state once.
+  Retention remains 10,000, newest first. Local history loads/writes/clear are ordered so a late
+  read cannot overwrite a committed batch or resurrect cleared events.
+- Single-occurrence recording retains the existing path. Task allocation/cursor serialization,
+  deterministic occurrence IDs, recurrence semantics and reminder ownership remain unchanged.
+  Task and history commits remain separate as before; the existing crash-between-commits gap
+  is not solved by this task. Batch failure rolls back history additions and retention deletions.
+- Successful startup reconciliation records its checked local day, avoiding Scheduler's redundant
+  first calendar check. Calendar rollover still reconciles normally.
+- Settings still reads Windows login state whenever opened; the unnecessary startup read is removed.
+  Sticky avoids rewriting an already-true preference and skips Main-only history geometry work.
+  Its full history read remains to preserve existing action/retention behavior.
+
+Validation: **236 Angular tests / 38 Electron tests / 12 Playwright scenarios passed**. Added tests cover every batch
+row, no publication before commit, failed-write state/queue recovery, load/batch/clear ordering,
+100-series publication, rollover, and progressive chart availability. Real browser batch retention,
+cross-renderer deduplication and rollback scenarios passed against real IndexedDB.
+
+With the same synthetic fixture (1,000 completed tasks, 100 recurrence templates, 10,000 history
+rows), the actual packaged Main allocation run changes **200 individual history transactions →
+one batch transaction**, and **107 → 12 root render callbacks**. Its largest JavaScript task
+falls **119 → 58 ms**. Task load increases **225.2 → 371.0 ms**, including a 170.1 ms awaited
+batch transaction; there is no claim of faster total data load. The seed script's Settings/
+geometry interactions still produce frame gaps (maximum 166.8 → 183.3 ms).
+
+On passive populated restart, task load is **147.5 → 103.3 ms**; the **103 ms JavaScript long
+task disappears** in this sample. There are no recorded long tasks/long frames in the first five
+seconds after paint, and maximum frame gap is **100 → 33.4 ms**. Root callbacks rise 4 → 10,
+the expected cost of mounting chart sections progressively. The renderers report no errors,
+the real-browser test verifies all four charts become available, and packaged Main/Sticky
+screenshots verify task/history UI. These are local samples, not a promise of no stalls on all
+hardware. No observed post-paint JavaScript freeze lasts multiple seconds.
+
+Deferral improves mounting smoothness rather than shrinking the bundle. Initial Angular output
+grows **707.44 → 771.75 kB** (estimated transfer 171.47 → 191.08 kB): the existing eager chart
+provider keeps chart code in the initial shared chunk, while the lazy directive chunk is only
+202 bytes. Retained for the measured smoother passive workspace, with this explicit cost.
+Production build still warns about its 650 kB initial budget and the unchanged 38.89 kB CSS
+against a 38 kB budget; budgets were not relaxed.
+
+The final full portable first-launch/restart smoke passed (`final-smoke/result.json`): launcher
+identity, Sticky/Main/Scheduler lifecycle, task creation, reminder-enabled timing, daily recurrence,
+pause/resume/completion, next occurrence, series deletion preserving completed work, Sticky
+hide/restore, Settings, and identical IndexedDB v2 contents after restart. The original user's
+profile and Windows startup/security configuration were never changed.
+
+Final production build, `package:dir`, and `package:win` passed using canonical commands and
+the existing workspace-local Builder resource-tool cache. No signing/editing bypass was added.
+Changed-file Prettier and whitespace checks passed after report completion. Canonical
+docs are synchronized through an ADR-012 implementation note; no new ADR is needed.
+
+### Reproduction and remaining bottleneck
+
+From the repository root, use new labels (benchmark/smoke tools refuse reused profile directories):
+
+```powershell
+npm.cmd run build
+npm.cmd run package:dir
+npm.cmd run package:win
+node scripts/smoke-portable.cjs my-smoke
+node scripts/benchmark-startup.cjs my-baseline portable
+node scripts/benchmark-startup.cjs my-baseline dir
+node scripts/summarize-startup.cjs my-baseline-portable my-baseline-dir
+node scripts/profile-startup.cjs 'release/win-unpacked/Time Assistant.exe' my-seed 'artifacts/my-main-profile' seed
+node scripts/profile-startup.cjs 'release/win-unpacked/Time Assistant.exe' my-passive 'artifacts/my-main-profile' passive
+node scripts/summarize-renderer-startup.cjs my-seed my-passive
+```
+
+Run builds/tests before, not during, timings. `TIME_ASSISTANT_PROFILE_TEMP` may point to an
+isolated directory under ordinary Windows TEMP for a separately labeled environmental check.
+Never use a directory containing unrelated data. No security changes are needed. Evidence,
+profiles, screenshots, JSON, traces, logs, and generated binaries remain ignored; only reusable
+scripts and concise reports are source changes. The previous profiling evidence/report is retained.
+
+Native launch and pre-JavaScript waits remain the meaningful bottleneck. Store was worse on
+both extraction paths; maximum uses the same relevant implementation as normal; ASAR is small
+and has no unpacked application content. No evidence justifies removing runtime DLLs/locales or
+changing packager/storage/ownership. The next meaningful investigation is an authorized Windows
+ETW/WPR process and file-I/O trace under normal security to attribute extraction, image-loading,
+disk waits and scanning. The earlier WPR policy restriction remains; no physical-I/O attribution
+was established, and these samples do not identify Defender as the cause. No further unrelated
+work is included.
+
+Experiments are measured and decided individually: confirmed test-file exclusion, supported
+compression modes, then the direct NSIS file extraction branch (`portable.useZip`). ASAR stays
+enabled: the existing archive is small, no app native modules or `app.asar.unpacked` exist, and
+there is no evidence supporting an unpack-boundary change. Runtime DLLs, locales, licenses,
+snapshots, and PAKs remain intact. Renderer optimization follows the packaging experiments.
+
+### Current contents audit and supported experiments
+
+Baseline runtime: 386,076,856 bytes, 73 external files; ASAR: 829,127 bytes, 19 files;
+no ASAR-unpacked directory. Renderer dependencies are bundled; no production node_modules.
+The generated package metadata is 340 bytes. No maps, test-results, screenshots, Playwright
+artifacts, benchmark JSON, canonical docs, development scripts, or TypeScript sources are shipped.
+The local HTML guide and three icons are referenced by `electron/main.cjs` and remain included.
+
+Ranked verified removable weight:
+
+1. Three `electron/*.spec.mjs` files: 22,485 bytes. Runtime imports are explicit `.cjs` paths;
+   none references these specs. Safe narrow exclusion; negligible primary performance impact.
+2. No other application bloat is proven. The 246,040,576-byte executable, 25,745,408-byte
+   dxcompiler.dll, 20,472,830-byte Chromium licenses, 12,435,875-byte resources.pak, ICU, snapshots,
+   Vulkan/GPU DLLs and locales are Electron runtime inputs. Size alone does not justify removal.
+
+Installed `app-builder-lib/scheme.json` supports `store`, `normal`, `maximum`. For the actual 7z
+portable branch, `out/targets/archive.js:compute7zCompressArgs` selects `-mx=9` for both normal
+and maximum; `NsisTarget.js` selects the same non-solid zlib wrapper. Maximum therefore has no
+distinct implementation to benchmark. Store selects Copy/no compression and NSIS `SetCompress off`.
+`portable.useZip` exists in the installed schema/types; despite its name, `NsisTarget.js` supplies
+APP_DIR_64 and `portable.nsi` embeds `File /r` directly, bypassing the embedded 7z archive and
+staging `CopyFiles`. This private option is pinned-version-specific and must be rechecked on upgrades.
+`portable.unpackDirName=false` only selects a unique per-launch plugin directory; the template
+still deletes, extracts, waits for the child, and deletes on exit. No setting here reuses extraction.
+
+## Preserved investigation — 2026-10-06
+
 The reported one-minute portable startup is reproduced. The first measured portable launch took **70.17 seconds to content/data/frame readiness**; the comparable first unpacked launch took **23.25 seconds**. Subsequent unpacked launches took **8.83–10.43 seconds**. Portable repetitions took **51.60–59.48 seconds**, including two launches using the same TEMP path. A later populated portable run took 38.99 seconds, demonstrating substantial native launch variability. After final rebuilding, portable again took **69.19 seconds**; the populated unpacked passive run took **24.18 seconds**.
 
 Most delay occurs **before application JavaScript executes**, followed by several seconds before renderer script entry. Angular bootstrap, settings, ordinary task/history reads, and recurrence reconciliation do not explain the one-minute delay. Main's initial workspace rendering produces a measurable **109–166 ms JavaScript stall**, including a 109 ms stall in the final passive run. No optimization phase was implemented.

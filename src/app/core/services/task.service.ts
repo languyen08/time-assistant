@@ -59,7 +59,9 @@ export class TaskService {
         this.recurrenceTemplates.set(tasks.filter((task) => task.recurrenceTemplate));
         if (tasks.some((task) => task.recurrenceTemplate && task.recurrence)) {
           const endRecurrence = startupSpan('recurrence-startup-reconciliation');
+          const checkedDate = localDate();
           const created = await this.repository.ensureOccurrences();
+          this.recurrenceCheckDate = checkedDate;
           endRecurrence(created.length);
           if (created.length) {
             await this.recordOccurrences(created);
@@ -802,8 +804,17 @@ export class TaskService {
   }
 
   private async recordOccurrences(tasks: Task[]): Promise<void> {
-    for (const task of tasks)
-      await this.history.record('task_created', `Created "${task.name}".`, task.id);
+    if (tasks.length === 1) {
+      await this.history.record('task_created', `Created "${tasks[0].name}".`, tasks[0].id);
+    } else if (tasks.length > 1) {
+      await this.history.recordBatch(
+        tasks.map((task) => ({
+          type: 'task_created',
+          summary: `Created "${task.name}".`,
+          taskId: task.id,
+        })),
+      );
+    }
   }
 
   private async updateSeries(current: Task, updated: Task, draft: TaskDraft): Promise<void> {

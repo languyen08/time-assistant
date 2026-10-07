@@ -19,6 +19,126 @@ async function persisted(page) {
   });
 }
 
+// Only this test's isolated browser context; never a desktop/user profile.
+async function seedBulkFixture(page) {
+  await page.evaluate(async () => {
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('friendly-task-reminder', 2);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction(['tasks', 'history'], 'readwrite');
+    const tasks = transaction.objectStore('tasks');
+    const history = transaction.objectStore('history');
+    tasks.clear();
+    history.clear();
+    const now = new Date();
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    for (let index = 0; index < 100; index++) {
+      tasks.put({
+        id: `bulk-series-${index}`,
+        recurrenceSeriesId: `bulk-series-${index}`,
+        recurrenceTemplate: true,
+        recurrence: { type: 'daily', rangeStart: date },
+        name: `Bulk recurring ${index}`,
+        note: '',
+        category: '',
+        reminderAt: new Date(`${date}T23:59`).toISOString(),
+        reminderEnabled: false,
+        reminderCount: 0,
+        reminderIntervalMinutes: 0,
+        allowConcurrentStart: false,
+        order: index,
+        status: 'pending',
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+        totalPausedSeconds: 0,
+        reminderAttemptsShown: 0,
+      });
+    }
+    for (let index = 0; index < 10_000; index++) {
+      history.put({
+        id: `bulk-history-${index}`,
+        type: 'break_skipped',
+        occurredAt: new Date(now.getTime() - (index + 1) * 1000).toISOString(),
+        summary: 'Existing history',
+      });
+    }
+    await new Promise((resolve, reject) => {
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+  });
+}
+
+test('bulk recurrence keeps 100 individual history rows and the cap across simultaneous renderers', async ({
+  context,
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.getByLabel('Task name')).toBeVisible();
+  await seedBulkFixture(page);
+  const sticky = await context.newPage();
+  const scheduler = await context.newPage();
+  await Promise.all([
+    page.reload(),
+    sticky.goto('/?window=sticky'),
+    scheduler.goto('/?window=scheduler'),
+  ]);
+  await expect
+    .poll(
+      async () =>
+        (await persisted(page)).history.filter((event) => event.type === 'task_created').length,
+    )
+    .toBe(100);
+  const state = await persisted(page);
+  const occurrences = state.tasks.filter((task) => !task.recurrenceTemplate);
+  expect(occurrences).toHaveLength(100);
+  expect(state.history).toHaveLength(10_000);
+  const created = state.history.filter((event) => event.type === 'task_created');
+  expect(new Set(created.map((event) => event.id)).size).toBe(100);
+  expect(created.map((event) => event.taskId).sort()).toEqual(
+    occurrences.map((task) => task.id).sort(),
+  );
+  expect(state.history.some((event) => event.id === 'bulk-history-9999')).toBe(false);
+  expect(state.history.some((event) => event.id === 'bulk-history-0')).toBe(true);
+  await expect(page.locator('canvas')).toHaveCount(4);
+  await Promise.all([page.reload(), sticky.reload(), scheduler.reload()]);
+  await expect(page.getByLabel('Task name')).toBeVisible();
+  expect(
+    (await persisted(page)).history.filter((event) => event.type === 'task_created'),
+  ).toHaveLength(100);
+});
+
+test('a failed history batch rolls back both new rows and retention deletions', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.getByLabel('Task name')).toBeVisible();
+  await seedBulkFixture(page);
+  await page.addInitScript(() => {
+    const put = IDBObjectStore.prototype.put;
+    window.historyBatchAttempts = 0;
+    IDBObjectStore.prototype.put = function (...args) {
+      if (this.name === 'history' && args[0]?.type === 'task_created') {
+        window.historyBatchAttempts++;
+        if (window.historyBatchAttempts === 50)
+          throw new DOMException('Injected batch failure', 'DataError');
+      }
+      return put.apply(this, args);
+    };
+  });
+  await page.reload();
+  await page.waitForFunction(() => window.historyBatchAttempts === 50);
+  await expect(page.getByLabel('Task name')).toBeVisible();
+  const state = await persisted(page);
+  expect(state.tasks.filter((task) => !task.recurrenceTemplate)).toHaveLength(100);
+  expect(state.history).toHaveLength(10_000);
+  expect(state.history.every((event) => event.id.startsWith('bulk-history-'))).toBe(true);
+  expect(state.history.some((event) => event.id === 'bulk-history-9999')).toBe(true);
+});
+
 test('weekday recurrence without reminders uses normal desktop lifecycle and skips the weekend', async ({
   context,
   page,

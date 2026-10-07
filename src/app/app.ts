@@ -363,7 +363,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       });
     }
     effect(() => {
-      if (this.isSchedulerMode()) {
+      if (this.isSchedulerMode() || this.isStickyMode()) {
         return;
       }
 
@@ -493,8 +493,11 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
         this.historyService.load(),
         this.taskService.load(),
       ]);
-      await this.loadStartAtLogin();
-      if (this.isStickyMode() && this.electron.isElectron) {
+      if (
+        this.isStickyMode() &&
+        this.electron.isElectron &&
+        !this.settingsService.settings().stickyNoteEnabled
+      ) {
         await this.settingsService.update({ stickyNoteEnabled: true });
       }
       this.breakMinutes.set(this.settingsService.settings().defaultBreakMinutes);
@@ -515,7 +518,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
 
   ngAfterViewInit(): void {
     startupMark('root-view-init');
-    if (this.isSchedulerMode()) {
+    if (this.isSchedulerMode() || this.isStickyMode()) {
       return;
     }
 

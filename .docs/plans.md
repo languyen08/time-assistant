@@ -22,6 +22,12 @@ current task, and move to the next task.
 - Distribution: Electron Builder portable Windows executable only. Unpacked directory output is
   retained for development/debugging/profiling diagnostics; no installable setup is shipped.
 
+The portable launcher extracts afresh on each run and cleans up on exit. The measured direct
+extraction configuration reduces temporary disk use; it does not promise a cached or sub-15-second
+launch. Main shows its task workspace before progressively mounting charts at Angular idle time.
+Bulk recurrence preserves every occurrence's individual history row while publishing the committed
+history batch once. Detailed measurements and limitations live in `docs/startup-performance.md`.
+
 Angular is the UI framework. Electron packages the Angular UI as a real Windows desktop app with native windows, notifications, file dialogs, sticky-note mode, and a Windows system tray. A hidden Scheduler renderer owns automatic starts, Finish-by processing, and normal reminder timing. The MVP should not be implemented as a browser-only web app.
 
 ## Core User Flow

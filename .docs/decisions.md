@@ -285,8 +285,19 @@ Consequences:
 - Windows release automation uses `package:win` and publishes the resulting portable executable.
 - Electron Forge is no longer installed or configured.
 - No install/uninstall flow, install directory policy, or installed shortcuts are shipped.
-- Shared icons, app identity, signing behavior, compression, ASAR, and portable extraction behavior
-  are unchanged. Startup-performance optimization is a separate task.
+- The distribution cleanup preserved shared icons, app identity, signing behavior, compression,
+  ASAR, and portable extraction behavior. Subsequent startup optimization is documented below.
+
+Implementation note — 2026-10-07:
+Measured experiments retained only Electron test-file exclusions, Builder 26.8.1's direct NSIS
+file extraction (`portable.useZip=true`), and unique per-launch plugin directories
+(`unpackDirName=false`). Default normal compression and ASAR remain enabled; both store trials
+were slower and reverted. Direct extraction reduces peak TEMP from about 835 to 368 MiB and
+increases the artifact from about 99 to 151 MiB. Extraction still occurs every launch and cleanup
+still occurs on exit; there is no runtime cache. These private pinned-version options require
+rechecking on Builder upgrades. Timing variability prevents attributing all observed improvement
+to packaging changes; the preferred sub-15-second target remains unmet. See the preserved
+experiment matrix in `docs/startup-performance.md`. No distribution or storage decision changed.
 
 ---
 

@@ -11,10 +11,9 @@ const startupOnly = process.argv[5] === 'startup-only';
 if (!label || !fs.existsSync(executable)) throw new Error('Provide executable and label');
 const root = path.resolve('artifacts/startup-profile');
 const profile = path.resolve(process.argv[4] || path.join(root, `${label}-profile`));
-const temp = path.join(
-  root,
-  executable.includes('win-unpacked') ? 'unpacked-temp' : 'portable-temp',
-);
+const temp = process.env.TIME_ASSISTANT_PROFILE_TEMP
+  ? path.resolve(process.env.TIME_ASSISTANT_PROFILE_TEMP)
+  : path.join(root, executable.includes('win-unpacked') ? 'unpacked-temp' : 'portable-temp');
 fs.mkdirSync(profile, { recursive: true });
 fs.mkdirSync(temp, { recursive: true });
 const output = path.join(root, `${label}.json`);
@@ -177,16 +176,20 @@ async function seed(page) {
       if (!connected) throw new Error('No renderer debugging endpoint after 180s');
       browsers.push(await chromium.connectOverCDP(`http://127.0.0.1:${port}`));
       let sticky;
-      for (let attempt = 0; attempt < 100; attempt++) {
-        sticky = browsers[0]
-          .contexts()
-          .flatMap((context) => context.pages())
-          .find((page) => page.url().includes('window=sticky'));
+      for (let attempt = 0; attempt < 600; attempt++) {
+        for (const page of browsers[0].contexts().flatMap((context) => context.pages())) {
+          if (await page.locator('.sticky-shell').count()) {
+            sticky = page;
+            break;
+          }
+        }
         if (sticky) break;
         await delay(50);
       }
       if (!sticky) throw new Error('Sticky renderer not found');
-      await sticky.waitForFunction(() => Boolean(window.assistantTime), { timeout: 15000 });
+      await sticky.waitForFunction(() => Boolean(window.assistantTime), undefined, {
+        timeout: 15000,
+      });
       if (process.argv[5] === 'seed') {
         await seed(sticky);
         interactions.push({ seeded: { completedTasks: 1000, series: 100, history: 10000 } });
@@ -206,11 +209,19 @@ async function seed(page) {
         roundTripMs: Number(process.hrtime.bigint() - clickStart) / 1e6,
       });
       browsers.push(await chromium.connectOverCDP(`http://127.0.0.1:${port}`));
-      const main = browsers
-        .at(-1)
-        .contexts()
-        .flatMap((context) => context.pages())
-        .find((page) => page.url().includes('window=main'));
+      let main;
+      for (let attempt = 0; attempt < 600 && !main; attempt++) {
+        for (const page of browsers
+          .at(-1)
+          .contexts()
+          .flatMap((context) => context.pages())) {
+          if (await page.getByLabel('Task name').count()) {
+            main = page;
+            break;
+          }
+        }
+        if (!main) await delay(50);
+      }
       if (!main) throw new Error('Main renderer not found');
       let traceSession;
       const trace = [];

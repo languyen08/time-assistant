@@ -65,6 +65,7 @@
     "files": [
       "dist/friendly-task-reminder/browser/**/*",
       "electron/**/*",
+      "!electron/**/*.spec.mjs",
       "build-resources/app-icon.ico",
       "src/assets/icons/app-icon.png",
       "src/assets/icons/app-icon-notification.png",
@@ -79,6 +80,8 @@
       "target": "portable"
     },
     "portable": {
+      "useZip": true,
+      "unpackDirName": false,
       "artifactName": "${productName}.exe"
     }
   }

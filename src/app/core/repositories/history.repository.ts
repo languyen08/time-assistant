@@ -16,6 +16,25 @@ export class HistoryRepository {
     return this.storage.put(HISTORY_STORE, event);
   }
 
+  /** Append every row and prune once against fresh persisted state in one transaction. */
+  appendBatch(events: HistoryEvent[], maxEvents: number): Promise<HistoryEvent[]> {
+    return this.storage.mutate<HistoryEvent, HistoryEvent[]>(HISTORY_STORE, (stored) => {
+      const incomingIds = new Set(events.map((event) => event.id));
+      // A later row wins timestamp ties, matching sequential record() publication.
+      const ordered = [...events]
+        .reverse()
+        .concat(stored.filter((event) => !incomingIds.has(event.id)))
+        .sort((first, second) => second.occurredAt.localeCompare(first.occurredAt));
+      const kept = ordered.slice(0, maxEvents);
+      const keptIds = new Set(kept.map((event) => event.id));
+      return {
+        save: events.filter((event) => keptIds.has(event.id)),
+        remove: ordered.slice(maxEvents).map((event) => event.id),
+        result: kept,
+      };
+    });
+  }
+
   delete(id: string): Promise<void> {
     return this.storage.delete(HISTORY_STORE, id);
   }

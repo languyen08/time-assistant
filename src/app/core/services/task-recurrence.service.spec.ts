@@ -10,6 +10,7 @@ describe('TaskService recurrence lifecycle', () => {
   let service: TaskService;
   let records: Task[];
   let record: ReturnType<typeof vi.fn>;
+  let recordBatch: ReturnType<typeof vi.fn>;
   const now = new Date(2026, 9, 6, 8);
   const draft: TaskDraft = {
     name: 'Read algorithms',
@@ -28,6 +29,7 @@ describe('TaskService recurrence lifecycle', () => {
     vi.setSystemTime(now);
     records = [];
     record = vi.fn(async () => undefined);
+    recordBatch = vi.fn(async () => undefined);
     const save = (task: Task) => {
       records = records.filter((item) => item.id !== task.id).concat(structuredClone(task));
     };
@@ -55,13 +57,39 @@ describe('TaskService recurrence lifecycle', () => {
             },
           },
         },
-        { provide: HistoryService, useValue: { record } },
+        { provide: HistoryService, useValue: { record, recordBatch } },
       ],
     });
     service = TestBed.inject(TaskService);
     await service.load();
   });
   afterEach(() => vi.useRealTimers());
+
+  it('allocates 100 series with one history batch and skips the redundant same-day scheduler check', async () => {
+    await service.create(draft);
+    const template = records.find((task) => task.recurrenceTemplate)!;
+    records = Array.from({ length: 100 }, (_, index) => ({
+      ...template,
+      id: `bulk-${index}`,
+      recurrenceSeriesId: `bulk-${index}`,
+      recurrenceCursor: undefined,
+    }));
+    record.mockClear();
+    const reconciliation = vi.spyOn(TestBed.inject(TaskRepository), 'ensureOccurrences');
+    await service.load();
+    expect(service.tasks()).toHaveLength(100);
+    expect(record).not.toHaveBeenCalled();
+    expect(recordBatch).toHaveBeenCalledOnce();
+    const rows = recordBatch.mock.calls[0][0];
+    expect(rows).toHaveLength(100);
+    expect(new Set(rows.map((row: { taskId: string }) => row.taskId)).size).toBe(100);
+    expect(rows.every((row: { type: string }) => row.type === 'task_created')).toBe(true);
+    await service.ensureRecurrences(now, true);
+    expect(reconciliation).toHaveBeenCalledOnce();
+    await service.ensureRecurrences(new Date(2026, 9, 7), true);
+    expect(reconciliation).toHaveBeenCalledTimes(2);
+    expect(recordBatch).toHaveBeenCalledOnce();
+  });
 
   it('creates one executable occurrence and one hidden template, without reminders', async () => {
     expect(await service.create(draft)).toBe(true);
