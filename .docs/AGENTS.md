@@ -83,6 +83,9 @@ Do not assume a historical `[x]` is still supported, and do not silently convert
 - Tray Quit destroys all windows and the Tray, then quits the process.
 - Sticky Note X temporarily hides its BrowserWindow without changing the persisted
   `stickyNoteEnabled` setting.
+- Sticky task content scrolls below the fixed toolbar; only toolbar space is draggable.
+  Preserve the 1–5 visible-note cap. Native resize has a 360 × 240 minimum. Main owns
+  `userData/sticky-window-size.json`; once the user resizes, content sizing must not override it.
 - There is no independent main-process reminder scheduler.
 - Only the dedicated Scheduler renderer starts `ReminderSchedulerService`. Main and Sticky derive
   reminder UI from persisted task state and never run reminder timing loops or dispatch normal

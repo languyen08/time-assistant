@@ -316,6 +316,17 @@ Goal: add optional convenience features and polish after the core app is stable.
 
 ## Current Reconciliation / Stabilization
 
+- [x] Fix Sticky Note scrolling and native resizing (2026-10-12).
+  - Fixed toolbar above a scroll viewport; task cards/actions remain reachable at small sizes.
+  - Native resize minimum 360 × 240; persist and restore user geometry in Electron main.
+  - Preserve colors, spacing, quick actions, and the configured 1–5 visible-note maximum.
+  - Validate Angular/Electron regressions and actual Electron UI with 1, 3, and 10 stored tasks.
+  - Validation: 237 Angular tests, 50 Electron tests, and the focused real-Electron scenario
+    passed across 360 × 240, 460 × 360, and 720 × 600; production build and changed-file
+    formatting/whitespace checks passed. Physical trackpad gestures and manual native edge/corner
+    dragging remain manual checks; automated tests use fractional wheel deltas, native size APIs,
+    and the native resize event. See `docs/sticky-window-validation.md`.
+
 - [x] Complete the portable startup optimization experiments (2026-10-07).
   - [x] Preserve the prior investigation; re-establish fresh-profile plus three-repeat portable and
         unpacked baselines, audit ASAR/runtime contents, and decide each packaging experiment alone.

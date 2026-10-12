@@ -138,6 +138,12 @@ Consequences:
 
 Status: Accepted
 
+Implementation note — 2026-10-12: Sticky Note uses native resizing (minimum 360 × 240), a fixed
+toolbar, and a scrollable task viewport. Main owns a small `userData/sticky-window-size.json`
+geometry preference because Angular's IndexedDB settings are unavailable before BrowserWindow
+creation. User-chosen dimensions override content sizing and restore within display bounds.
+No new dependency, renderer filesystem API, or IndexedDB schema change is introduced.
+
 Context:
 The app needs desktop notifications, local storage, CSV file dialogs, sound playback, tray behavior, and sticky-note-like always-on-top windows. Angular provides the UI but cannot behave like a native desktop app by itself.
 

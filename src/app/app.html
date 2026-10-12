@@ -1391,7 +1391,6 @@
   </style>
   @if (isStickyMode()) {
     <section class="sticky-window" aria-labelledby="sticky-title">
-      <div class="sticky-note-measure-root" data-sticky-note-measure-root>
         <header class="sticky-note-header">
           <div class="sticky-toolbar">
             <button
@@ -1459,6 +1458,8 @@
           </div>
         </header>
 
+      <div class="sticky-notes-viewport" role="region" aria-label="Sticky tasks" tabindex="0">
+      <div class="sticky-note-measure-root" data-sticky-note-measure-root>
         <div class="sticky-notes-stack">
           @if (stickyVisibleCurrentTasks().length > 0) {
             @for (task of stickyVisibleCurrentTasks(); track task.id) {
@@ -1527,6 +1528,7 @@
             </article>
           }
         </div>
+      </div>
       </div>
     </section>
   } @else {

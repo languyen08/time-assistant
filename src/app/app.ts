@@ -66,8 +66,6 @@ export function appWindowMode(search: string): AppWindowMode {
   styleUrl: './app.css',
 })
 export class App implements OnInit, OnDestroy, AfterViewInit {
-  private readonly stickyQueueNoteEstimatedHeight = 94;
-  private readonly stickyWindowVerticalPadding = 16;
   private readonly stickyResizeThresholdPx = 2;
   private readonly stickyColorResizeSuppressMs = 250;
   private readonly defaultHistoryPageSize = 5;
@@ -129,7 +127,6 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly historyPage = signal(0);
   readonly historyPageSize = signal(this.defaultHistoryPageSize);
   readonly pendingPage = signal(0);
-  readonly stickyQueueTrim = signal(0);
   readonly extensionMinutes = signal(10);
   readonly breakMinutes = signal(10);
   readonly breakConflictTaskId = signal<string | undefined>(undefined);
@@ -282,12 +279,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
   readonly stickyVisibleQueueTasks = computed(() =>
     this.pendingTasks().slice(
       0,
-      Math.max(
-        0,
-        this.stickyVisibleNotes() -
-          this.stickyVisibleCurrentTasks().length -
-          this.stickyQueueTrim(),
-      ),
+      Math.max(0, this.stickyVisibleNotes() - this.stickyVisibleCurrentTasks().length),
     ),
   );
   readonly breakConflictTask = computed(() => {
@@ -439,7 +431,6 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       }
 
       this.settingsService.settings().stickyVisibleNotes;
-      this.stickyQueueTrim();
       this.scheduleStickyResize('settings-note-count-change');
     });
 
@@ -944,7 +935,6 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
     await this.settingsService.update({
       stickyVisibleNotes: this.safeInteger(event, 1, 5, 2),
     });
-    this.stickyQueueTrim.set(0);
     this.scheduleStickyResize('settings-note-count-change');
   }
 
@@ -1420,28 +1410,16 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
+      const toolbar = document.querySelector<HTMLElement>('.sticky-note-header');
+      const toolbarHeight = toolbar
+        ? toolbar.offsetHeight + parseFloat(getComputedStyle(toolbar).marginTop || '0')
+        : 0;
       const stickyHeight = Math.ceil(
-        Math.max(stickyContentRoot.getBoundingClientRect().height, stickyContentRoot.offsetHeight),
+        Math.max(stickyContentRoot.getBoundingClientRect().height, stickyContentRoot.offsetHeight) +
+          toolbarHeight,
       );
       const height = Math.max(stickyHeight, this.stickyReminderHeight());
       if (!Number.isFinite(height) || height <= 0) {
-        return;
-      }
-
-      const maxAllowedHeight = Math.max(
-        280,
-        window.screen.availHeight - this.stickyWindowVerticalPadding,
-      );
-      const overflow = Math.max(0, height - maxAllowedHeight);
-      const desiredTrim =
-        overflow === 0 ? 0 : Math.ceil(overflow / this.stickyQueueNoteEstimatedHeight);
-      const maxQueueCards = Math.max(
-        0,
-        this.stickyVisibleNotes() - this.stickyVisibleCurrentTasks().length,
-      );
-      const boundedTrim = Math.min(maxQueueCards, desiredTrim);
-      if (boundedTrim !== this.stickyQueueTrim()) {
-        this.stickyQueueTrim.set(boundedTrim);
         return;
       }
 

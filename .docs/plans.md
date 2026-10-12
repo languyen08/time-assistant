@@ -139,6 +139,9 @@ No monthly/yearly recurrence, holiday exceptions, or bulk series-management scre
 ### Sticky Notes Mode
 
 - Provide a compact always-on-top window similar to Windows sticky notes.
+- Keep the toolbar fixed while tasks scroll vertically with wheel, trackpad, or keyboard input.
+  Allow native edge/corner resizing down to 360 × 240 and restore user-chosen dimensions on
+  reopening. Keep content sizing until the user chooses a size; do not hide cards to fit the screen.
 - Show current tasks, remaining time, and task-specific quick actions before queued tasks.
 - No-reminder cards in both Main and Sticky show the title, Elapsed, Pause/Resume and Complete task.
   Remove the reminder panel and Add time/+10m entirely; Elapsed fills the available panel width.

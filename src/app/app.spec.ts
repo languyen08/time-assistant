@@ -1238,6 +1238,35 @@ describe('App', () => {
     expect(app.historyPageCount()).toBe(8);
   });
 
+  it('keeps queued cards when content exceeds the screen and measures the fixed toolbar', () => {
+    const resizeStickyWindow = vi.fn().mockResolvedValue(true);
+    window.assistantTime = createAssistantTimeApi({ resizeStickyWindow });
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.settingsService.settings.update((settings) => ({ ...settings, stickyVisibleNotes: 3 }));
+    app.taskService.tasks.set([
+      pendingTask('current', 'Current', 0, { status: 'active' }),
+      pendingTask('queued-a', 'Queued A', 1),
+      pendingTask('queued-b', 'Queued B', 2),
+    ]);
+    Object.defineProperty(window.screen, 'availHeight', { configurable: true, value: 300 });
+    const measureRoot = document.createElement('div');
+    measureRoot.setAttribute('data-sticky-note-measure-root', '');
+    Object.defineProperty(measureRoot, 'offsetHeight', { value: 800 });
+    const toolbar = document.createElement('header');
+    toolbar.className = 'sticky-note-header';
+    Object.defineProperty(toolbar, 'offsetHeight', { value: 50 });
+    document.body.append(measureRoot, toolbar);
+    try {
+      app['measureAndResizeStickyWindow']('task-count-change');
+      expect(app.stickyVisibleQueueTasks()).toHaveLength(2);
+      expect(resizeStickyWindow).toHaveBeenCalledWith({ height: 850, reason: 'task-count-change' });
+    } finally {
+      toolbar.remove();
+      measureRoot.remove();
+    }
+  });
+
   it('should send smaller sticky heights after notes are removed', async () => {
     const resizeStickyWindow = vi.fn().mockResolvedValue(true);
     window.assistantTime = {

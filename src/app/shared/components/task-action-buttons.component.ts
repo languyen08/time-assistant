@@ -69,7 +69,7 @@ import { Component, input, output } from '@angular/core';
     }
 
     .sticky-action-row {
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       align-items: center;
       gap: 8px;
     }
@@ -79,7 +79,7 @@ import { Component, input, output } from '@angular/core';
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 0;
+      min-width: 70px;
       min-height: 38px;
       padding: 8px 10px;
       border-radius: 12px;
@@ -95,10 +95,12 @@ import { Component, input, output } from '@angular/core';
 
     .sticky-action-row > .sticky-time-button {
       flex: 0.82 1 0;
+      min-width: 58px;
     }
 
     .sticky-action-row > .sticky-complete-button {
       flex: 1.18 1 0;
+      min-width: 150px;
       gap: 6px;
       justify-content: center;
       font-size: 0.78rem;

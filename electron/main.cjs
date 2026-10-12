@@ -14,6 +14,7 @@ const {
   screen,
 } = require('electron');
 const { createStartupLoginController } = require('./startup-login.cjs');
+const { createStickyWindowSize } = require('./sticky-window-size.cjs');
 const {
   createSchedulerWindow: createSchedulerBrowserWindow,
   ensureSchedulerWindow: ensureSingleSchedulerWindow,
@@ -56,7 +57,6 @@ const STICKY_NOTE_COLORS = {
   blue: '#d4e5f7',
   gray: '#e1e1e1',
 };
-const STICKY_NOTE_WIDTH = 460;
 const STICKY_RESIZE_REASONS = new Set([
   'content-change',
   'task-count-change',
@@ -71,6 +71,7 @@ const STICKY_RESIZE_REASONS = new Set([
 
 let mainWindow;
 let stickyWindow;
+let stickyWindowSize;
 let guideWindow;
 let schedulerWindow;
 let tray;
@@ -264,6 +265,7 @@ function quitTimeAssistant() {
   }
 
   isQuitting = true;
+  if (isUsableWindow(stickyWindow)) stickyWindowSize?.save(stickyWindow);
   if (schedulerRecoveryTimer) {
     clearTimeout(schedulerRecoveryTimer);
     schedulerRecoveryTimer = undefined;
@@ -447,18 +449,6 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function stickyHeightBounds() {
-  const minHeight = 240;
-  const fallbackMax = 720;
-  if (!stickyWindow || stickyWindow.isDestroyed()) {
-    return { minHeight, maxHeight: fallbackMax };
-  }
-
-  const display = screen.getDisplayMatching(stickyWindow.getBounds());
-  const maxHeight = Math.max(minHeight + 40, display.workAreaSize.height - 16);
-  return { minHeight, maxHeight };
-}
-
 function createStickyWindow(alwaysOnTop, color) {
   stickyAlwaysOnTopPreference = alwaysOnTop;
   if (stickyWindow && !stickyWindow.isDestroyed()) {
@@ -471,20 +461,17 @@ function createStickyWindow(alwaysOnTop, color) {
   }
 
   startupProfile.mark('sticky:create-start');
+  stickyWindowSize = createStickyWindowSize({
+    filePath: path.join(app.getPath('userData'), 'sticky-window-size.json'),
+    workArea: screen.getPrimaryDisplay().workAreaSize,
+  });
   stickyWindow = new BrowserWindow({
-    width: STICKY_NOTE_WIDTH,
-    height: 360,
-    useContentSize: true,
-    minWidth: STICKY_NOTE_WIDTH,
-    maxWidth: STICKY_NOTE_WIDTH,
-    minHeight: 240,
-    maxHeight: Math.max(280, screen.getPrimaryDisplay().workAreaSize.height - 16),
+    ...stickyWindowSize.options,
     title: 'Task Sticky Note',
     backgroundColor: stickyColorValue(color),
     alwaysOnTop,
     autoHideMenuBar: true,
     frame: false,
-    resizable: false,
     maximizable: false,
     ...(appIconPath ? { icon: appIconPath } : {}),
     webPreferences: {
@@ -495,6 +482,9 @@ function createStickyWindow(alwaysOnTop, color) {
     },
   });
 
+  // Use the same content-size API on restore and live resize to avoid Windows frame/DPI drift.
+  stickyWindow.setContentSize(stickyWindowSize.options.width, stickyWindowSize.options.height);
+  stickyWindowSize.attach(stickyWindow);
   stickyWindow.on('closed', () => {
     stickyWindow = undefined;
     updateTrayMenu();
@@ -585,10 +575,8 @@ ipcMain.handle('assistant-time:resize-sticky-window', (_event, payload) => {
     return false;
   }
 
-  const { minHeight, maxHeight } = stickyHeightBounds();
-  const nextBoundedHeight = Math.min(maxHeight, Math.max(minHeight, Math.ceil(nextHeight)));
-  stickyWindow.setContentSize(STICKY_NOTE_WIDTH, nextBoundedHeight, true);
-  return true;
+  const display = screen.getDisplayMatching(stickyWindow.getBounds());
+  return stickyWindowSize.resizeToContent(stickyWindow, nextHeight, display.workAreaSize);
 });
 
 ipcMain.handle('assistant-time:minimize-sticky-window', () => {

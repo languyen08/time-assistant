@@ -185,6 +185,17 @@ Current windows:
    preload bridge and no user-facing UI.
 4. User-guide window: created on demand and loads the local HTML guide.
 
+Sticky uses a viewport-height flex column: a non-shrinking toolbar above a `min-height: 0`
+scroll viewport containing naturally sized cards. Only the toolbar is draggable; its buttons and
+the task viewport use `no-drag`. The configured 1–5 visible-note maximum still applies.
+Native resizing has a 360 × 240 minimum with no fixed maximum width. Main persists user-chosen
+content dimensions in `userData/sticky-window-size.json`, debouncing writes and flushing on close
+or Quit. The renderer-only IndexedDB settings service is unavailable at native window creation,
+so this small main-owned geometry file avoids extra IPC and settings synchronization races.
+Missing/invalid geometry falls back to 460 × 360; restored dimensions are bounded to the primary
+display's work area. Automatic content sizing uses the matching display and stops after a native
+user resize or restored preference. Geometry failures are logged without blocking window use.
+
 Current background behavior:
 
 - Electron main creates and retains a native Tray with Open Time Assistant, Show Sticky Note,

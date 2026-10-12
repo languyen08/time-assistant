@@ -14,14 +14,14 @@ body {
 
 body.sticky-mode {
   min-height: 0;
-  height: auto;
+  height: 100%;
   overflow: hidden;
   background: transparent;
 }
 
 html.sticky-mode {
   min-height: 0;
-  height: auto;
+  height: 100%;
   overflow: hidden;
   background: transparent;
 }
