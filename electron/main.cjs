@@ -34,6 +34,8 @@ const {
 
 const APP_NAME = 'Time Assistant';
 const APP_ID = 'local.assistant-time.time-assistant';
+// Keep notification/login identity intact while avoiding Windows' stale taskbar group.
+const TASKBAR_APP_ID = `${APP_ID}.Desktop`;
 
 app.setName(APP_NAME);
 app.setAppUserModelId(APP_ID);
@@ -109,6 +111,27 @@ function resolveAppIconPath() {
 }
 
 const appIconPath = resolveAppIconPath();
+
+function configureWindowIcon(windowInstance) {
+  if (appIconPath) {
+    windowInstance.setIcon(appIconPath);
+  }
+
+  if (process.platform === 'win32' && app.isPackaged) {
+    // The portable app runs from a temporary directory that disappears on exit.
+    // Give the taskbar a stable executable for its group icon and pinned shortcut.
+    const executablePath = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+    // Electron writes appId first within a single call. Windows refreshes the
+    // taskbar on that write, so supply the relaunch properties before the ID.
+    windowInstance.setAppDetails({
+      appIconPath: executablePath,
+      appIconIndex: 0,
+      relaunchCommand: `"${executablePath}"`,
+      relaunchDisplayName: APP_NAME,
+    });
+    windowInstance.setAppDetails({ appId: TASKBAR_APP_ID });
+  }
+}
 
 function resolveNotificationIconPath() {
   const candidates = [
@@ -337,6 +360,7 @@ function createTray() {
 function createMainWindow() {
   startupProfile.mark('main-window:create-start');
   mainWindow = new BrowserWindow({
+    show: false,
     width: 1120,
     height: 760,
     minWidth: 800,
@@ -354,10 +378,9 @@ function createMainWindow() {
     },
   });
 
+  configureWindowIcon(mainWindow);
+  mainWindow.show();
   loadRenderer(mainWindow, 'main');
-  if (appIconPath) {
-    mainWindow.setIcon(appIconPath);
-  }
 
   mainWindow.on('closed', () => {
     mainWindow = undefined;
@@ -414,6 +437,7 @@ function openGuideWindow() {
   }
 
   guideWindow = new BrowserWindow({
+    show: false,
     width: 1180,
     height: 900,
     minWidth: 900,
@@ -433,10 +457,9 @@ function openGuideWindow() {
   guideWindow.on('closed', () => {
     guideWindow = undefined;
   });
+  configureWindowIcon(guideWindow);
+  guideWindow.show();
   guideWindow.loadFile(guidePath);
-  if (appIconPath) {
-    guideWindow.setIcon(appIconPath);
-  }
 
   return true;
 }
@@ -467,6 +490,7 @@ function createStickyWindow(alwaysOnTop, color) {
   });
   stickyWindow = new BrowserWindow({
     ...stickyWindowSize.options,
+    show: false,
     title: 'Task Sticky Note',
     backgroundColor: stickyColorValue(color),
     alwaysOnTop,
@@ -492,10 +516,9 @@ function createStickyWindow(alwaysOnTop, color) {
   });
   stickyWindow.on('hide', updateTrayMenu);
   stickyWindow.on('show', updateTrayMenu);
+  configureWindowIcon(stickyWindow);
+  stickyWindow.show();
   loadRenderer(stickyWindow, 'sticky');
-  if (appIconPath) {
-    stickyWindow.setIcon(appIconPath);
-  }
   publishCurrentReminderPresenter();
 
   if (isSmokeTest) {
