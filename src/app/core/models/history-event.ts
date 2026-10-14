@@ -9,6 +9,7 @@ export type HistoryEventType =
   | 'extra_time_added'
   | 'task_paused'
   | 'task_resumed'
+  | 'task_interrupted'
   | 'task_completed'
   | 'break_started'
   | 'break_skipped'

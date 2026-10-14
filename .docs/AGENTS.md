@@ -217,3 +217,13 @@ At the end of every phase, report:
 3. Tradeoffs.
 4. Risks or known gaps.
 5. Recommended next phase.
+
+
+## Recurring-Task Day Boundary
+
+- Follow ADR-018: a prior-date unfinished recurring occurrence is `interrupted`, never silently `completed`.
+- Maintain one current eligible occurrence per series; do not backfill missed dates or reset one-off tasks.
+- Keep rollover atomic in the task repository and preserve past records; do not introduce a parallel Electron scheduler for this feature.
+- Treat the existing automatic-start behavior and multi-window reminder ownership as separate concerns.
+- Reconcile before automatic starts, reminders, and deadlines, including while Break blocks starts.
+- Protect terminal occurrences from stale renderer writes inside the task transaction. Publish committed rollover state even if the separate history append fails.

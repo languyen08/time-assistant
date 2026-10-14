@@ -44,7 +44,7 @@ export class AutomaticTaskSchedulerService {
 
   async check(now = new Date()): Promise<void> {
     startupCount('AutomaticTaskScheduler-check');
-    if (this.checking || this.breakCoordination.blocked()) {
+    if (this.checking) {
       return;
     }
 

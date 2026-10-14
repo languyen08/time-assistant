@@ -23,6 +23,7 @@ export class TaskService {
   readonly tasks = signal<Task[]>([]);
   readonly recurrenceTemplates = signal<Task[]>([]);
   private recurrenceCheckDate = '';
+  private recurrenceCheck: Promise<void> | undefined;
   readonly errorMessage = signal('');
   readonly activeTasks = computed(() => this.tasks().filter((task) => task.status === 'active'));
   readonly currentTasks = computed(() =>
@@ -56,18 +57,15 @@ export class TaskService {
     try {
       try {
         let tasks = await this.repository.list();
+        let changes: { created: Task[]; interrupted: Task[] } | undefined;
         this.recurrenceTemplates.set(tasks.filter((task) => task.recurrenceTemplate));
-        if (tasks.some((task) => task.recurrenceTemplate && task.recurrence)) {
+        if (tasks.some((task) => task.recurrenceSeriesId)) {
           const endRecurrence = startupSpan('recurrence-startup-reconciliation');
           const checkedDate = localDate();
-          const created = await this.repository.ensureOccurrences();
+          changes = await this.repository.ensureOccurrences();
           this.recurrenceCheckDate = checkedDate;
-          endRecurrence(created.length);
-          if (created.length) {
-            await this.recordOccurrences(created);
-            tasks = await this.repository.list();
-            this.broadcastChange();
-          }
+          endRecurrence(changes.created.length);
+          tasks = await this.repository.list();
         }
         this.recurrenceTemplates.set(tasks.filter((task) => task.recurrenceTemplate));
         this.tasks.set(
@@ -76,6 +74,10 @@ export class TaskService {
             .map((task) => this.normalizeTask(task))
             .sort((first, second) => first.order - second.order),
         );
+        if (changes && (changes.created.length || changes.interrupted.length)) {
+          this.broadcastChange();
+          await this.recordRecurrenceChanges(changes);
+        }
       } catch (error) {
         this.captureError(error, 'Tasks could not be loaded from local storage.');
       }
@@ -153,7 +155,7 @@ export class TaskService {
     scope: RecurrenceEditScope = 'occurrence',
   ): Promise<boolean> {
     const current = this.findTask(taskId);
-    if (!current || current.status === 'completed') {
+    if (!current || current.status === 'completed' || current.status === 'interrupted') {
       this.errorMessage.set('Only pending, active, or paused tasks can be edited.');
       return false;
     }
@@ -663,7 +665,13 @@ export class TaskService {
 
   async markDeadlineNotified(taskId: string, now: Date): Promise<Task | undefined> {
     const task = this.findTask(taskId);
-    if (!task || !task.deadlineAt || task.status === 'completed' || task.deadlineNotifiedAt) {
+    if (
+      !task ||
+      !task.deadlineAt ||
+      task.status === 'completed' ||
+      task.status === 'interrupted' ||
+      task.deadlineNotifiedAt
+    ) {
       return undefined;
     }
 
@@ -781,25 +789,62 @@ export class TaskService {
     this.errorMessage.set('');
   }
 
-  async ensureRecurrences(now = new Date(), onlyIfDateChanged = false): Promise<void> {
+  ensureRecurrences(now = new Date(), onlyIfDateChanged = false): Promise<void> {
+    if (this.recurrenceCheck) {
+      return this.recurrenceCheck.then(() => this.ensureRecurrences(now, onlyIfDateChanged));
+    }
+    this.recurrenceCheck = this.reconcileRecurrences(now, onlyIfDateChanged).finally(() => {
+      this.recurrenceCheck = undefined;
+    });
+    return this.recurrenceCheck;
+  }
+
+  private async reconcileRecurrences(now: Date, onlyIfDateChanged: boolean): Promise<void> {
     const profileEnd = startupSpan('recurrence-calendar-check');
     try {
-      if (!this.recurrenceTemplates().some((task) => task.recurrence)) return;
+      if (
+        !this.recurrenceTemplates().some((task) => task.recurrence) &&
+        !this.tasks().some((task) => task.recurrenceSeriesId)
+      )
+        return;
       const today = localDate(now);
       if (onlyIfDateChanged && this.recurrenceCheckDate === today) return;
       try {
-        const created = await this.repository.ensureOccurrences(now);
+        const changes = await this.repository.ensureOccurrences(now);
         this.recurrenceCheckDate = today;
-        if (created.length) {
-          await this.recordOccurrences(created);
+        if (changes.created.length || changes.interrupted.length) {
           await this.load();
           this.broadcastChange();
+          await this.recordRecurrenceChanges(changes);
         }
       } catch (error) {
         this.captureError(error, 'The next repeating task could not be created.');
       }
     } finally {
       profileEnd();
+    }
+  }
+
+  private async recordRecurrenceChanges(changes: {
+    created: Task[];
+    interrupted: Task[];
+  }): Promise<void> {
+    const events = changes.interrupted.map((task) => ({
+      type: 'task_interrupted' as const,
+      summary: `Unfinished repeating task "${task.name}" ended when its scheduled day passed.`,
+      taskId: task.id,
+    }));
+    if (events.length) {
+      await this.history.recordBatch([
+        ...events,
+        ...changes.created.map((task) => ({
+          type: 'task_created' as const,
+          summary: `Created "${task.name}".`,
+          taskId: task.id,
+        })),
+      ]);
+    } else {
+      await this.recordOccurrences(changes.created);
     }
   }
 
@@ -820,6 +865,17 @@ export class TaskService {
   private async updateSeries(current: Task, updated: Task, draft: TaskDraft): Promise<void> {
     const today = localDate();
     const changes = await this.repository.mutate((tasks) => {
+      const latest = tasks.find((task) => task.id === current.id);
+      if (
+        !latest ||
+        latest.status !== current.status ||
+        latest.updatedAt !== current.updatedAt ||
+        latest.status === 'completed' ||
+        latest.status === 'interrupted' ||
+        (latest.occurrenceDate && latest.occurrenceDate < today)
+      ) {
+        throw new Error('This occurrence changed in another window. Reopen it before saving.');
+      }
       const template = tasks.find(
         (task) => task.recurrenceTemplate && task.recurrenceSeriesId === current.recurrenceSeriesId,
       );
@@ -833,7 +889,8 @@ export class TaskService {
           task.recurrenceSeriesId !== current.recurrenceSeriesId ||
           !task.occurrenceDate ||
           task.occurrenceDate < current.occurrenceDate! ||
-          task.status === 'completed'
+          task.status === 'completed' ||
+          task.status === 'interrupted'
         )
           continue;
         const untouched =

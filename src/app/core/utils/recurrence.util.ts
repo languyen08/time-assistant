@@ -102,6 +102,7 @@ export function makeOccurrence(template: Task, date: string, now = new Date()): 
     pausedAt: undefined,
     pausedRemainingSeconds: undefined,
     completedAt: undefined,
+    interruptedAt: undefined,
     totalPausedSeconds: 0,
     reminderAttemptsShown: 0,
     nextReminderAt: undefined,

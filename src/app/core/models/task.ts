@@ -1,4 +1,4 @@
-export type TaskStatus = 'pending' | 'active' | 'paused' | 'completed';
+export type TaskStatus = 'pending' | 'active' | 'paused' | 'completed' | 'interrupted';
 
 export interface RecurrenceRule {
   type: 'daily' | 'weekdays' | 'custom';
@@ -43,6 +43,7 @@ export interface Task {
   pausedRemainingSeconds?: number;
   totalPausedSeconds: number;
   completedAt?: string;
+  interruptedAt?: string;
   deadlineAt?: string;
   deadlineMessage?: string;
   deadlineNotifiedAt?: string;

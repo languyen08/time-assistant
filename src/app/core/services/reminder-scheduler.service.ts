@@ -63,6 +63,7 @@ export class ReminderSchedulerService {
 
     this.checking = true;
     try {
+      await this.taskService.ensureRecurrences(now, true);
       if (
         this.taskService
           .tasks()

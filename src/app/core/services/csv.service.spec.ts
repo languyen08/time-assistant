@@ -25,10 +25,32 @@ describe('CsvService', () => {
     const csv = service.exportTasks([task]);
 
     expect(csv.split('\r\n')[0]).toBe(
-      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart,deadlineAt,deadlineMessage,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown,reminderEnabled,recurrenceType,recurrenceDays,recurrenceStartDate,recurrenceEndDate,recurrenceSeriesId,occurrenceDate,recurrenceTemplate,recurrenceCursor',
+      'id,name,note,category,reminderAt,reminderCount,reminderIntervalMinutes,allowConcurrentStart,deadlineAt,deadlineMessage,status,order,createdAt,updatedAt,activeStartedAt,pausedAt,pausedRemainingSeconds,totalPausedSeconds,completedAt,nextReminderAt,reminderAttemptsShown,reminderEnabled,recurrenceType,recurrenceDays,recurrenceStartDate,recurrenceEndDate,recurrenceSeriesId,occurrenceDate,recurrenceTemplate,recurrenceCursor,interruptedAt',
     );
     expect(csv).toContain('Study Angular');
   });
+  it.each(['completed', 'interrupted'] as const)(
+    'round-trips terminal %s history without reopening it or losing focus evidence',
+    (status) => {
+      const terminal: Task = {
+        ...task,
+        status,
+        activeStartedAt: '2026-05-30T09:00:00.000Z',
+        totalPausedSeconds: 120,
+        completedAt: status === 'completed' ? '2026-05-30T10:00:00.000Z' : undefined,
+        interruptedAt: status === 'interrupted' ? '2026-05-31T00:00:00.000Z' : undefined,
+      };
+      const result = service.importTasks(service.exportTasks([terminal]), []);
+      expect(result.errors).toEqual([]);
+      expect(result.tasks[0]).toMatchObject({
+        status,
+        activeStartedAt: terminal.activeStartedAt,
+        totalPausedSeconds: 120,
+      });
+      expect(result.tasks[0].completedAt).toBe(terminal.completedAt);
+      expect(result.tasks[0].interruptedAt).toBe(terminal.interruptedAt);
+    },
+  );
 
   it('exports spreadsheet-friendly local date/time when configured', () => {
     const csv = service.exportTasks([task], 'yyyy-MM-dd HH:mm');

@@ -57,7 +57,14 @@ describe('DeadlineSchedulerService', () => {
     TestBed.configureTestingModule({
       providers: [
         DeadlineSchedulerService,
-        { provide: TaskService, useValue: { tasks, markDeadlineNotified } },
+        {
+          provide: TaskService,
+          useValue: {
+            tasks,
+            markDeadlineNotified,
+            ensureRecurrences: vi.fn(async () => undefined),
+          },
+        },
         { provide: NotificationService, useValue: { showDeadline } },
       ],
     });

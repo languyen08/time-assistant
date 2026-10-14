@@ -37,6 +37,7 @@ export class DeadlineSchedulerService {
 
     this.checking = true;
     try {
+      await this.taskService.ensureRecurrences(now, true);
       const task = [...this.taskService.tasks()]
         .sort((first, second) => first.order - second.order)
         .find(
