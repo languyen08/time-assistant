@@ -233,7 +233,7 @@ The cursor retains deleted allocations. No store, index, migration, or database 
 The independently tested recurrence utility uses local calendar constructors/setDate, never
 24-hour timestamp increments. It searches at most seven days from max(today, start, allocation
 cursor + one calendar day). Each series has at most one lazily generated unfinished occurrence;
-unfinished past tasks remain. Creation/checks happen on load, completion, deletion, series editing,
+unfinished past tasks become interrupted historical records. Creation/checks happen on load, completion, deletion, series editing,
 and calendar rollover in the existing Scheduler's automatic task loop. Visible renderers may also
 check on load/lifecycle actions. A synchronous plan in one IndexedDB readwrite transaction reads
 the latest series state, creates `recurring:<seriesId>:<YYYY-MM-DD>`, and advances the cursor.
@@ -255,7 +255,7 @@ current/future work, and reconcile only pending unstarted future rows with no ti
 activity. Past and completed records remain unchanged. Excluded unstarted future rows use normal
 deletion events, and removed allocations release the cursor for the changed schedule. Occurrence-only
 edits retain the independent template. Deleting a recurring task transactionally removes the
-template and all non-completed records with its series ID. Completed records and history events
+template and all unfinished records with its series ID. Completed and interrupted records and history events
 remain, but no recurrence source or allocation cursor remains for any renderer to use. Stopping
 Repeat under future scope disables generation without deleting past history.
 The effective start for a future edit cannot precede the selected occurrence date, even if that
@@ -555,3 +555,12 @@ This architecture is simple because:
 - CSV handles early cross-device sharing without server complexity.
 
 The app can become more advanced later, but the MVP should prove the task transition workflow first.
+
+## Daily Recurrence Rollover (Current Change)
+
+- Reconcile recurring occurrences in the existing IndexedDB task repository transaction. A prior-date Pending/Active/Paused occurrence becomes terminal `interrupted`, with `interruptedAt` recorded; a new date-specific Pending occurrence gets independent timing fields.
+- Reconciliation is invoked during startup task loading and before Scheduler automatic-start, reminder, and deadline checks. In-process checks wait for reconciliation together; Break blocks starts but never reconciliation. No main-process background scheduler is added.
+- Preserve historical occurrence records and write `task_interrupted` history events. Do not classify interrupted occurrences as completed in charts.
+- IndexedDB stays at v2: these are optional task fields and a new status value, not a new object store. Old records remain readable.
+- Recurring writes reject ended occurrences in the task transaction; stale future edits cannot overwrite defaults after rollover. Publish refreshed task state before recording one history batch of interruption/creation events, so history failure cannot leave an old active/paused UI. Existing multi-window history-event synchronization remains limited; a crash between the task transaction and history append can omit an interruption event.
+- CSV adds an optional interruptedAt column, accepts Interrupted as terminal, and preserves completed/interrupted timing evidence. No schema migration or dependency is introduced.

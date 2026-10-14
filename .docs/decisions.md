@@ -524,3 +524,28 @@ Consequences:
 - Break behavior is simple and predictable without migration or storage complexity.
 - An accidental application restart ends the current break.
 - A user who wants to continue a break after restart must start a new break manually.
+
+---
+
+## ADR-018: Rollover Daily Recurring Task Occurrences
+
+Status: Accepted
+
+Context:
+A recurring task left active overnight can show an elapsed time of over 22 hours after app restart and block creation of the next day’s task.
+
+Decision:
+At the local calendar-date boundary, mark any unfinished past occurrence as `interrupted` rather than `completed`. Create the next eligible date-specific Pending occurrence with a fresh timer. Reconcile at startup and during normal scheduler checks; never generate missed-day backlogs. Preserve prior task fields and history; never count interruption as completion. Leave one-time tasks unchanged.
+
+Consequences:
+- Recurring task history remains auditable without claiming unfinished work was completed.
+- The new occurrence has its own task ID and timing state; no timer crosses daily boundaries.
+- Old abandoned elapsed time cannot reliably be reconstructed from app shutdown time, so completion/focus charts must not fabricate it.
+- Current automatic-start scheduling remains available; this decision does not disable it.
+- No backend, new scheduler, or IndexedDB schema-version bump is required.
+
+Validation consistency note (2026-10-14): Break must not delay day reconciliation. All Scheduler
+loops await rollover before acting on occurrences, and task transactions reject stale edits to
+ended work. Preserve start and pause evidence on interruption; CSV accepts terminal interruption
+and exports its timestamp. Task publication is independent of history success. Task/history
+commits remain separate, so a crash can omit an event; no offline focus time is inferred.

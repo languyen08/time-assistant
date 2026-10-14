@@ -303,6 +303,7 @@ export class App implements OnInit, OnDestroy, AfterViewInit {
       .find(
         (task) =>
           task.status !== 'completed' &&
+          task.status !== 'interrupted' &&
           Boolean(task.deadlineNotifiedAt) &&
           !task.deadlineAcknowledgedAt,
       ),

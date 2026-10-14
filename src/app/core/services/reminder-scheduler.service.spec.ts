@@ -93,6 +93,7 @@ describe('ReminderSchedulerService', () => {
           provide: TaskService,
           useValue: {
             tasks,
+            ensureRecurrences: vi.fn(async () => undefined),
             activeTasks: () => tasks().filter((candidate) => candidate.status === 'active'),
             triggerReminder,
             dismissReminder,

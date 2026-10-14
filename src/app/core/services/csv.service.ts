@@ -36,6 +36,7 @@ const TASK_HEADERS = [
   'occurrenceDate',
   'recurrenceTemplate',
   'recurrenceCursor',
+  'interruptedAt',
 ] as const;
 
 const HISTORY_HEADERS = ['id', 'type', 'taskId', 'occurredAt', 'summary', 'metadataJson'] as const;
@@ -47,7 +48,7 @@ const REQUIRED_TASK_HEADERS = [
   'reminderIntervalMinutes',
 ] as const;
 
-const VALID_STATUSES: TaskStatus[] = ['pending', 'active', 'paused', 'completed'];
+const VALID_STATUSES: TaskStatus[] = ['pending', 'active', 'paused', 'completed', 'interrupted'];
 
 type TaskCsvRow = Record<(typeof TASK_HEADERS)[number], string>;
 type HistoryCsvRow = Record<(typeof HISTORY_HEADERS)[number], string>;
@@ -93,6 +94,7 @@ export class CsvService {
       pausedRemainingSeconds: task.pausedRemainingSeconds?.toString() ?? '',
       totalPausedSeconds: String(task.totalPausedSeconds ?? 0),
       completedAt: this.formatDateTime(task.completedAt, dateTimeFormat),
+      interruptedAt: this.formatDateTime(task.interruptedAt, dateTimeFormat),
       nextReminderAt: this.formatDateTime(task.nextReminderAt, dateTimeFormat),
       reminderAttemptsShown: String(task.reminderAttemptsShown ?? 0),
     }));
@@ -191,7 +193,10 @@ export class CsvService {
       importedIds.add(id);
 
       const requestedStatus = this.status(row['status']);
-      const status = requestedStatus === 'completed' ? 'completed' : 'pending';
+      const status =
+        requestedStatus === 'completed' || requestedStatus === 'interrupted'
+          ? requestedStatus
+          : 'pending';
       const reminderEnabled = this.boolean(row['reminderEnabled']) !== false;
       const task: Task = {
         recurrence: this.rowRecurrence(row),
@@ -214,11 +219,16 @@ export class CsvService {
         status,
         createdAt: this.optionalIso(row['createdAt']) ?? now,
         updatedAt: this.optionalIso(row['updatedAt']) ?? now,
-        activeStartedAt: undefined,
-        pausedAt: undefined,
+        activeStartedAt:
+          status === 'completed' || status === 'interrupted'
+            ? this.optionalIso(row['activeStartedAt'])
+            : undefined,
+        pausedAt: status === 'interrupted' ? this.optionalIso(row['pausedAt']) : undefined,
         pausedRemainingSeconds: undefined,
         totalPausedSeconds: this.optionalInteger(row['totalPausedSeconds']) ?? 0,
         completedAt: status === 'completed' ? this.optionalIso(row['completedAt']) : undefined,
+        interruptedAt:
+          status === 'interrupted' ? this.optionalIso(row['interruptedAt']) : undefined,
         deadlineNotifiedAt: undefined,
         deadlineAcknowledgedAt: undefined,
         nextReminderAt: undefined,
@@ -257,6 +267,9 @@ export class CsvService {
           recurrenceCursor: dates.at(-1),
           status: 'pending',
           completedAt: undefined,
+          interruptedAt: undefined,
+          activeStartedAt: undefined,
+          pausedAt: undefined,
           totalPausedSeconds: 0,
           reminderAttemptsShown: 0,
         });
@@ -333,7 +346,9 @@ export class CsvService {
     }
 
     if (statusText && !VALID_STATUSES.includes(statusText as TaskStatus)) {
-      errors.push(`Row ${rowNumber}: status must be pending, active, paused, or completed.`);
+      errors.push(
+        `Row ${rowNumber}: status must be pending, active, paused, completed, or interrupted.`,
+      );
     }
 
     if (concurrentStartText && concurrentStartText !== 'true' && concurrentStartText !== 'false') {

@@ -79,7 +79,8 @@ for no-reminder tasks it remains optional.
 Each generated occurrence is independently executable and retains normal timer, pause/resume,
 completion, reminder, history, chart, and final-current-task Break behavior. Keep one unfinished
 occurrence per series; generate lazily at startup, calendar rollover, completion, deletion, and
-series edits. Skip missed unallocated dates on reopening and retain already-created unfinished work.
+series edits. Skip missed unallocated dates on reopening and interrupt unfinished prior-date work,
+retaining its historical record. Allocate the current or next eligible local date lazily.
 Main/Sticky do not show the internal defaults record or recurrence controls inside compact cards.
 
 Editing supports This occurrence only and This and future occurrences. Future editing loads the
@@ -404,3 +405,13 @@ The MVP is successful when the user can:
 - view current tasks in sticky-note mode
 - export task/history CSV
 - review basic history and charts
+
+## Daily Recurrence Rollover
+
+- A recurring task is an individual calendar-date occurrence, not one timer carried indefinitely across days.
+- At the local calendar-date change, any unfinished prior occurrence (pending, active, or paused) becomes **Interrupted**, never Completed. Preserve its original start/pause fields and identity for history.
+- Create at most one eligible occurrence for the current local date with status Pending and zero elapsed time. Do not backfill a backlog of missed dates after downtime.
+- Run reconciliation on application startup and while running. Non-recurring tasks are not reset.
+- Completion metrics must not count Interrupted occurrences as completed. Time from abandoned sessions must not be inferred from app downtime; historic timing fields and interruption events remain available for audit.
+- An eligible Pending occurrence may start automatically at its scheduled time, including tasks with reminders disabled. Existing concurrent-start and Break rules still apply. Break blocks starts, not calendar rollover.
+- CSV preserves Interrupted status and interruption timestamps; completed timing evidence survives export/import. Terminal occurrences never reopen as Pending on import.

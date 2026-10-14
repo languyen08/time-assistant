@@ -30,6 +30,22 @@ export class TaskRepository {
   }
 
   save(task: Task): Promise<void> {
+    if (task.recurrenceSeriesId && !task.recurrenceTemplate) {
+      return this.mutate((tasks) => {
+        const current = tasks.find((item) => item.id === task.id);
+        if (
+          current?.status === 'interrupted' ||
+          (current?.occurrenceDate &&
+            current.occurrenceDate < localDate() &&
+            (current.status === 'pending' ||
+              current.status === 'active' ||
+              current.status === 'paused'))
+        ) {
+          throw new Error('This occurrence ended in another window. Reload before trying again.');
+        }
+        return { save: [task], result: undefined };
+      });
+    }
     return this.storage.put(TASK_STORE, task);
   }
 
@@ -47,7 +63,8 @@ export class TaskRepository {
         .filter(
           (task) =>
             task.recurrenceSeriesId === seriesId &&
-            (task.recurrenceTemplate || task.status !== 'completed'),
+            (task.recurrenceTemplate ||
+              (task.status !== 'completed' && task.status !== 'interrupted')),
         )
         .map((task) => task.id);
       return { save: [], remove, result: remove };
@@ -58,23 +75,54 @@ export class TaskRepository {
     return this.storage.mutate(TASK_STORE, plan);
   }
 
-  ensureOccurrences(now = new Date()): Promise<Task[]> {
+  ensureOccurrences(now = new Date()): Promise<{ created: Task[]; interrupted: Task[] }> {
     return this.mutate((tasks) => {
       const save: Task[] = [];
       const created: Task[] = [];
+      const interrupted: Task[] = [];
+      const today = localDate(now);
+      // Also close already allocated work when future repetition has been disabled.
+      for (const task of tasks.filter(
+        (task) => !task.recurrenceTemplate && task.recurrenceSeriesId,
+      )) {
+        if (
+          task.occurrenceDate &&
+          task.occurrenceDate < today &&
+          (task.status === 'pending' || task.status === 'active' || task.status === 'paused')
+        ) {
+          const closed: Task = {
+            ...task,
+            status: 'interrupted',
+            interruptedAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+            nextReminderAt: undefined,
+            pendingReminder: undefined,
+            nextAutoStartAt: undefined,
+          };
+          save.push(closed);
+          interrupted.push(closed);
+        }
+      }
       for (const template of tasks.filter((task) => task.recurrenceTemplate && task.recurrence)) {
         const series = tasks.filter(
           (task) =>
             !task.recurrenceTemplate && task.recurrenceSeriesId === template.recurrenceSeriesId,
         );
-        // Keep unfinished occurrences, even when their dates are overdue.
-        if (series.some((task) => task.status !== 'completed')) continue;
+        // Current or future unfinished occurrences must not be duplicated.
+        if (
+          series.some(
+            (task) =>
+              task.occurrenceDate &&
+              task.occurrenceDate >= today &&
+              (task.status === 'pending' || task.status === 'active' || task.status === 'paused'),
+          )
+        )
+          continue;
         const lastDate = series.reduce(
           (last, task) =>
             task.occurrenceDate && task.occurrenceDate > last ? task.occurrenceDate : last,
           template.recurrenceCursor ?? '',
         );
-        const today = localDate(now);
         const after = lastDate && lastDate >= today ? nextCalendarDay(lastDate) : today;
         const date = nextOccurrenceDate(template.recurrence!, after);
         if (!date) continue;
@@ -85,7 +133,7 @@ export class TaskRepository {
         save.push({ ...template, recurrenceCursor: date }, occurrence);
         created.push(occurrence);
       }
-      return { save, result: created };
+      return { save, result: { created, interrupted } };
     });
   }
 }

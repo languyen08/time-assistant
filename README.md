@@ -150,15 +150,18 @@ independent.
 
 Each occurrence is a normal task with its own elapsed time, pauses, completion, reminder attempts,
 history, and chart contribution. The app keeps one unfinished occurrence per series and creates
-the next applicable date after completion. On reopening it skips dates that were never created,
-retains existing unfinished tasks, and never builds a missed-date backlog.
+the next applicable date after completion. At local midnight or reopening, unfinished prior-date
+occurrences become Interrupted and the current or next eligible date receives a fresh Pending
+occurrence. Missed dates are skipped without a backlog. Interrupted work retains its start/pause
+evidence and history, contributes no completed-task or focus minutes, and cannot retain yesterday's
+paused state. One-time tasks are unchanged. Break blocks automatic starts but never day rollover.
 
 When editing, **This occurrence only** leaves future defaults intact. **This and future occurrences**
 loads the series defaults, updates the selected current/future task, and reconciles future tasks
 that have not started. Completed and past tasks, and future tasks with timing or alert activity,
 are preserved. Disable Repeat in this scope to stop the series after the selected task. Delete on
 any recurring occurrence removes the recurring task: its hidden defaults and all unfinished
-occurrences are removed, so future tasks cannot be generated. Completed occurrences and their
+occurrences are removed, so future tasks cannot be generated. Completed and interrupted occurrences and their
 existing history remain available for charts and review.
 
 Sticky cards remain compact, with no Reminder or +10m controls when reminders are disabled.
@@ -172,7 +175,9 @@ Exports include hidden defaults rows (`recurrenceTemplate=true`) so occurrence-o
 deleted-date allocation state survive transfer. Keep those rows when editing a CSV. Reimporting
 an existing series clones it with a new series ID. Files without recurrence columns remain ordinary
 tasks; files without `reminderEnabled` still enable reminders. Import retains the existing behavior
-of restoring unfinished tasks as pending. IndexedDB stays at version 2 with the same three stores.
+of restoring unfinished tasks as pending. Completed and interrupted rows remain terminal; their
+timing evidence is preserved. The optional `interruptedAt` column records when abandonment was
+observed, without inferring offline focus time. IndexedDB stays at version 2 with the same three stores.
 
 The app stores all data locally in IndexedDB. Core workflows work offline and do not require login, calendar integration, or cloud services.
 

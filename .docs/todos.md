@@ -476,3 +476,18 @@ Goal: add optional convenience features and polish after the core app is stable.
       Quit intentionally discards prompt, running, complete, and retained Scheduler break state.
 - [ ] Record settings changes in history or remove the unused `settings_changed` event type through an explicit product decision.
 - [ ] Decide how ignored `.docs` files are versioned or distributed so canonical documentation changes remain recoverable.
+
+
+## Daily Recurrence Rollover — Targeted Bug Fix
+
+- [x] Define interruption behavior for past-date unfinished recurring occurrences.
+- [x] Reconcile past occurrences and create a new current-date occurrence atomically in task storage.
+- [x] Record `task_interrupted` separately from `task_completed`.
+- [x] Preserve one-time task behavior and prevent missed-day backlogs.
+- [x] Add unit coverage for overnight restart, long downtime, and non-recurring tasks.
+- [x] Run the full unit-test and production-build suite locally: 258 Angular tests, 50 Electron unit tests, 15 browser scenarios, and production build passed.
+- [x] Validate local midnight with Main and Sticky open in a real Electron regression; preserve the existing real Electron Sticky scenario. Both passed in isolated profiles.
+- [x] Cover Pending/Active/Paused rollover, overnight/week-long restart, repeated/concurrent initialization, terminal statistics/CSV, history failure, stale actions/future edits, and existing automatic-start/Break behavior.
+- [x] Run 44 focused recurrence tests in America/New_York, including spring/fall DST and year boundaries. The browser rollover tests explicitly use Asia/Ho_Chi_Minh.
+- [x] Correct the duplicate ADR number to ADR-018 and synchronize canonical docs plus README. Preserve IndexedDB v2, scheduler ownership, and exact dependency versions.
+- Runtime: locked dependencies installed with npm ci; available Node 25.6.0/npm 11.8.0 differ from the pinned Node 26.2.0/npm 11.16.0. Existing bundle/CSS budget warnings remain. No release package was rebuilt. See docs/daily-rollover-validation.md for findings, commands, and limits.

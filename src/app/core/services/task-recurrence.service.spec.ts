@@ -5,6 +5,15 @@ import { IndexedDbStorageAdapter } from '../storage/indexed-db-storage.adapter';
 import { localDate, makeOccurrence, onOccurrenceDate } from '../utils/recurrence.util';
 import { HistoryService } from './history.service';
 import { TaskService } from './task.service';
+import { AutomaticTaskSchedulerService } from './automatic-task-scheduler.service';
+import { BreakCoordinationService } from './break-coordination.service';
+import { ChartSummaryService } from './chart-summary.service';
+import { TimerService } from './timer.service';
+import { ReminderSchedulerService } from './reminder-scheduler.service';
+import { DeadlineSchedulerService } from './deadline-scheduler.service';
+import { NotificationService } from './notification.service';
+import { SettingsService } from './settings.service';
+import { DEFAULT_APP_SETTINGS } from '../models/app-settings';
 
 describe('TaskService recurrence lifecycle', () => {
   let service: TaskService;
@@ -36,6 +45,16 @@ describe('TaskService recurrence lifecycle', () => {
     TestBed.configureTestingModule({
       providers: [
         TaskRepository,
+        { provide: BreakCoordinationService, useValue: { blocked: vi.fn(() => false) } },
+        {
+          provide: NotificationService,
+          useValue: {
+            randomFriendlyMessage: () => 'Reminder',
+            showReminder: vi.fn(),
+            showDeadline: vi.fn(),
+          },
+        },
+        { provide: SettingsService, useValue: { settings: () => DEFAULT_APP_SETTINGS } },
         {
           provide: IndexedDbStorageAdapter,
           useValue: {
@@ -65,6 +84,164 @@ describe('TaskService recurrence lifecycle', () => {
   });
   afterEach(() => vi.useRealTimers());
 
+  it.each(['pending', 'active', 'paused'] as const)(
+    'rolls a %s occurrence at local midnight with no carried runtime state',
+    async (status) => {
+      await service.create({ ...draft, reminderEnabled: true });
+      const oldId = service.tasks()[0].id;
+      vi.setSystemTime(new Date(2026, 9, 6, 23, 59));
+      if (status !== 'pending') await service.start(oldId);
+      if (status === 'paused') await service.pause(oldId);
+      const before = structuredClone(records.find((task) => task.id === oldId)!);
+      record.mockClear();
+      recordBatch.mockClear();
+      const midnight = new Date(2026, 9, 7, 0, 0, 1);
+      vi.setSystemTime(midnight);
+      await Promise.all([
+        service.ensureRecurrences(midnight, true),
+        service.ensureRecurrences(midnight, true),
+        service.load(),
+      ]);
+      const old = records.find((task) => task.id === oldId)!;
+      expect(old).toMatchObject({ status: 'interrupted', interruptedAt: midnight.toISOString() });
+      expect(old.activeStartedAt).toBe(before.activeStartedAt);
+      expect(old.pausedAt).toBe(before.pausedAt);
+      expect(old.totalPausedSeconds).toBe(before.totalPausedSeconds);
+      expect(old.completedAt).toBeUndefined();
+      expect(old.pendingReminder).toBeUndefined();
+      expect(old.nextReminderAt).toBeUndefined();
+      expect(old.nextAutoStartAt).toBeUndefined();
+      const fresh = service.pendingTasks()[0];
+      expect(fresh).toMatchObject({
+        occurrenceDate: '2026-10-07',
+        totalPausedSeconds: 0,
+        reminderAttemptsShown: 0,
+      });
+      for (const field of [
+        'activeStartedAt',
+        'pausedAt',
+        'pausedRemainingSeconds',
+        'completedAt',
+        'interruptedAt',
+        'pendingReminder',
+        'nextReminderAt',
+        'nextAutoStartAt',
+        'deadlineNotifiedAt',
+        'deadlineAcknowledgedAt',
+      ] as const) {
+        expect(fresh[field]).toBeUndefined();
+      }
+      expect(TestBed.inject(TimerService).elapsedSeconds(fresh)).toBe(0);
+      expect(service.currentTasks()).toEqual([]);
+      await service.load();
+      expect(records.filter((task) => task.occurrenceDate === '2026-10-07')).toHaveLength(1);
+      const events = recordBatch.mock.calls.flatMap(([rows]) => rows);
+      expect(events.filter((event) => event.type === 'task_interrupted')).toHaveLength(1);
+      expect(events.filter((event) => event.type === 'task_created')).toHaveLength(1);
+      expect(record.mock.calls.some(([type]) => type === 'task_completed')).toBe(false);
+    },
+  );
+
+  it('reconciles during a break, then automatically starts only when due and unblocked', async () => {
+    const blocked = vi.mocked(TestBed.inject(BreakCoordinationService).blocked);
+    blocked.mockReturnValue(true);
+    await service.create(draft);
+    await service.start(service.tasks()[0].id);
+    const scheduler = TestBed.inject(AutomaticTaskSchedulerService);
+    vi.setSystemTime(new Date(2026, 9, 7));
+    await scheduler.check();
+    const today = service.pendingTasks()[0];
+    expect(today.occurrenceDate).toBe('2026-10-07');
+    expect(service.currentTasks()).toEqual([]);
+    blocked.mockReturnValue(false);
+    await scheduler.check();
+    expect(service.pendingTasks()[0].id).toBe(today.id);
+    vi.setSystemTime(new Date(2026, 9, 7, 9, 30));
+    await scheduler.check();
+    expect(service.currentTask()?.id).toBe(today.id);
+    expect(service.currentTask()?.activeStartedAt).toBe(new Date().toISOString());
+    expect(TestBed.inject(TimerService).elapsedSeconds(service.currentTask())).toBe(0);
+  });
+
+  it.each(['load', 'ensureRecurrences'] as const)(
+    'publishes committed rollover when history fails during %s',
+    async (method) => {
+      await service.create(draft);
+      await service.start(service.tasks()[0].id);
+      recordBatch.mockRejectedValueOnce(new Error('History unavailable'));
+      vi.setSystemTime(new Date(2026, 9, 7));
+      await service[method]();
+      expect(service.currentTasks()).toEqual([]);
+      expect(service.pendingTasks()[0].occurrenceDate).toBe('2026-10-07');
+      expect(service.errorMessage()).toContain('History unavailable');
+    },
+  );
+
+  it('rejects stale completion, pause, and editing after another renderer commits rollover', async () => {
+    await service.create(draft);
+    const old = service.tasks()[0];
+    await service.start(old.id);
+    vi.setSystemTime(new Date(2026, 9, 7));
+    await TestBed.inject(TaskRepository).ensureOccurrences();
+    const interrupted = structuredClone(records.find((task) => task.id === old.id));
+    expect(await service.complete(old.id)).toBe(false);
+    expect(await service.pause(old.id)).toBe(false);
+    expect(await service.update(old.id, draft)).toBe(false);
+    expect(await service.update(old.id, draft, 'future')).toBe(false);
+    expect(records.find((task) => task.id === old.id)).toEqual(interrupted);
+  });
+
+  it('preserves completed records and excludes interrupted offline time from every focus chart', async () => {
+    await service.create(draft);
+    const oldId = service.tasks()[0].id;
+    await service.start(oldId);
+    const completed: Task = {
+      ...service.currentTask()!,
+      id: 'completed-past',
+      occurrenceDate: '2026-10-05',
+      status: 'completed',
+      activeStartedAt: new Date(2026, 9, 5, 9).toISOString(),
+      completedAt: new Date(2026, 9, 5, 10).toISOString(),
+    };
+    records.push(completed);
+    const charts = TestBed.inject(ChartSummaryService);
+    const expected = [
+      charts.completedTasksPerDay([completed]),
+      charts.focusMinutesPerDay([completed]),
+      charts.focusMinutesByCategory([completed]),
+    ];
+    vi.setSystemTime(new Date(2026, 11, 14, 8));
+    await service.load();
+    expect(records.find((task) => task.id === completed.id)).toEqual(completed);
+    expect([
+      charts.completedTasksPerDay(service.tasks()),
+      charts.focusMinutesPerDay(service.tasks()),
+      charts.focusMinutesByCategory(service.tasks()),
+    ]).toEqual(expected);
+    expect(service.completedTasks()).toEqual([completed]);
+  });
+
+  it.each(['reminder', 'deadline'] as const)(
+    'reconciles midnight before dispatching an old %s alert',
+    async (kind) => {
+      await service.create({
+        ...draft,
+        reminderEnabled: true,
+        deadlineAt: new Date(2026, 9, 6, 23, 50).toISOString(),
+        deadlineMessage: 'Finish',
+      });
+      await service.start(service.tasks()[0].id);
+      vi.setSystemTime(new Date(2026, 9, 7, 0, 0, 1));
+      if (kind === 'reminder') await TestBed.inject(ReminderSchedulerService).check();
+      else await TestBed.inject(DeadlineSchedulerService).check();
+      const notifications = TestBed.inject(NotificationService);
+      expect(notifications.showReminder).not.toHaveBeenCalled();
+      expect(notifications.showDeadline).not.toHaveBeenCalled();
+      expect(service.currentTasks()).toEqual([]);
+      expect(service.pendingTasks()[0].occurrenceDate).toBe('2026-10-07');
+    },
+  );
+
   it('allocates 100 series with one history batch and skips the redundant same-day scheduler check', async () => {
     await service.create(draft);
     const template = records.find((task) => task.recurrenceTemplate)!;
@@ -86,9 +263,11 @@ describe('TaskService recurrence lifecycle', () => {
     expect(rows.every((row: { type: string }) => row.type === 'task_created')).toBe(true);
     await service.ensureRecurrences(now, true);
     expect(reconciliation).toHaveBeenCalledOnce();
+    vi.setSystemTime(new Date(2026, 9, 7));
     await service.ensureRecurrences(new Date(2026, 9, 7), true);
-    expect(reconciliation).toHaveBeenCalledTimes(2);
-    expect(recordBatch).toHaveBeenCalledOnce();
+    expect(reconciliation).toHaveBeenCalledTimes(3);
+    expect(recordBatch).toHaveBeenCalledTimes(2);
+    expect(recordBatch.mock.calls[1][0]).toHaveLength(200);
   });
 
   it('creates one executable occurrence and one hidden template, without reminders', async () => {
@@ -177,7 +356,14 @@ describe('TaskService recurrence lifecycle', () => {
       'future',
     );
     expect(records.find((task) => task.id === past.id)).toEqual(past);
-    expect(records.find((task) => task.id === startedPast.id)).toEqual(startedPast);
+    expect(records.find((task) => task.id === startedPast.id)).toEqual({
+      ...startedPast,
+      status: 'interrupted',
+      interruptedAt: now.toISOString(),
+      nextAutoStartAt: undefined,
+      nextReminderAt: undefined,
+      pendingReminder: undefined,
+    });
     expect(records.find((task) => task.id === future.id)).toMatchObject({
       name: 'New default',
       reminderEnabled: true,
@@ -295,5 +481,61 @@ describe('TaskService recurrence lifecycle', () => {
     await service.load();
     expect(service.tasks()).toHaveLength(2);
     expect(service.pendingTasks()[0].occurrenceDate).toBe('2026-12-14');
+  });
+  it('interrupts yesterday active occurrence and creates a fresh daily occurrence on restart', async () => {
+    await service.create({
+      ...draft,
+      recurrence: { type: 'daily', rangeStart: '2026-10-06' },
+    });
+    const yesterday = service.tasks()[0];
+    await service.start(yesterday.id);
+    const start = records.find((task) => task.id === yesterday.id)!.activeStartedAt;
+    vi.setSystemTime(new Date(2026, 9, 7, 8));
+    await service.load();
+
+    const old = records.find((task) => task.id === yesterday.id)!;
+    const today = service.pendingTasks()[0];
+    expect(old.status).toBe('interrupted');
+    expect(old.activeStartedAt).toBe(start);
+    expect(old.completedAt).toBeUndefined();
+    expect(today.occurrenceDate).toBe('2026-10-07');
+    expect(today.activeStartedAt).toBeUndefined();
+    expect(today.totalPausedSeconds).toBe(0);
+    expect(today.reminderAttemptsShown).toBe(0);
+    expect(
+      recordBatch.mock.calls
+        .flatMap(([events]) => events)
+        .some(
+          (event: { type: string; taskId: string }) =>
+            event.type === 'task_interrupted' && event.taskId === yesterday.id,
+        ),
+    ).toBe(true);
+    await service.load();
+    expect(records.filter((task) => task.occurrenceDate === '2026-10-07')).toHaveLength(1);
+  });
+
+  it('does not replay missed daily dates after a long shutdown', async () => {
+    await service.create({
+      ...draft,
+      recurrence: { type: 'daily', rangeStart: '2026-10-06' },
+    });
+    const yesterday = service.tasks()[0];
+    await service.start(yesterday.id);
+    await service.pause(yesterday.id, new Date(2026, 9, 6, 10));
+    vi.setSystemTime(new Date(2026, 11, 14, 8));
+    await service.load();
+    expect(records.find((task) => task.id === yesterday.id)?.status).toBe('interrupted');
+    expect(service.pendingTasks()).toHaveLength(1);
+    expect(service.pendingTasks()[0].occurrenceDate).toBe('2026-12-14');
+  });
+
+  it('leaves one-time active tasks untouched on the next day', async () => {
+    await service.create({ ...draft, recurrence: undefined });
+    const task = service.tasks()[0];
+    await service.start(task.id);
+    vi.setSystemTime(new Date(2026, 9, 7, 8));
+    await service.load();
+    expect(service.currentTask()?.id).toBe(task.id);
+    expect(service.currentTask()?.status).toBe('active');
   });
 });
